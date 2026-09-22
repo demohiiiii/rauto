@@ -35,7 +35,7 @@ test("inline workflow preview exposes compact ordered block rows", () => {
   assert.equal(preview.workflow.name, "campus-upgrade");
 });
 
-test("workflow preview flattens every transaction and command-flow command", () => {
+test("workflow preview flattens every transaction and command sequence command", () => {
   const preview = orchestrationInlineWorkflowPreview({
     blocks: [
       {

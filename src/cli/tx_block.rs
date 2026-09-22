@@ -1,6 +1,6 @@
 use crate::cli::{TxArgs, TxRunKind};
-use crate::config::command_flow_template::{
-    build_command_flow_runtime, resolve_command_flow_runtime_default_mode,
+use crate::config::interactive_template::{
+    build_interactive_runtime, resolve_interactive_runtime_default_mode,
 };
 use crate::config::{
     command_blacklist, content_store,
@@ -26,17 +26,17 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
                     "tx requires at least one --command or a --template"
                 ));
             }
-            if args.flow_template.is_some()
-                || args.flow_file.is_some()
-                || args.flow_vars.is_some()
-                || args.flow_vars_json.is_some()
-                || args.rollback_flow_template.is_some()
-                || args.rollback_flow_file.is_some()
-                || args.rollback_flow_vars.is_some()
-                || args.rollback_flow_vars_json.is_some()
+            if args.interactive_template.is_some()
+                || args.interactive_file.is_some()
+                || args.interactive_vars.is_some()
+                || args.interactive_vars_json.is_some()
+                || args.rollback_interactive_template.is_some()
+                || args.rollback_interactive_file.is_some()
+                || args.rollback_interactive_vars.is_some()
+                || args.rollback_interactive_vars_json.is_some()
             {
                 return Err(anyhow::anyhow!(
-                    "command-based tx does not accept --flow-* arguments"
+                    "command-based tx does not accept --interactive-* arguments"
                 ));
             }
             if args.rollback_commands_file.is_some() && !args.rollback_commands.is_empty() {
@@ -120,7 +120,7 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
             )?;
             (tx_block, mode)
         }
-        TxRunKind::CommandFlow => {
+        TxRunKind::Interactive => {
             if args.template.is_some()
                 || args.vars.is_some()
                 || !args.commands.is_empty()
@@ -131,7 +131,7 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
                 || args.rollback_trigger_step_index.is_some()
             {
                 return Err(anyhow::anyhow!(
-                    "command flow tx does not accept command/template rollback arguments"
+                    "interactive command tx does not accept command/template rollback arguments"
                 ));
             }
 
@@ -144,99 +144,113 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
                 .transpose()?;
             let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
 
-            let flow_template = crate::cli::flow::resolve_command_flow_template_from_sources(
-                args.flow_template.as_deref(),
-                args.flow_file.as_ref(),
-                "command flow tx execution",
-                "inline_tx_flow",
-                "--flow-template",
-                "--flow-file",
-            )?;
-            let flow_runtime_default_mode = resolve_command_flow_runtime_default_mode(
+            let interactive_template =
+                crate::cli::interactive::resolve_interactive_template_from_sources(
+                    args.interactive_template.as_deref(),
+                    args.interactive_file.as_ref(),
+                    "interactive command tx execution",
+                    "inline_tx_interactive",
+                    "--interactive-template",
+                    "--interactive-file",
+                )?;
+            let interactive_runtime_default_mode = resolve_interactive_runtime_default_mode(
                 mode_override.as_deref(),
-                flow_template.default_mode.as_deref(),
+                interactive_template.operation.mode.as_deref(),
                 &profile_default_mode,
             );
-            let flow_effective_mode = flow_runtime_default_mode
+            let interactive_effective_mode = interactive_runtime_default_mode
                 .clone()
                 .or_else(|| {
-                    flow_template
-                        .default_mode
+                    interactive_template
+                        .operation
+                        .mode
                         .as_deref()
                         .map(str::trim)
                         .filter(|mode| !mode.is_empty())
                         .map(ToOwned::to_owned)
                 })
                 .unwrap_or_else(|| profile_default_mode.clone());
-            let flow_vars =
-                load_vars_json_input(args.flow_vars.as_ref(), args.flow_vars_json.as_deref())?;
-            let flow_runtime_vars =
-                crate::resolve_flow_runtime_vars(&flow_template, flow_vars, &conn)?;
-            let mut flow = flow_template.to_command_flow(&build_command_flow_runtime(
-                flow_runtime_default_mode,
-                flow_runtime_vars,
-            ))?;
+            let interactive_vars = load_vars_json_input(
+                args.interactive_vars.as_ref(),
+                args.interactive_vars_json.as_deref(),
+            )?;
+            let interactive_runtime_vars = crate::resolve_interactive_connection_vars(
+                &interactive_template,
+                interactive_vars,
+                &conn,
+            )?;
+            let mut interactive =
+                interactive_template.to_execution_sequence(&build_interactive_runtime(
+                    interactive_runtime_default_mode,
+                    interactive_runtime_vars,
+                ))?;
             if let Some(timeout_secs) = args.timeout_secs {
-                for step in &mut flow.steps {
+                for step in &mut interactive.steps {
                     step.timeout = Some(timeout_secs);
                 }
             }
             command_blacklist::ensure_commands_allowed(
-                flow.steps.iter().map(|step| step.command.as_str()),
-                "command flow",
+                interactive.steps.iter().map(|step| step.command.as_str()),
+                "interactive command",
             )?;
-            if flow.steps.is_empty() {
-                return Err(anyhow::anyhow!("command flow has no steps"));
+            if interactive.steps.is_empty() {
+                return Err(anyhow::anyhow!("interactive command has no steps"));
             }
 
             let rollback_operation = match (
-                args.rollback_flow_template.as_deref(),
-                args.rollback_flow_file.as_ref(),
+                args.rollback_interactive_template.as_deref(),
+                args.rollback_interactive_file.as_ref(),
             ) {
                 (None, None) => None,
                 _ => {
                     let rollback_template =
-                        crate::cli::flow::resolve_command_flow_template_from_sources(
-                            args.rollback_flow_template.as_deref(),
-                            args.rollback_flow_file.as_ref(),
-                            "rollback command flow tx execution",
-                            "inline_tx_rollback_flow",
-                            "--rollback-flow-template",
-                            "--rollback-flow-file",
+                        crate::cli::interactive::resolve_interactive_template_from_sources(
+                            args.rollback_interactive_template.as_deref(),
+                            args.rollback_interactive_file.as_ref(),
+                            "rollback interactive command tx execution",
+                            "inline_tx_rollback_sequence",
+                            "--rollback-interactive-template",
+                            "--rollback-interactive-file",
                         )?;
-                    let rollback_runtime_default_mode = resolve_command_flow_runtime_default_mode(
+                    let rollback_runtime_default_mode = resolve_interactive_runtime_default_mode(
                         mode_override.as_deref(),
-                        rollback_template.default_mode.as_deref(),
+                        rollback_template.operation.mode.as_deref(),
                         &profile_default_mode,
                     );
                     let rollback_vars = load_vars_json_input(
-                        args.rollback_flow_vars.as_ref(),
-                        args.rollback_flow_vars_json.as_deref(),
+                        args.rollback_interactive_vars.as_ref(),
+                        args.rollback_interactive_vars_json.as_deref(),
                     )?;
-                    let rollback_runtime_vars =
-                        crate::resolve_flow_runtime_vars(&rollback_template, rollback_vars, &conn)?;
-                    let mut rollback_flow =
-                        rollback_template.to_command_flow(&build_command_flow_runtime(
+                    let rollback_runtime_vars = crate::resolve_interactive_connection_vars(
+                        &rollback_template,
+                        rollback_vars,
+                        &conn,
+                    )?;
+                    let mut rollback_sequence =
+                        rollback_template.to_execution_sequence(&build_interactive_runtime(
                             rollback_runtime_default_mode,
                             rollback_runtime_vars,
                         ))?;
                     if let Some(timeout_secs) = args.timeout_secs {
-                        for step in &mut rollback_flow.steps {
+                        for step in &mut rollback_sequence.steps {
                             step.timeout = Some(timeout_secs);
                         }
                     }
                     command_blacklist::ensure_commands_allowed(
-                        rollback_flow.steps.iter().map(|step| step.command.as_str()),
-                        "rollback command flow",
+                        rollback_sequence
+                            .steps
+                            .iter()
+                            .map(|step| step.command.as_str()),
+                        "rollback interactive command",
                     )?;
-                    if rollback_flow.steps.is_empty() {
-                        return Err(anyhow::anyhow!("rollback command flow has no steps"));
+                    if rollback_sequence.steps.is_empty() {
+                        return Err(anyhow::anyhow!("rollback interactive command has no steps"));
                     }
-                    Some(SessionOperation::from(rollback_flow))
+                    Some(SessionOperation::from(rollback_sequence))
                 }
             };
 
-            let mut step = TxStep::new(SessionOperation::from(flow))
+            let mut step = TxStep::new(SessionOperation::from(interactive))
                 .with_rollback_on_failure(args.rollback_on_failure);
             if let Some(rollback_operation) = rollback_operation {
                 step = step.with_rollback(rollback_operation);
@@ -248,7 +262,7 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
                 fail_fast: true,
             };
             tx_block.validate()?;
-            (tx_block, flow_effective_mode)
+            (tx_block, interactive_effective_mode)
         }
     };
 

@@ -155,7 +155,7 @@ function taskFilterOptions() {
       taskOption("", taskLabelText("tasksOperationAll", "All operations")),
       taskOption("exec", "exec"),
       taskOption("template_execute", "template_execute"),
-      taskOption("command_flow", "command_flow"),
+      taskOption("interactive", "interactive"),
       taskOption("upload", "upload"),
       taskOption("tx_block", "tx_block"),
       taskOption("tx_workflow", "tx_workflow"),

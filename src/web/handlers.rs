@@ -1,11 +1,11 @@
 use crate::agent::registration::{AsyncErrorReportInput, current_agent_name};
 use crate::cli::RecordLevelOpt;
-use crate::config::command_flow_template::{
-    CommandFlowTemplate, build_command_flow_runtime, parse_command_flow_template,
-    resolve_command_flow_runtime_default_mode,
+use crate::config::interactive_template::{
+    InteractiveTemplate, build_interactive_runtime, parse_interactive_template,
+    resolve_interactive_runtime_default_mode,
 };
-use crate::config::command_flow_vars::{
-    ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
+use crate::config::interactive_vars::{
+    ConnectionParamContext, resolve_interactive_runtime_vars, resolve_runtime_var_aliases,
 };
 use crate::config::template_connection_refs::{
     enrich_context_with_connection_refs_from_template,
@@ -31,13 +31,13 @@ use crate::web::models::{
     ApiResponse, AsyncTaskAcceptedResponse, CommandResult, ConfigBatchFetchRequest,
     ConfigBatchFetchResponse, ConfigFetchRequest, ConfigFetchResponse, ConfigFetchTargetResponse,
     ConnectionRequest, ExecBatchExecuteRequest, ExecBatchExecuteResponse, ExecBatchTargetResponse,
-    ExecRequest, ExecResponse, ExecuteCommandFlowRequest, ExecuteCommandFlowResponse,
+    ExecRequest, ExecResponse, ExecuteInteractiveRequest, ExecuteInteractiveResponse,
     ExecuteOrchestrationRequest, ExecuteOrchestrationResponse, ExecuteTemplateRequest,
     ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
     ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse, ExecuteUploadRequest,
-    ExecuteUploadResponse, FlowBatchExecuteRequest, FlowBatchExecuteResponse,
-    FlowBatchTargetResponse, RecordLevel, RenderRequest, RenderResponse, SavedConnectionDetail,
-    SessionRetryOptions, ShowBatchExecuteRequest, ShowBatchExecuteResponse,
+    ExecuteUploadResponse, InteractiveBatchExecuteRequest, InteractiveBatchExecuteResponse,
+    InteractiveBatchTargetResponse, RecordLevel, RenderRequest, RenderResponse,
+    SavedConnectionDetail, SessionRetryOptions, ShowBatchExecuteRequest, ShowBatchExecuteResponse,
     ShowBatchTargetResponse, ShowExecuteRequest, ShowExecuteResponse, ShowObjectEntry,
     ShowObjectsResponse, TaskEvent,
 };
@@ -76,7 +76,7 @@ mod credentials;
 mod device_config_history;
 mod device_discovery;
 mod execute;
-mod flow_templates;
+mod interactive_templates;
 mod json_templates;
 mod maintenance;
 mod profiles;
@@ -125,8 +125,8 @@ pub(crate) use device_discovery::{
     import_device_discovery_run_results, start_device_discovery_run,
 };
 pub use execute::{
-    ShowObjectsQuery, exec_command, exec_command_async, execute_command_flow, execute_exec_batch,
-    execute_flow_batch, execute_orchestration, execute_orchestration_async, execute_show,
+    ShowObjectsQuery, exec_command, exec_command_async, execute_exec_batch, execute_interactive,
+    execute_interactive_batch, execute_orchestration, execute_orchestration_async, execute_show,
     execute_show_batch, execute_template, execute_template_async, execute_tx_block,
     execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
     fetch_config, fetch_config_batch, list_show_objects, render_template,
@@ -134,13 +134,13 @@ pub use execute::{
 pub(crate) use execute::{
     execute_scheduled_config_batch, execute_scheduled_orchestration, execute_scheduled_tx_workflow,
 };
-use flow_templates::{
-    builtin_command_flow_template_by_name, parse_builtin_command_flow_template_token,
+use interactive_templates::{
+    builtin_interactive_template_by_name, parse_builtin_interactive_template_token,
 };
-pub use flow_templates::{
-    create_command_flow_template, delete_command_flow_template, get_builtin_command_flow_template,
-    get_command_flow_template, inspect_command_flow_template, list_builtin_command_flow_templates,
-    list_command_flow_templates, update_command_flow_template,
+pub use interactive_templates::{
+    create_interactive_template, delete_interactive_template, get_builtin_interactive_template,
+    get_interactive_template, inspect_interactive_template, list_builtin_interactive_templates,
+    list_interactive_templates, update_interactive_template,
 };
 pub use json_templates::{
     create_orchestration_template, create_tx_block_template, create_tx_workflow_template,

@@ -314,7 +314,7 @@ with:
 "kind": "flow"
 ```
 
-and provide a valid `CommandFlow` object with `steps`.
+and provide a valid rneter `CommandFlow` object with `steps`.
 
 ## 5) Invalid Multiline Mode
 
@@ -324,7 +324,7 @@ and provide a valid `CommandFlow` object with `steps`.
 
 ### Cause
 
-A command, rollback command, or command-flow step uses an unsupported multiline submission value.
+A command, rollback command, or command sequence step uses an unsupported multiline submission value.
 
 ### Fix
 

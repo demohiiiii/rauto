@@ -4,3 +4,4 @@ export { default as ConnectionDetectedFacts } from "./ConnectionDetectedFacts.sv
 export { default as ConnectionMetadataFields } from "./ConnectionMetadataFields.svelte";
 export { default as ConnectionPickerField } from "./ConnectionPickerField.svelte";
 export { default as ConnectionVarsField } from "./ConnectionVarsField.svelte";
+export { default as BatchTargetFields } from "./BatchTargetFields.svelte";

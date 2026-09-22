@@ -1,5 +1,5 @@
 use super::args::{
-    AgentArgs, CommandFlowArgs, ExecArgs, GlobalOpts, OrchestrateArgs, RecordLevelOpt, ShowArgs,
+    AgentArgs, ExecArgs, GlobalOpts, InteractiveArgs, OrchestrateArgs, RecordLevelOpt, ShowArgs,
     TemplateArgs, TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
 };
 use crate::config::device_credential_store::DeviceAuthType;
@@ -33,14 +33,14 @@ pub enum Commands {
     #[command(subcommand)]
     ShowObject(ShowObjectCommands),
 
-    /// Execute a reusable interactive command flow template
-    #[command(name = "flow")]
-    Flow(CommandFlowArgs),
+    /// Execute a reusable interactive command template
+    #[command(name = "interactive", alias = "flow")]
+    Interactive(InteractiveArgs),
 
-    /// Manage saved command flow templates
-    #[command(name = "flow-template")]
+    /// Manage saved interactive command templates
+    #[command(name = "interactive-template", alias = "flow-template")]
     #[command(subcommand)]
-    FlowTemplate(CommandFlowTemplateCommands),
+    InteractiveTemplate(InteractiveTemplateCommands),
 
     /// Upload a local file to the remote host over SFTP
     Upload(UploadArgs),
@@ -142,17 +142,17 @@ pub enum OrchestrateSubcommand {
 }
 
 #[derive(Subcommand, Debug)]
-pub enum CommandFlowTemplateCommands {
-    /// List saved command flow templates
+pub enum InteractiveTemplateCommands {
+    /// List saved interactive command templates
     List,
-    /// Show a saved command flow template
+    /// Show a saved interactive command template
     Show {
-        /// Command flow template name
+        /// Interactive command template name
         name: String,
     },
-    /// Create a new command flow template
+    /// Create a new interactive command template
     Create {
-        /// Command flow template name
+        /// Interactive command template name
         name: String,
         /// Path to TOML content file
         #[arg(long)]
@@ -161,9 +161,9 @@ pub enum CommandFlowTemplateCommands {
         #[arg(long)]
         content: Option<String>,
     },
-    /// Update an existing command flow template
+    /// Update an existing interactive command template
     Update {
-        /// Command flow template name
+        /// Interactive command template name
         name: String,
         /// Path to TOML content file
         #[arg(long)]
@@ -172,9 +172,9 @@ pub enum CommandFlowTemplateCommands {
         #[arg(long)]
         content: Option<String>,
     },
-    /// Delete a command flow template
+    /// Delete an interactive command template
     Delete {
-        /// Command flow template name
+        /// Interactive command template name
         name: String,
     },
 }
@@ -1132,9 +1132,9 @@ mod tests {
 
     #[test]
     fn textfsm_commands_infer_platform_and_reject_removed_override() {
-        for command in ["show", "exec", "template", "flow"] {
+        for command in ["show", "exec", "template", "interactive"] {
             let mut args = vec!["rauto", command];
-            if command == "flow" {
+            if command == "interactive" {
                 args.push("--template");
             }
             args.push("version");
@@ -1728,7 +1728,7 @@ mod tests {
     }
 
     #[test]
-    fn multi_target_exec_and_flow_accept_selectors() {
+    fn multi_target_exec_and_interactive_accept_selectors() {
         let cli = Cli::try_parse_from([
             "rauto",
             "exec",
@@ -1750,7 +1750,7 @@ mod tests {
 
         let cli = Cli::try_parse_from([
             "rauto",
-            "flow",
+            "interactive",
             "-t",
             "push-snmp",
             "--label",
@@ -1758,9 +1758,9 @@ mod tests {
             "--max-parallel",
             "2",
         ])
-        .expect("flow with multi-target selectors should parse");
-        let Commands::Flow(args) = cli.command else {
-            panic!("expected flow command");
+        .expect("interactive with multi-target selectors should parse");
+        let Commands::Interactive(args) = cli.command else {
+            panic!("expected interactive command");
         };
         assert_eq!(args.labels, vec!["campus".to_string()]);
         assert_eq!(args.max_parallel, Some(2));

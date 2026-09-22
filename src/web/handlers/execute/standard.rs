@@ -194,9 +194,12 @@ pub async fn exec_command(
                     }))),
             );
             let concrete_commands = concrete_flow.steps.clone();
-            let flow_output = client.execute_multiline_command_structured(command).await?;
-            let mut outputs = Vec::with_capacity(flow_output.outputs.len());
-            for (command, output) in concrete_commands.into_iter().zip(flow_output.outputs) {
+            let interactive_output = client.execute_multiline_command_structured(command).await?;
+            let mut outputs = Vec::with_capacity(interactive_output.outputs.len());
+            for (command, output) in concrete_commands
+                .into_iter()
+                .zip(interactive_output.outputs)
+            {
                 let (parsed_output, parse_error) = parse_textfsm_output_optional(
                     &output.content,
                     &command.command,
@@ -991,6 +994,8 @@ async fn execute_batch_show_target_inner(
 }
 
 struct ResolvedBatchExecTarget {
+    command: String,
+    masked_command: String,
     name: String,
     conn: ResolvedConnection,
     effective_mode: String,
@@ -1000,7 +1005,6 @@ struct ResolvedBatchExecTarget {
 /// concurrently executing batch exec target.
 #[derive(Clone)]
 struct BatchExecOptions {
-    command: String,
     multiline_mode: MultilineMode,
     textfsm_template: Option<String>,
     parse_textfsm: bool,
@@ -1030,8 +1034,21 @@ pub async fn execute_exec_batch(
 
     let result: Result<ExecBatchExecuteResponse, ApiError> = state
         .run_until_shutdown(async {
-            if req.command.trim().is_empty() {
-                return Err(ApiError::bad_request("command is required"));
+            if req.template_content.is_some() && !req.command.trim().is_empty() {
+                return Err(ApiError::bad_request(
+                    "use either command or template_content",
+                ));
+            }
+            if req
+                .template_content
+                .as_deref()
+                .unwrap_or(&req.command)
+                .trim()
+                .is_empty()
+            {
+                return Err(ApiError::bad_request(
+                    "command or template_content is required",
+                ));
             }
             let target_names = resolve_batch_target_names(&req.targets, &req.groups, &req.labels)?;
             if target_names.is_empty() {
@@ -1069,7 +1086,6 @@ pub async fn execute_exec_batch(
             );
 
             let options = BatchExecOptions {
-                command: req.command.clone(),
                 multiline_mode: req.multiline_mode,
                 textfsm_template: req.textfsm_template.clone(),
                 parse_textfsm: req.parse_textfsm,
@@ -1106,7 +1122,11 @@ pub async fn execute_exec_batch(
             let total = results.len() as u64;
             let failed = results
                 .iter()
-                .filter(|item| item.error.is_some() || item.exit_code.unwrap_or(0) != 0)
+                .filter(|item| {
+                    item.error.is_some()
+                        || item.exit_code.unwrap_or(0) != 0
+                        || item.outputs.iter().any(|output| !output.success)
+                })
                 .count() as u64;
             let succeeded = total.saturating_sub(failed);
             let outcome = if failed == 0 {
@@ -1191,9 +1211,14 @@ async fn resolve_batch_exec_target(
     )?)
     .await?;
     let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
+    let (rendered, masked_command) = if let Some(content) = req.template_content.as_deref() {
+        render_commands_with_runtime_context(None, Some(content), req.vars.clone(), Some(&conn))?
+    } else {
+        (req.command.clone(), req.command.clone())
+    };
     let command = Command {
         mode: effective_mode.clone(),
-        command: req.command.clone(),
+        command: rendered.clone(),
         multiline_mode: req.multiline_mode,
         timeout: Some(60),
         dyn_params: CommandDynamicParams::default(),
@@ -1208,6 +1233,8 @@ async fn resolve_batch_exec_target(
     )
     .map_err(|error| ApiError::bad_request(error.to_string()))?;
     Ok(ResolvedBatchExecTarget {
+        command: rendered,
+        masked_command,
         name: name.to_string(),
         conn,
         effective_mode,
@@ -1221,10 +1248,11 @@ async fn execute_batch_exec_target(
     match execute_batch_exec_target_inner(target, options).await {
         Ok(response) => response,
         Err(err) => ExecBatchTargetResponse {
+            outputs: Vec::new(),
             target: target.name.clone(),
             host: target.conn.host.clone(),
             profile: target.conn.device_profile.clone(),
-            command: options.command.clone(),
+            command: target.masked_command.clone(),
             mode: target.effective_mode.clone(),
             output: None,
             exit_code: None,
@@ -1245,7 +1273,7 @@ async fn execute_batch_exec_target_inner(
     )?;
     let command = Command {
         mode: target.effective_mode.clone(),
-        command: options.command.clone(),
+        command: target.command.clone(),
         multiline_mode: options.multiline_mode,
         timeout: Some(60),
         dyn_params: CommandDynamicParams::default(),
@@ -1289,25 +1317,51 @@ async fn execute_batch_exec_target_inner(
     };
 
     let concrete_commands = concrete_flow.steps.clone();
-    let flow_output = client.execute_multiline_command_structured(command).await?;
+    let interactive_output = client.execute_multiline_command_structured(command).await?;
     let outputs: Vec<CommandResult> = concrete_commands
         .into_iter()
-        .zip(flow_output.outputs)
-        .map(|(command, output)| CommandResult {
-            command: command.command,
-            success: output.success,
-            exit_code: output.exit_code,
-            output: Some(output.content),
-            all: Some(output.all),
-            error: None,
-            parsed_output: None,
-            parse_error: None,
+        .zip(interactive_output.outputs)
+        .map(|(command, output)| {
+            let (parsed_output, parse_error) = parse_textfsm_output_optional(
+                &output.content,
+                &command.command,
+                WebTextfsmParseOptions {
+                    template_file: options.textfsm_template.as_deref(),
+                    enabled: options.parse_textfsm,
+                    device_profile: Some(target.conn.device_profile.as_str()),
+                    vendor: options.textfsm_vendor.as_deref(),
+                    filter_error_rules: !options.textfsm_strict_errors,
+                    ..Default::default()
+                },
+            );
+            CommandResult {
+                command: command.command,
+                success: output.success,
+                exit_code: output.exit_code,
+                output: Some(output.content),
+                all: Some(output.all),
+                error: None,
+                parsed_output,
+                parse_error,
+            }
         })
         .collect();
+    let mut outputs = outputs;
+    let masked_steps = rendered_template_command(
+        target.effective_mode.clone(),
+        target.masked_command.clone(),
+        options.multiline_mode,
+    )
+    .into_flow()
+    .map_err(|error| ApiError::bad_request(error.to_string()))?
+    .steps;
+    for (output, masked_step) in outputs.iter_mut().zip(masked_steps) {
+        output.command = masked_step.command;
+    }
     let aggregate = aggregate_command_results(&outputs);
     let (parsed_output, parse_error) = parse_textfsm_output_optional(
         &aggregate.output,
-        &options.command,
+        &target.masked_command,
         WebTextfsmParseOptions {
             template_file: options.textfsm_template.as_deref(),
             enabled: options.parse_textfsm,
@@ -1321,15 +1375,16 @@ async fn execute_batch_exec_target_inner(
         &target.conn,
         &client,
         "exec",
-        &options.command,
+        &target.masked_command,
         Some(target.effective_mode.as_str()),
         options.record_level,
     );
     Ok(ExecBatchTargetResponse {
+        outputs,
         target: target.name.clone(),
         host: target.conn.host.clone(),
         profile: target.conn.device_profile.clone(),
-        command: options.command.clone(),
+        command: target.masked_command.clone(),
         mode: target.effective_mode.clone(),
         output: Some(aggregate.output),
         exit_code: aggregate.exit_code,
@@ -1511,11 +1566,11 @@ pub async fn execute_template(
                         "multiline_mode": req.multiline_mode
                     }))),
             );
-            let flow_output = client.execute_multiline_command_structured(command).await?;
-            let mut executed = Vec::with_capacity(flow_output.outputs.len());
+            let interactive_output = client.execute_multiline_command_structured(command).await?;
+            let mut executed = Vec::with_capacity(interactive_output.outputs.len());
             for (idx, (command, output)) in concrete_commands
                 .into_iter()
-                .zip(flow_output.outputs)
+                .zip(interactive_output.outputs)
                 .enumerate()
             {
                 let (parsed_output, parse_error) = parse_textfsm_output_optional(
@@ -1752,22 +1807,26 @@ mod tests {
             rneter::session::MultilineMode::Whole
         );
         assert_eq!(
-            command.into_flow().expect("whole command flow").steps.len(),
+            command
+                .into_flow()
+                .expect("whole interactive command")
+                .steps
+                .len(),
             1
         );
     }
 
     #[test]
     fn rendered_template_split_lines_is_fail_fast() {
-        let flow = rendered_template_command(
+        let interactive = rendered_template_command(
             "Config".to_string(),
             "interface Gi0/1\nno shutdown".to_string(),
             rneter::session::MultilineMode::SplitLines,
         )
         .into_flow()
-        .expect("split command flow");
-        assert_eq!(flow.steps.len(), 2);
-        assert!(flow.stop_on_error);
+        .expect("split interactive command");
+        assert_eq!(interactive.steps.len(), 2);
+        assert!(interactive.stop_on_error);
     }
 
     #[test]

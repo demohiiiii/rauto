@@ -7,7 +7,7 @@ import type { JsonValue } from "$lib/jsonValue.js";
 
 export type TemplateManagerKind =
   | "command"
-  | "flow"
+  | "interactive"
   | "tx-block"
   | "tx-workflow"
   | "orchestration"
@@ -67,7 +67,7 @@ export interface CommandTemplateInspection {
   vars_schema: TemplateVariableField[];
 }
 
-export interface CommandFlowTemplateDetail extends TemplateResourceDetail {
+export interface InteractiveTemplateDetail extends TemplateResourceDetail {
   vars_schema: TemplateVariableField[];
 }
 
@@ -188,13 +188,13 @@ export interface TemplateApi {
     base: string,
     name: string,
   ): Promise<TemplateResourceDetail>;
-  getCommandFlowTemplate(
+  getInteractiveTemplate(
     name: string,
     options?: { builtin?: boolean },
-  ): Promise<CommandFlowTemplateDetail>;
-  inspectCommandFlowTemplate(
+  ): Promise<InteractiveTemplateDetail>;
+  inspectInteractiveTemplate(
     content: string,
-  ): Promise<CommandFlowTemplateDetail>;
+  ): Promise<InteractiveTemplateDetail>;
   inspectCommandTemplate(content: string): Promise<CommandTemplateInspection>;
   listCustomShowObjects(): Promise<CustomShowObjectApiRow[]>;
   listTemplateResource(base: string): Promise<TemplateResourceApiMeta[]>;
@@ -266,7 +266,7 @@ export interface ShowObjectWorkspace {
   stateStore: Writable<ShowObjectState>;
 }
 
-export interface FlowVarField {
+export interface InteractiveVarField {
   allowEmpty: boolean;
   defaultValue: JsonValue | null;
   description: string;
@@ -278,21 +278,21 @@ export interface FlowVarField {
   required: boolean;
 }
 
-export interface FlowVarsState {
+export interface InteractiveVarsState {
   draft: Record<string, string>;
   errorMessage: string;
-  fields: FlowVarField[];
+  fields: InteractiveVarField[];
   hintText: string;
   values: Record<string, string>;
 }
 
-export type FlowVarControlKind =
+export type InteractiveVarControlKind =
   "boolean-select" | "input" | "json-editor" | "options-select";
 
-export interface FlowVarFieldRow {
+export interface InteractiveVarFieldRow {
   allowsEmpty: boolean;
   booleanValueOptions: string[];
-  controlKind: FlowVarControlKind;
+  controlKind: InteractiveVarControlKind;
   descriptionText: string;
   fieldName: string;
   hasDescription: boolean;
@@ -311,12 +311,12 @@ export interface FlowVarFieldRow {
   value: string;
 }
 
-export interface FlowVarsPresentation {
+export interface InteractiveVarsPresentation {
   countMetaText: string;
   emptyText: string;
   errorMessage: string;
   errorStatus: { tone: "error" };
-  fieldRows: FlowVarFieldRow[];
+  fieldRows: InteractiveVarFieldRow[];
   hasFields: boolean;
   hintText: string;
   jsonHintText?: string;
@@ -326,7 +326,7 @@ export interface FlowVarsPresentation {
   titleText: string;
 }
 
-export interface FlowTemplateSelectState {
+export interface InteractiveTemplateSelectState {
   options: string[];
   selected: string;
 }

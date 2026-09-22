@@ -8,7 +8,7 @@ import { derived, get, writable } from "svelte/store";
 import {
   CONNECTION_MODAL_FOCUS_TARGET,
   batchExecTargetPickerFields,
-  batchFlowTargetPickerFields,
+  batchInteractiveTargetPickerFields,
   batchShowTargetPickerFields,
   configFetchTargetPickerFields,
   connectionModalDisplay,
@@ -149,7 +149,7 @@ interface HistoryDrawerContentWorkspaceInput {
 export {
   CONNECTION_PROFILE_SELECT,
   batchExecTargetPickerFields,
-  batchFlowTargetPickerFields,
+  batchInteractiveTargetPickerFields,
   batchShowTargetPickerFields,
   configFetchTargetPickerFields,
   CONNECTION_MODAL_FOCUS_TARGET,

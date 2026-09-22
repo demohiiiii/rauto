@@ -1,0 +1,17 @@
+name = "linux_scp_with_current_and_peer"
+mode = "User"
+
+timeout_secs = 900
+command = "scp {{local_path}} {{peer.username}}@{{peer.host}}:{{remote_path}}"
+
+[[prompts]]
+patterns = ["(?i)^.*are you sure you want to continue connecting.*\\?\\s*$"]
+append_newline = true
+record_input = true
+response = "yes"
+
+[[prompts]]
+patterns = ["(?i)^.*password.*:\\s*$"]
+append_newline = true
+record_input = false
+response = "{{peer.password}}"

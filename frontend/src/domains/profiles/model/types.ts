@@ -291,7 +291,7 @@ export interface ProfileModeOverrides {
   batchExecMode?: string;
   batchShowMode?: string;
   execMode?: string;
-  flowMode?: string;
+  interactiveMode?: string;
   showMode?: string;
   templateMode?: string;
 }

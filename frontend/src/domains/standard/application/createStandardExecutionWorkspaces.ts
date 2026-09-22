@@ -1,18 +1,15 @@
 import { derived, get, writable } from "svelte/store";
-import type { CommandFlowTemplateModel } from "$domains/command/index.js";
-import type { StandardExecMode } from "../../../config/dashboardModes.js";
+import type { InteractiveTemplateModel } from "$domains/command/index.js";
 import {
-  createCommandFlowTemplate,
-  getCommandFlowTemplate,
-  inspectCommandFlowTemplate,
-  updateCommandFlowTemplate,
+  createInteractiveTemplate,
+  getInteractiveTemplate,
+  inspectInteractiveTemplate,
+  updateInteractiveTemplate,
 } from "../../../api/client.js";
-import { normalizeStandardExecMode } from "../../../config/dashboardModes.js";
 import { browserConfirm } from "../../../lib/browser.js";
 import { callbackFormValueHandler } from "../../../lib/events.js";
 import { currentLanguageState } from "../../../lib/i18n.js";
 import { createLoadingRunner } from "../../../lib/svelte.js";
-import { safeString } from "../../../lib/ui.js";
 import {
   executionResultDisplay,
   exportParsedOutputSheetsExcel,
@@ -23,130 +20,105 @@ import {
 } from "$domains/execution/index.js";
 import type { SessionRetryState } from "$domains/execution/index.js";
 import { MODE_SELECT, modeSelection } from "$domains/profiles/index.js";
-import { flowVarsPresentation } from "$domains/templates/index.js";
+import { interactiveVarsPresentation } from "$domains/templates/index.js";
+import { createInteractiveTemplateRuntime } from "$domains/templates/index.js";
+import type { BatchDeliveryWorkspace } from "./createBatchDeliveryWorkspace.js";
+import { standardInteractiveRuntime } from "../infrastructure/standardInteractiveRuntime.js";
+import { standardInteractiveTextfsmPayload } from "../model/standardInteractive.js";
 import {
-  flowVarsFieldState,
-  getCurrentFlowTemplateFieldDraft,
-  loadFlowTemplates,
-  parseBuiltinFlowTemplateValue,
-  runFlowTemplateSelectState,
-  setFlowVarDraftValue,
-  updateFlowTemplateVarFields,
-} from "$domains/templates/index.js";
-import {
-  commandFlowResultPresentation,
-  flowExecutionInputPresentation,
-  standardFlowRunButtonPresentation,
-  standardFlowTemplateFieldsPresentation,
-  standardFlowTemplateSelectPresentation,
+  interactiveResultPresentation,
+  interactiveExecutionInputPresentation,
+  standardInteractiveRunButtonPresentation,
+  standardInteractiveTemplateFieldsPresentation,
+  standardInteractiveTemplateSelectPresentation,
   standardModeSelectPresentation,
-  standardPagePresentation,
   standardTextfsmFieldsPresentation,
-} from "../presentation/standardFlowPresentation.js";
-import { createStandardCommandFlowAuthoringState } from "./createStandardCommandFlowAuthoringState.js";
-import type { StandardCommandFlowTextfsmFields } from "../model/types.js";
-import {
-  commandFlowExecutionResultState,
-  createStandardLoadingKeysStore,
-  createStandardTextfsmStateStore,
-  DEFAULT_STANDARD_PAGE_MODE,
-  executeCommandFlow,
-  exportCommandFlowExcel,
-  downloadCommandFlowOutput,
-  refreshStandardExecutionModeOptions,
-  setStandardTextfsmEnabled,
-  setStandardTextfsmFields,
-  setStandardTextfsmStrictErrors,
-  setStandardTextfsmTemplate,
-} from "./standardCommandFlowExecutionState.js";
+} from "../presentation/standardInteractivePresentation.js";
+import { createStandardInteractiveAuthoringState } from "./createStandardInteractiveAuthoringState.js";
+import type { StandardInteractiveTextfsmFields } from "../model/types.js";
+import { createStandardInteractiveExecution } from "./standardInteractiveExecutionState.js";
 
-export function createStandardPageWorkspace() {
-  const currentExecModeState = writable(DEFAULT_STANDARD_PAGE_MODE);
-  const pageDisplayStateStore = derived(
-    [currentExecModeState, currentLanguageState],
-    ([$currentExecModeState]) =>
-      standardPagePresentation($currentExecModeState),
-  );
-  let lastExecutionProfile = "";
-
-  function selectExecMode(standardExecMode: string): void {
-    currentExecModeState.set(normalizeStandardExecMode(standardExecMode));
-  }
-
-  function setRouteContext({
-    active = false,
-    profile = "",
-  }: { active?: boolean; profile?: string } = {}): void {
-    const executionProfile = profile.trim();
-    if (!active) {
-      lastExecutionProfile = "";
-      return;
-    }
-    if (lastExecutionProfile === executionProfile) return;
-    lastExecutionProfile = executionProfile;
-    void refreshStandardExecutionModeOptions();
-  }
-
-  function destroy(): void {
-    lastExecutionProfile = "";
-  }
-
-  return {
-    currentExecModeState,
-    destroy,
-    pageDisplayStateStore,
-    selectExecMode,
-    setRouteContext,
-  };
-}
-
-function createFlowVarsInputPanelWorkspace({
+function createInteractiveVarsInputPanelWorkspace({
   onValueChange = null,
 }: {
   onValueChange?: ((name: string, value: string) => void) | null;
 } = {}) {
   return {
-    changeFlowVarValue(flowVarName: string) {
-      return callbackFormValueHandler(onValueChange, flowVarName);
+    changeInteractiveVarValue(interactiveVarName: string) {
+      return callbackFormValueHandler(onValueChange, interactiveVarName);
     },
   };
 }
 
-export function createFlowExecutionPanelWorkspace() {
-  const commandFlowExecutionResultStateStore =
-    commandFlowExecutionResultState();
-  const authoringModePicker = modeSelection(MODE_SELECT.standardFlow);
-  const flowTextfsmStateStore = createStandardTextfsmStateStore();
-  const flowRetryStateStore = writable<SessionRetryState>(
+export function createInteractiveExecutionPanelWorkspace(
+  batch?: BatchDeliveryWorkspace,
+) {
+  const {
+    interactiveVarsFieldState,
+    getCurrentInteractiveTemplateFieldDraft,
+    loadInteractiveTemplates,
+    parseBuiltinInteractiveTemplateValue,
+    runInteractiveTemplateSelectState,
+    setInteractiveVarDraftValue,
+    updateInteractiveTemplateVarFields,
+    buildInteractiveVarsPayload,
+  } = createInteractiveTemplateRuntime();
+  const execution = createStandardInteractiveExecution({
+    runtime: {
+      ...standardInteractiveRuntime,
+      buildVarsPayload: buildInteractiveVarsPayload,
+    },
+  });
+  const {
+    interactiveExecutionResultState,
+    createStandardLoadingKeysStore,
+    createStandardTextfsmStateStore,
+    executeInteractive,
+    exportInteractiveExcel,
+    downloadInteractiveOutput,
+    setStandardTextfsmEnabled,
+    setStandardTextfsmFields,
+    setStandardTextfsmStrictErrors,
+    setStandardTextfsmTemplate,
+  } = execution;
+  const interactiveExecutionResultStateStore =
+    interactiveExecutionResultState();
+  const authoringModePicker = modeSelection(MODE_SELECT.standardInteractive);
+  const interactiveTextfsmStateStore = createStandardTextfsmStateStore();
+  const interactiveRetryStateStore = writable<SessionRetryState>(
     createSessionRetryState(),
   );
   const { loadingKeysStore, loadingRunner } =
     createStandardLoadingKeysStore(createLoadingRunner);
-  const flowVarsInputPanelWorkspace = createFlowVarsInputPanelWorkspace({
-    onValueChange: setFlowVarDraftValue,
-  });
-  const authoring = createStandardCommandFlowAuthoringState({
+  const interactiveVarsInputPanelWorkspace =
+    createInteractiveVarsInputPanelWorkspace({
+      onValueChange: setInteractiveVarDraftValue,
+    });
+  const authoring = createStandardInteractiveAuthoringState({
     confirmDiscard: browserConfirm,
-    createTemplate: createCommandFlowTemplate,
-    getTemplate: getCommandFlowTemplate,
-    inspectTemplate: inspectCommandFlowTemplate,
+    createTemplate: createInteractiveTemplate,
+    getTemplate: getInteractiveTemplate,
+    inspectTemplate: inspectInteractiveTemplate,
     onInspection(detail) {
-      updateFlowTemplateVarFields(detail, getCurrentFlowTemplateFieldDraft());
+      updateInteractiveTemplateVarFields(
+        detail,
+        getCurrentInteractiveTemplateFieldDraft(),
+      );
     },
-    parseBuiltinSelection: parseBuiltinFlowTemplateValue,
+    parseBuiltinSelection: parseBuiltinInteractiveTemplateValue,
     refreshTemplates: async () => {
-      await loadFlowTemplates();
+      await loadInteractiveTemplates();
     },
-    updateTemplate: updateCommandFlowTemplate,
+    updateTemplate: updateInteractiveTemplate,
   });
-  const flowPanelDisplayStateStore = derived(
+  const interactivePanelDisplayStateStore = derived(
     [
-      runFlowTemplateSelectState,
-      flowVarsFieldState,
+      runInteractiveTemplateSelectState,
+      interactiveVarsFieldState,
       authoringModePicker.state,
-      flowTextfsmStateStore,
-      flowRetryStateStore,
-      commandFlowExecutionResultStateStore,
+      interactiveTextfsmStateStore,
+      interactiveRetryStateStore,
+      interactiveExecutionResultStateStore,
       loadingKeysStore,
       authoring.selectionStateStore,
       authoring.actionStateStore,
@@ -159,12 +131,12 @@ export function createFlowExecutionPanelWorkspace() {
       currentLanguageState,
     ] as const,
     ([
-      $runFlowTemplateSelectState,
-      $flowVarsFieldState,
+      $runInteractiveTemplateSelectState,
+      $interactiveVarsFieldState,
       $authoringModeState,
-      $flowTextfsmState,
-      $flowRetryState,
-      $commandFlowExecutionResult,
+      $interactiveTextfsmState,
+      $interactiveRetryState,
+      $interactiveExecutionResult,
       $loadingKeysStore,
       $authoringSelection,
       $authoringActions,
@@ -176,22 +148,24 @@ export function createFlowExecutionPanelWorkspace() {
       $authoringInspection,
       $currentLanguageState,
     ]) => {
-      const flowTemplateSelectDisplay = standardFlowTemplateSelectPresentation(
-        $runFlowTemplateSelectState,
-      );
-      const flowTemplateFields = standardFlowTemplateFieldsPresentation({
-        templateName: $authoringSelection.value,
-        templateOptions: flowTemplateSelectDisplay.templateOptions,
-      });
-      const flowTextfsmFields = standardTextfsmFieldsPresentation({
-        enabled: $flowTextfsmState.enabled,
-        autoDownloadExcel: $flowTextfsmState.autoDownloadExcel,
-        autoDownloadOutput: $flowTextfsmState.autoDownloadOutput,
-        strictErrors: $flowTextfsmState.strictErrors,
-        template: $flowTextfsmState.template,
+      const interactiveTemplateSelectDisplay =
+        standardInteractiveTemplateSelectPresentation(
+          $runInteractiveTemplateSelectState,
+        );
+      const interactiveTemplateFields =
+        standardInteractiveTemplateFieldsPresentation({
+          templateName: $authoringSelection.value,
+          templateOptions: interactiveTemplateSelectDisplay.templateOptions,
+        });
+      const interactiveTextfsmFields = standardTextfsmFieldsPresentation({
+        enabled: $interactiveTextfsmState.enabled,
+        autoDownloadExcel: $interactiveTextfsmState.autoDownloadExcel,
+        autoDownloadOutput: $interactiveTextfsmState.autoDownloadOutput,
+        strictErrors: $interactiveTextfsmState.strictErrors,
+        template: $interactiveTextfsmState.template,
       });
       const executionStatusDisplay = executionResultDisplay(
-        $commandFlowExecutionResult,
+        $interactiveExecutionResult,
       );
       const authoringModeDisplay =
         standardModeSelectPresentation($authoringModeState);
@@ -210,195 +184,227 @@ export function createFlowExecutionPanelWorkspace() {
         },
         executionStatusDisplay,
         exportLoading: $loadingKeysStore.includes("export"),
-        flowInputDisplay: flowExecutionInputPresentation({
-          templateName: flowTemplateFields.templateName,
-          templateOptions: flowTemplateFields.templateOptions,
+        interactiveInputDisplay: interactiveExecutionInputPresentation({
+          templateName: interactiveTemplateFields.templateName,
+          templateOptions: interactiveTemplateFields.templateOptions,
         }),
-        flowResultDisplay: commandFlowResultPresentation(
-          $commandFlowExecutionResult.kind === "result"
-            ? $commandFlowExecutionResult.resultPayload
+        interactiveResultDisplay: interactiveResultPresentation(
+          $interactiveExecutionResult.kind === "result"
+            ? $interactiveExecutionResult.resultPayload
             : null,
         ),
-        flowRunButtonDisplay: standardFlowRunButtonPresentation({
+        interactiveRunButtonDisplay: standardInteractiveRunButtonPresentation({
           executeLoading: $loadingKeysStore.includes("execute"),
         }),
-        flowRetryState: $flowRetryState,
-        flowRetryValid: sessionRetryValidation($flowRetryState).valid,
-        flowTemplateFields,
-        flowTextfsmFields,
-        flowVarsDisplay: flowVarsPresentation($flowVarsFieldState),
+        interactiveRetryState: $interactiveRetryState,
+        interactiveRetryValid: sessionRetryValidation($interactiveRetryState)
+          .valid,
+        interactiveTemplateFields,
+        interactiveTextfsmFields,
+        interactiveVarsDisplay: interactiveVarsPresentation(
+          $interactiveVarsFieldState,
+        ),
         language: $currentLanguageState,
       };
     },
   );
-  let commandFlowPrepared = false;
-  let lastCommandFlowLanguage = "";
+  let panelActive = false;
+  let lastInteractiveLanguage = "";
 
   function syncAuthoringSelection(): void {
     const selected = get(authoring.selectionStateStore).value;
-    runFlowTemplateSelectState.update((state) => ({ ...state, selected }));
+    runInteractiveTemplateSelectState.update((state) => ({
+      ...state,
+      selected,
+    }));
   }
 
-  async function changeFlowTemplateName(
-    flowTemplateName = "",
+  async function changeInteractiveTemplateName(
+    interactiveTemplateName = "",
   ): Promise<boolean> {
-    const changed = await authoring.selectTemplate(flowTemplateName);
+    const changed = await authoring.selectTemplate(interactiveTemplateName);
     if (changed) syncAuthoringSelection();
     return changed;
   }
 
-  function changeFlowEditorTab(
+  function changeInteractiveEditorTab(
     editorTab: Parameters<typeof authoring.draft.selectTab>[0] = "visual",
   ): void {
     authoring.draft.selectTab(editorTab);
   }
 
-  function changeFlowModel(model: CommandFlowTemplateModel): void {
+  function changeInteractiveModel(model: InteractiveTemplateModel): void {
     authoring.setModel(model);
   }
 
-  function changeFlowToml(tomlText = ""): boolean {
+  function changeInteractiveToml(tomlText = ""): boolean {
     return authoring.setTomlText(tomlText);
   }
 
-  function changeFlowAutoDownloadExcel(autoDownloadExcel: boolean): void {
-    flowTextfsmStateStore.update((state) => ({ ...state, autoDownloadExcel }));
+  function changeInteractiveAutoDownloadExcel(
+    autoDownloadExcel: boolean,
+  ): void {
+    interactiveTextfsmStateStore.update((state) => ({
+      ...state,
+      autoDownloadExcel,
+    }));
   }
 
-  function changeFlowAutoDownloadOutput(autoDownloadOutput: boolean): void {
-    flowTextfsmStateStore.update((state) => ({ ...state, autoDownloadOutput }));
+  function changeInteractiveAutoDownloadOutput(
+    autoDownloadOutput: boolean,
+  ): void {
+    interactiveTextfsmStateStore.update((state) => ({
+      ...state,
+      autoDownloadOutput,
+    }));
   }
 
-  function changeFlowTextfsmEnabled(textfsmEnabled = false): void {
-    setStandardTextfsmEnabled(flowTextfsmStateStore, textfsmEnabled);
+  function changeInteractiveTextfsmEnabled(textfsmEnabled = false): void {
+    setStandardTextfsmEnabled(interactiveTextfsmStateStore, textfsmEnabled);
   }
 
-  function changeFlowTextfsmStrictErrors(textfsmStrictErrors = false): void {
-    setStandardTextfsmStrictErrors(flowTextfsmStateStore, textfsmStrictErrors);
+  function changeInteractiveTextfsmStrictErrors(
+    textfsmStrictErrors = false,
+  ): void {
+    setStandardTextfsmStrictErrors(
+      interactiveTextfsmStateStore,
+      textfsmStrictErrors,
+    );
   }
 
-  function changeFlowTextfsmTemplate(textfsmTemplate = ""): void {
-    setStandardTextfsmTemplate(flowTextfsmStateStore, textfsmTemplate);
+  function changeInteractiveTextfsmTemplate(textfsmTemplate = ""): void {
+    setStandardTextfsmTemplate(interactiveTextfsmStateStore, textfsmTemplate);
   }
 
-  function changeFlowRetry(retry: Partial<SessionRetryState> = {}): void {
-    flowRetryStateStore.set({
+  function changeInteractiveRetry(
+    retry: Partial<SessionRetryState> = {},
+  ): void {
+    interactiveRetryStateStore.set({
       ...createSessionRetryState(),
       ...retry,
     });
   }
 
-  function executeFlowExecution() {
-    return loadingRunner.run("execute", () =>
-      executeCommandFlow(authoring.executeSource(), get(flowRetryStateStore)),
-    );
+  function executeInteractiveExecution() {
+    return loadingRunner.run("execute", async () => {
+      const settings = get(interactiveTextfsmStateStore);
+      const retry = get(interactiveRetryStateStore);
+      if (batch) {
+        await batch.executeInteractive(
+          () =>
+            execution.interactiveExecutionPayload({
+              source: authoring.executeSource(),
+              retry,
+              vars: buildInteractiveVarsPayload(),
+              recordLevel: standardInteractiveRuntime.recordLevelPayload(),
+              textfsm: standardInteractiveTextfsmPayload(settings),
+            }),
+          settings,
+        );
+        return;
+      }
+      setStandardTextfsmFields(settings);
+      return executeInteractive(authoring.executeSource(), retry);
+    });
   }
 
-  async function saveFlowTemplate(): Promise<boolean> {
+  async function saveInteractiveTemplate(): Promise<boolean> {
     const saved = await authoring.save();
     if (saved) syncAuthoringSelection();
     return saved;
   }
 
-  function openNewFlowDialog(): void {
+  function openNewInteractiveDialog(): void {
     authoring.openNewDialog();
   }
 
-  function openSaveAsFlowDialog(): void {
+  function openSaveAsInteractiveDialog(): void {
     authoring.openSaveAsDialog();
   }
 
-  function closeFlowNameDialog(): void {
+  function closeInteractiveNameDialog(): void {
     authoring.closeNameDialog();
   }
 
-  function changeFlowNameDialogValue(value = ""): void {
+  function changeInteractiveNameDialogValue(value = ""): void {
     authoring.setNameDialogValue(value);
   }
 
-  async function submitFlowNameDialog(): Promise<boolean> {
+  async function submitInteractiveNameDialog(): Promise<boolean> {
     const saved = await authoring.submitNameDialog();
     if (saved) syncAuthoringSelection();
     return saved;
   }
 
-  function exportFlowExecutionExcel() {
+  function exportInteractiveExecutionExcel() {
     return loadingRunner.run("export", () =>
-      exportCommandFlowExcel(exportParsedOutputSheetsExcel),
+      exportInteractiveExcel(exportParsedOutputSheetsExcel),
     );
   }
 
   const runActionHandlers = {
-    execute: executeFlowExecution,
-    export: () => exportFlowExecutionExcel(),
-    downloadOutput: downloadCommandFlowOutput,
+    execute: executeInteractiveExecution,
+    export: () => exportInteractiveExecutionExcel(),
+    downloadOutput: downloadInteractiveOutput,
   };
-
-  async function prepareAuthoringOnActive(): Promise<void> {
-    await loadFlowTemplates();
-    const selected = safeString(
-      get(runFlowTemplateSelectState).selected,
-    ).trim();
-    if (selected) await changeFlowTemplateName(selected);
-  }
 
   function setPanelContext({
     active = false,
-    flowPanelDisplay = null,
+    interactivePanelDisplay = null,
   }: {
     active?: boolean;
-    flowPanelDisplay?: {
-      flowTextfsmFields: StandardCommandFlowTextfsmFields;
+    interactivePanelDisplay?: {
+      interactiveTextfsmFields: StandardInteractiveTextfsmFields;
       language: string;
     } | null;
   } = {}): void {
     if (!active) {
-      commandFlowPrepared = false;
-      lastCommandFlowLanguage = "";
+      panelActive = false;
       return;
     }
-    if (!flowPanelDisplay) return;
-    if (!commandFlowPrepared) {
-      commandFlowPrepared = true;
-      void prepareAuthoringOnActive();
+    if (!interactivePanelDisplay) return;
+    if (!panelActive) {
+      panelActive = true;
+      void loadInteractiveTemplates();
     }
-    const language = flowPanelDisplay.language;
-    if (lastCommandFlowLanguage !== language) {
-      lastCommandFlowLanguage = language;
-      updateFlowTemplateVarFields(
+    const language = interactivePanelDisplay.language;
+    if (lastInteractiveLanguage !== language) {
+      lastInteractiveLanguage = language;
+      updateInteractiveTemplateVarFields(
         {
           vars_schema: get(authoring.draft.inspectionStateStore).varsSchema,
         },
-        getCurrentFlowTemplateFieldDraft(),
+        getCurrentInteractiveTemplateFieldDraft(),
       );
     }
-    setStandardTextfsmFields(flowPanelDisplay.flowTextfsmFields);
+    setStandardTextfsmFields(interactivePanelDisplay.interactiveTextfsmFields);
   }
 
   return {
     authoring,
-    changeFlowEditorTab,
-    changeFlowModel,
-    changeFlowNameDialogValue,
-    changeFlowTemplateName,
-    changeFlowTextfsmEnabled,
-    changeFlowAutoDownloadExcel,
-    changeFlowAutoDownloadOutput,
-    changeFlowTextfsmStrictErrors,
-    changeFlowTextfsmTemplate,
-    changeFlowRetry,
-    changeFlowToml,
-    changeFlowVarValue: flowVarsInputPanelWorkspace.changeFlowVarValue,
-    closeFlowNameDialog,
-    executeFlowExecution,
-    exportFlowExecutionExcel,
-    flowPanelDisplayStateStore,
-    openNewFlowDialog,
-    openSaveAsFlowDialog,
+    changeInteractiveEditorTab,
+    changeInteractiveModel,
+    changeInteractiveNameDialogValue,
+    changeInteractiveTemplateName,
+    changeInteractiveTextfsmEnabled,
+    changeInteractiveAutoDownloadExcel,
+    changeInteractiveAutoDownloadOutput,
+    changeInteractiveTextfsmStrictErrors,
+    changeInteractiveTextfsmTemplate,
+    changeInteractiveRetry,
+    changeInteractiveToml,
+    changeInteractiveVarValue:
+      interactiveVarsInputPanelWorkspace.changeInteractiveVarValue,
+    closeInteractiveNameDialog,
+    executeInteractiveExecution,
+    exportInteractiveExecutionExcel,
+    interactivePanelDisplayStateStore,
+    openNewInteractiveDialog,
+    openSaveAsInteractiveDialog,
     runActionHandlers,
-    saveFlowTemplate,
-    saveFlowTemplateAs: authoring.saveAs,
+    saveInteractiveTemplate,
+    saveInteractiveTemplateAs: authoring.saveAs,
     setPanelContext,
-    submitFlowNameDialog,
+    submitInteractiveNameDialog,
   };
 }

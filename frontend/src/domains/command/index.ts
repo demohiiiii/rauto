@@ -1,4 +1,4 @@
-export { createCommandFlowDraftWorkspace } from "./application/createCommandFlowDraftWorkspace.js";
+export { createInteractiveDraftWorkspace } from "./application/createInteractiveDraftWorkspace.js";
 export {
   MANUAL_COMMAND_SOURCE,
   commandTemplateCatalog,
@@ -6,28 +6,28 @@ export {
   normalizeCommandTemplateNames,
 } from "./application/createCommandTemplateCatalog.js";
 export {
-  commandFlowTemplateDocumentFromModel,
-  commandFlowTemplateModelFromDocument,
-  commandFlowTemplateModelFromToml,
-  commandFlowTemplateModelToToml,
-  defaultCommandFlowTemplateModel,
-  defaultCommandFlowTemplatePromptModel,
-  defaultCommandFlowTemplateStepModel,
-  normalizeLoadedCommandFlowTemplateToml,
-} from "./model/commandFlowTemplate.js";
+  interactiveTemplateDocumentFromModel,
+  interactiveTemplateModelFromDocument,
+  interactiveTemplateModelFromToml,
+  interactiveTemplateModelToToml,
+  defaultInteractiveTemplateModel,
+  defaultInteractiveTemplatePromptModel,
+  defaultInteractiveCommandModel,
+  normalizeLoadedInteractiveTemplateToml,
+} from "./model/interactiveTemplate.js";
 export {
-  commandFlowAccentColor,
-  commandFlowReadonlyPresentation,
-} from "./presentation/commandFlowPresentation.js";
+  interactiveAccentColor,
+  interactiveReadonlyPresentation,
+} from "./presentation/interactivePresentation.js";
 export type {
-  CommandFlowDraftWorkspace,
-  CommandFlowEditorTab,
-  CommandFlowInspectionState,
-  CommandFlowMultilineMode,
-  CommandFlowReadonlyDisplay,
-  CommandFlowTemplateModel,
-  CommandFlowTemplatePromptModel,
-  CommandFlowTemplateStepModel,
+  InteractiveDraftWorkspace,
+  InteractiveEditorTab,
+  InteractiveInspectionState,
+  InteractiveMultilineMode,
+  InteractiveReadonlyDisplay,
+  InteractiveTemplateModel,
+  InteractiveTemplatePromptModel,
+  InteractiveCommandModel,
   CommandTemplateCatalog,
   CommandTemplateMeta,
   CommandTemplateCatalogState,

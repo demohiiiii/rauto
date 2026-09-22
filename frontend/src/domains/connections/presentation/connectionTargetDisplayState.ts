@@ -369,22 +369,22 @@ export const batchExecTargetPickerFields = Object.freeze([
   },
 ]);
 
-export const batchFlowTargetPickerFields = Object.freeze([
+export const batchInteractiveTargetPickerFields = Object.freeze([
   {
     key: "targets",
-    keyName: CONNECTION_PICKER.batchFlowTargets,
+    keyName: CONNECTION_PICKER.batchInteractiveTargets,
     labelKey: "batchShowTargetsLabel",
     placeholderKey: "batchShowTargetsPlaceholder",
   },
   {
     key: "groups",
-    keyName: CONNECTION_PICKER.batchFlowGroups,
+    keyName: CONNECTION_PICKER.batchInteractiveGroups,
     labelKey: "batchShowGroupsLabel",
     placeholderKey: "batchShowGroupsPlaceholder",
   },
   {
     key: "labels",
-    keyName: CONNECTION_PICKER.batchFlowLabels,
+    keyName: CONNECTION_PICKER.batchInteractiveLabels,
     labelKey: "batchShowLabelsLabel",
     placeholderKey: "batchShowLabelsPlaceholder",
   },

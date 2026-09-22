@@ -352,13 +352,3 @@ test("configuration history client helpers match backend routes", () => {
     /`\/api\/device-config-history\/\$\{encodeURIComponent\(snapshotId\)\}`/,
   );
 });
-
-test("device configuration snapshots start with the raw-only schema", () => {
-  const migration = read("migrations/202608250002_device_config_snapshots.sql");
-
-  assert.doesNotMatch(migration, /normalized_(content|sha256)/);
-  assert.equal(
-    existsSync("migrations/202608250003_remove_normalized_device_configs.sql"),
-    false,
-  );
-});

@@ -19,9 +19,9 @@ export const CONNECTION_PICKER = Object.freeze({
   batchExecGroups: "connectionPicker.batchExec.groups",
   batchExecLabels: "connectionPicker.batchExec.labels",
   batchExecTargets: "connectionPicker.batchExec.targets",
-  batchFlowGroups: "connectionPicker.batchFlow.groups",
-  batchFlowLabels: "connectionPicker.batchFlow.labels",
-  batchFlowTargets: "connectionPicker.batchFlow.targets",
+  batchInteractiveGroups: "connectionPicker.batchFlow.groups",
+  batchInteractiveLabels: "connectionPicker.batchFlow.labels",
+  batchInteractiveTargets: "connectionPicker.batchFlow.targets",
   batchShowGroups: "connectionPicker.batchShow.groups",
   batchShowLabels: "connectionPicker.batchShow.labels",
   batchShowObject: "connectionPicker.batchShow.object",
@@ -71,7 +71,7 @@ const CONNECTION_PICKER_CONFIGS: Record<string, ConnectionPickerConfig> = {
     CONNECTION_PICKER.savedEditLabels,
     CONNECTION_PICKER.batchShowLabels,
     CONNECTION_PICKER.batchExecLabels,
-    CONNECTION_PICKER.batchFlowLabels,
+    CONNECTION_PICKER.batchInteractiveLabels,
     CONNECTION_PICKER.configFetchLabels,
   ]),
   ...pickerConfigs("groups", [
@@ -79,14 +79,14 @@ const CONNECTION_PICKER_CONFIGS: Record<string, ConnectionPickerConfig> = {
     CONNECTION_PICKER.savedEditGroups,
     CONNECTION_PICKER.batchShowGroups,
     CONNECTION_PICKER.batchExecGroups,
-    CONNECTION_PICKER.batchFlowGroups,
+    CONNECTION_PICKER.batchInteractiveGroups,
     CONNECTION_PICKER.configFetchGroups,
     CONNECTION_PICKER.orchestrationTargetGroups,
   ]),
   ...pickerConfigs("devices", [
     CONNECTION_PICKER.batchShowTargets,
     CONNECTION_PICKER.batchExecTargets,
-    CONNECTION_PICKER.batchFlowTargets,
+    CONNECTION_PICKER.batchInteractiveTargets,
     CONNECTION_PICKER.configFetchTargets,
   ]),
   ...pickerConfigs("labels", [CONNECTION_PICKER.orchestrationTargetTags], {
@@ -343,11 +343,18 @@ function connectionPickerOptionRow(
   kind: ConnectionPickerKind | "",
   pickerKey: unknown,
   optionValue: string,
+  connection?: SavedConnection,
 ) {
   if (kind !== "show-objects") {
     return {
       isShowObject: false,
       label: optionValue,
+      description:
+        kind === "devices"
+          ? [connection?.host, connection?.device_profile]
+              .filter(Boolean)
+              .join(" · ")
+          : "",
       nameText: "",
       value: optionValue,
     };
@@ -359,10 +366,6 @@ function connectionPickerOptionRow(
     nameText: meta.object,
     value: optionValue,
   };
-}
-
-function showObjectSearchText(pickerKey: unknown, showObjectValue: string) {
-  return showObjectOptionMeta(pickerKey, showObjectValue).object.toLowerCase();
 }
 
 function setConnectionPickerValues(key: unknown, pickerValues: unknown[]) {
@@ -597,6 +600,7 @@ export function connectionPickerValues(key: unknown): string[] {
 export function connectionPickerChoices(
   key: unknown,
   pickerState: ConnectionPickerState = {},
+  { includeSelected = false }: { includeSelected?: boolean } = {},
 ): ConnectionPickerChoices & {
   hasOptionRows: boolean;
   kind: ConnectionPickerKind | "";
@@ -611,22 +615,27 @@ export function connectionPickerChoices(
   const query = safeString(pickerState?.query || "").trim();
   const lowerQuery = query.toLowerCase();
   const selectedValueSet = new Set(selectedValues);
-  const optionValues = connectionPickerOptionValues(
-    pickerConfig?.kind || "",
+  const kind = pickerConfig?.kind || "";
+  const connections = new Map(
+    savedConnectionsSnapshot.map((connection) => [connection.name, connection]),
+  );
+  const optionRows = connectionPickerOptionValues(
+    kind,
     selectedValues,
     pickerKey,
-  ).filter(
-    (optionValue) =>
-      !selectedValueSet.has(optionValue) &&
-      (!lowerQuery ||
-        (pickerConfig?.kind === "show-objects"
-          ? showObjectSearchText(pickerKey, optionValue).includes(lowerQuery)
-          : optionValue.toLowerCase().includes(lowerQuery))),
-  );
-  const kind = pickerConfig?.kind || "";
-  const optionRows = optionValues.map((optionValue) =>
-    connectionPickerOptionRow(kind, pickerKey, optionValue),
-  );
+  )
+    .filter((value) => includeSelected || !selectedValueSet.has(value))
+    .map((value) =>
+      connectionPickerOptionRow(kind, pickerKey, value, connections.get(value)),
+    )
+    .filter(
+      (row) =>
+        !lowerQuery ||
+        `${row.label} ${row.description || ""}`
+          .toLowerCase()
+          .includes(lowerQuery),
+    );
+  const optionValues = optionRows.map((row) => row.value);
   const canAddCustom =
     kind === "labels" &&
     pickerConfig?.allowCustom !== false &&

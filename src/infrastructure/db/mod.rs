@@ -32,7 +32,7 @@ pub mod schedule_store;
 pub mod task_store;
 
 #[cfg(test)]
-mod device_credentials_migration;
+mod initial_schema;
 
 #[cfg(test)]
 thread_local! {
@@ -71,15 +71,7 @@ static DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
 #[cfg(not(test))]
 static DB_PATH: OnceLock<PathBuf> = OnceLock::new();
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
-const _: &str = include_str!("../../../migrations/202607240001_device_credentials.sql");
-const _: &str = include_str!("../../../migrations/202607260001_enable_stage.sql");
-const _: &str = include_str!("../../../migrations/202607260002_config_command_overrides.sql");
-const _: &str = include_str!("../../../migrations/202607260003_config_volatile_patterns.sql");
-const _: &str = include_str!("../../../migrations/202607270001_ssh_auth_methods.sql");
-const _: &str = include_str!("../../../migrations/202608060001_device_discovery.sql");
-const _: &str = include_str!("../../../migrations/202608250001_schedules.sql");
-const _: &str = include_str!("../../../migrations/202608250002_device_config_snapshots.sql");
-const _: &str = include_str!("../../../migrations/202608260001_connection_output_encoding.sql");
+const _: &str = include_str!("../../../migrations/202609220001_initial.sql");
 #[cfg(not(test))]
 static DB_MIGRATED: AtomicBool = AtomicBool::new(false);
 #[cfg(test)]

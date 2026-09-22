@@ -101,14 +101,14 @@ import type { TextfsmExcelExportPayload } from "$domains/execution/index.js";
 import type {
   StandardBatchExecPayload,
   StandardBatchExecResponse,
-  StandardBatchFlowPayload,
-  StandardBatchFlowResponse,
+  StandardBatchInteractivePayload,
+  StandardBatchInteractiveResponse,
   StandardCommandRenderPayload,
   StandardCommandRenderResponse,
   StandardCommandExecutionPayload,
   StandardCommandExecutionResponse,
-  StandardCommandFlowExecutionPayload,
-  StandardCommandFlowExecutionResponse,
+  StandardInteractiveExecutionPayload,
+  StandardInteractiveExecutionResponse,
 } from "$domains/standard/model/types.js";
 import type {
   TaskQuery,
@@ -117,7 +117,7 @@ import type {
   TaskRunDetail,
 } from "$domains/tasks/model/types.js";
 import type {
-  CommandFlowTemplateDetail,
+  InteractiveTemplateDetail,
   CommandTemplateInspection,
   CustomShowObjectApiRow,
   TemplateResourceApiMeta,
@@ -240,7 +240,7 @@ function objectValue(value: unknown): Record<string, unknown> | null {
 const TASK_OPERATIONS = new Set([
   "exec",
   "template_execute",
-  "command_flow",
+  "interactive",
   "upload",
   "tx_block",
   "tx_workflow",
@@ -760,16 +760,18 @@ export function renderTemplate(
   return apiRequest("POST", "/api/render", payload);
 }
 
-export function executeCommandFlow(
-  payload: StandardCommandFlowExecutionPayload,
-): Promise<StandardCommandFlowExecutionResponse> {
-  return apiExecutionRequest("POST", "/api/command-flow/execute", payload);
+export function executeInteractive(
+  payload: StandardInteractiveExecutionPayload,
+): Promise<StandardInteractiveExecutionResponse> {
+  return apiExecutionRequest("POST", "/api/interactive/execute", payload);
 }
 
-export function inspectCommandFlowTemplate(
+export function inspectInteractiveTemplate(
   content: string,
-): Promise<CommandFlowTemplateDetail> {
-  return apiRequest("POST", "/api/flow-templates/inspect", { content });
+): Promise<InteractiveTemplateDetail> {
+  return apiRequest("POST", "/api/interactive-templates/inspect", {
+    content,
+  });
 }
 
 export function inspectCommandTemplate(
@@ -778,22 +780,22 @@ export function inspectCommandTemplate(
   return apiRequest("POST", "/api/templates/inspect", { content });
 }
 
-export function getCommandFlowTemplate(
+export function getInteractiveTemplate(
   name: string,
   { builtin = false }: { builtin?: boolean } = {},
-): Promise<CommandFlowTemplateDetail> {
+): Promise<InteractiveTemplateDetail> {
   const basePath = builtin
-    ? "/api/flow-templates/builtins"
-    : "/api/flow-templates";
+    ? "/api/interactive-templates/builtins"
+    : "/api/interactive-templates";
   return apiRequest("GET", `${basePath}/${encodeURIComponent(name)}`);
 }
 
-export function createCommandFlowTemplate(name: string, content: string) {
-  return createTemplateResource("/api/flow-templates", name, content);
+export function createInteractiveTemplate(name: string, content: string) {
+  return createTemplateResource("/api/interactive-templates", name, content);
 }
 
-export function updateCommandFlowTemplate(name: string, content: string) {
-  return updateTemplateResource("/api/flow-templates", name, content);
+export function updateInteractiveTemplate(name: string, content: string) {
+  return updateTemplateResource("/api/interactive-templates", name, content);
 }
 
 export function executeUpload(
@@ -998,10 +1000,10 @@ export function executeExecBatch(
   return apiExecutionRequest("POST", "/api/exec/batch-execute", payload);
 }
 
-export function executeFlowBatch(
-  payload: StandardBatchFlowPayload,
-): Promise<StandardBatchFlowResponse> {
-  return apiExecutionRequest("POST", "/api/flow/batch-execute", payload);
+export function executeInteractiveBatch(
+  payload: StandardBatchInteractivePayload,
+): Promise<StandardBatchInteractiveResponse> {
+  return apiExecutionRequest("POST", "/api/interactive/batch-execute", payload);
 }
 
 export function fetchConfigBatch(

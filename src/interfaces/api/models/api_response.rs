@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn completed_failure_uses_execution_failure_code() {
         let summary = build_result_summary(
-            TaskOperation::CommandFlow,
+            TaskOperation::Interactive,
             TaskResultOutcome::Failed,
             "Flow failed",
         );

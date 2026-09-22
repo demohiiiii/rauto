@@ -179,7 +179,11 @@ pub struct ShowBatchExecuteResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct ExecBatchExecuteRequest {
+    #[serde(default)]
     pub command: String,
+    pub template_content: Option<String>,
+    #[serde(default)]
+    pub vars: Value,
     #[serde(default)]
     pub multiline_mode: MultilineMode,
     pub mode: Option<String>,
@@ -207,6 +211,7 @@ pub struct ExecBatchExecuteRequest {
 
 #[derive(Debug, Serialize)]
 pub struct ExecBatchTargetResponse {
+    pub outputs: Vec<CommandResult>,
     pub target: String,
     pub host: String,
     pub profile: String,
@@ -350,7 +355,7 @@ pub struct ExecuteTemplateResponse {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ExecuteCommandFlowRequest {
+pub struct ExecuteInteractiveRequest {
     #[serde(default)]
     pub template_name: Option<String>,
     #[serde(default)]
@@ -373,7 +378,7 @@ pub struct ExecuteCommandFlowRequest {
 }
 
 #[derive(Debug, Serialize)]
-pub struct ExecuteCommandFlowResponse {
+pub struct ExecuteInteractiveResponse {
     pub success: bool,
     pub template_name: String,
     pub outputs: Vec<CommandResult>,
@@ -382,7 +387,7 @@ pub struct ExecuteCommandFlowResponse {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct FlowBatchExecuteRequest {
+pub struct InteractiveBatchExecuteRequest {
     #[serde(default)]
     pub template_name: Option<String>,
     #[serde(default)]
@@ -414,7 +419,7 @@ pub struct FlowBatchExecuteRequest {
 }
 
 #[derive(Debug, Serialize)]
-pub struct FlowBatchTargetResponse {
+pub struct InteractiveBatchTargetResponse {
     pub target: String,
     pub host: String,
     pub profile: String,
@@ -424,10 +429,10 @@ pub struct FlowBatchTargetResponse {
 }
 
 #[derive(Debug, Serialize)]
-pub struct FlowBatchExecuteResponse {
+pub struct InteractiveBatchExecuteResponse {
     pub template_name: String,
     pub targets: Vec<String>,
-    pub results: Vec<FlowBatchTargetResponse>,
+    pub results: Vec<InteractiveBatchTargetResponse>,
     pub result_summary: TaskResultSummary,
 }
 

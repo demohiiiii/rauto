@@ -1,102 +1,101 @@
-import { safeString } from "../../../lib/ui.js";
-import type { JsonValue } from "$lib/jsonValue.js";
-import type { SessionRetryState } from "$domains/execution/index.js";
 import type {
-  StandardBatchExecForm,
+  CommandOutputEntry,
+  ParsedOutputSheet,
+} from "$domains/execution/index.js";
+import type {
   StandardBatchExecPayload,
-  StandardBatchFlowForm,
-  StandardBatchFlowPayload,
-  StandardBatchFlowTemplatePayload,
-  StandardBatchRetryFields,
-  StandardBatchTargetSelection,
+  StandardBatchInteractivePayload,
+  StandardBatchTargetPayload,
+  StandardCommandExecutionPayload,
+  StandardInteractiveExecutionPayload,
+  StandardBatchExecResponse,
+  StandardBatchInteractiveTargetResponse,
 } from "./types.js";
 
-const BUILTIN_TEMPLATE_PREFIX = "builtin:";
-
-export function newStandardBatchExecForm(
-  retry: SessionRetryState,
-): StandardBatchExecForm {
-  return {
-    command: "",
-    maxParallel: "",
-    mode: "",
-    retry,
-  };
-}
-
-export function newStandardBatchFlowForm(
-  retry: SessionRetryState,
-): StandardBatchFlowForm {
-  return {
-    maxParallel: "",
-    retry,
-    template: "",
-    varsJson: "",
-  };
-}
-
 export function normalizeBatchExecMaxParallel(value: string): number | null {
-  const parsed = Number.parseInt(value.trim(), 10);
+  const parsed = Number(value.trim());
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-export function batchFlowTemplatePayload(
-  template: string,
-): StandardBatchFlowTemplatePayload {
-  const trimmed = template.trim();
-  if (trimmed.startsWith(BUILTIN_TEMPLATE_PREFIX)) {
-    return {
-      builtin_template_name: trimmed.slice(BUILTIN_TEMPLATE_PREFIX.length),
-    };
-  }
-  return { template_name: trimmed };
-}
-
-export function parseBatchFlowVars(
-  varsJson: string,
-): { vars: JsonValue | null } | { error: string } {
-  const trimmed = varsJson.trim();
-  if (!trimmed) return { vars: null };
-  try {
-    return { vars: JSON.parse(trimmed) as JsonValue };
-  } catch (error) {
-    return {
-      error: error instanceof Error ? error.message : safeString(error),
-    };
-  }
-}
-
-export function buildStandardBatchExecPayload(
-  form: StandardBatchExecForm,
-  selection: StandardBatchTargetSelection,
-  retryFields: StandardBatchRetryFields = {},
+export function buildBatchCommandDeliveryPayload(
+  payload: StandardCommandExecutionPayload,
+  targets: StandardBatchTargetPayload,
 ): StandardBatchExecPayload {
-  const maxParallel = normalizeBatchExecMaxParallel(form.maxParallel);
-  return {
-    command: safeString(form.command).trim(),
-    mode: safeString(form.mode).trim() || null,
-    targets: selection.targets,
-    groups: selection.groups,
-    labels: selection.labels,
-    ...(maxParallel ? { max_parallel: maxParallel } : {}),
-    ...retryFields,
-  };
+  const {
+    connection: _connection,
+    dry_run: _dryRun,
+    template_dir: _templateDir,
+    ...command
+  } = payload;
+  return { ...command, ...targets };
 }
 
-export function buildStandardBatchFlowPayload(
-  form: StandardBatchFlowForm,
-  selection: StandardBatchTargetSelection,
-  vars: JsonValue | null,
-  retryFields: StandardBatchRetryFields = {},
-): StandardBatchFlowPayload {
-  const maxParallel = normalizeBatchExecMaxParallel(form.maxParallel);
-  return {
-    ...batchFlowTemplatePayload(form.template),
-    ...(vars === null ? {} : { vars }),
-    targets: selection.targets,
-    groups: selection.groups,
-    labels: selection.labels,
-    ...(maxParallel ? { max_parallel: maxParallel } : {}),
-    ...retryFields,
-  };
+export function buildBatchInteractiveDeliveryPayload(
+  payload: StandardInteractiveExecutionPayload,
+  targets: StandardBatchTargetPayload,
+): StandardBatchInteractivePayload {
+  const {
+    connection: _connection,
+    template_name,
+    builtin_template_name,
+    content,
+    ...fields
+  } = payload;
+  const source =
+    content !== undefined
+      ? { content }
+      : builtin_template_name
+        ? { builtin_template_name }
+        : { template_name: template_name || "" };
+  return { ...fields, ...source, ...targets };
+}
+
+export function batchCommandDeliveryRows(
+  response: StandardBatchExecResponse,
+): StandardBatchInteractiveTargetResponse[] {
+  return response.results.map((row) => ({
+    target: row.target,
+    host: row.host,
+    profile: row.profile,
+    error: row.error,
+    success:
+      !row.error &&
+      (row.exit_code === null || row.exit_code === 0) &&
+      row.outputs.every((output) => output.success),
+    outputs: row.outputs,
+  }));
+}
+
+export function batchDeliveryOutputEntries(
+  rows: StandardBatchInteractiveTargetResponse[],
+): CommandOutputEntry[] {
+  return rows.flatMap<CommandOutputEntry>((row) =>
+    row.outputs.length
+      ? row.outputs.map((output) => ({ ...output, device: row.target }))
+      : [
+          {
+            command: "",
+            output: row.error || "",
+            error: row.error,
+            device: row.target,
+          },
+        ],
+  );
+}
+
+export function batchDeliverySheets(
+  rows: StandardBatchInteractiveTargetResponse[],
+): ParsedOutputSheet[] {
+  return rows.flatMap((row) =>
+    row.outputs.flatMap((output) =>
+      output.parsed_output == null
+        ? []
+        : [
+            {
+              name: `${row.target} ${output.command}`,
+              parsed_output: output.parsed_output,
+            },
+          ],
+    ),
+  );
 }

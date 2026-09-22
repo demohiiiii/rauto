@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CommandFlowTemplateEditor } from "$domains/command/presentation/components/index.js";
+  import { CommandSequenceEditor } from "$domains/command/presentation/components/index.js";
   import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
   import { txBlockCommandDraft } from "$domains/transactions/index.js";
   import { txBlockValidationErrorText } from "$domains/transactions/index.js";
@@ -56,11 +56,9 @@
   {#if stepsErrorText}
     <p class="text-xs text-destructive" role="alert">{stepsErrorText}</p>
   {/if}
-  <CommandFlowTemplateEditor
+  <CommandSequenceEditor
     model={operation.flow}
     createStep={txBlockCommandDraft}
-    showNameField={false}
-    showDefaultSettings={false}
     addStepPlacement="footer"
     onChange={(flow) => onChange?.({ ...operation, flow })}
   >
@@ -74,15 +72,15 @@
         onPresenceChangeForKey={flowActionHandlers.flowFieldPresenceHandler}
       />
     {/snippet}
-    {#snippet renderStepContent(flowStepRow)}
+    {#snippet renderStepContent(commandStepRow)}
       <TxBlockCommandEditor
-        command={flowStepRow.flowStep}
+        command={commandStepRow.commandStep}
         onChange={(patch: Partial<TxCommandModel>) =>
-          flowStepRow.onChange({ ...flowStepRow.flowStep, ...patch })}
+          commandStepRow.onChange({ ...commandStepRow.commandStep, ...patch })}
         validationErrors={[...validationErrors]}
-        pathPrefix={`${pathPrefix}.steps[${flowStepRow.stepIndex}]`}
+        pathPrefix={`${pathPrefix}.steps[${commandStepRow.stepIndex}]`}
         {jsonValueTypeRows}
       />
     {/snippet}
-  </CommandFlowTemplateEditor>
+  </CommandSequenceEditor>
 </div>

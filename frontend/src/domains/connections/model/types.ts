@@ -42,6 +42,7 @@ export interface ConnectionPickerConfig {
 }
 
 export interface ConnectionPickerChoices {
+  kind?: ConnectionPickerKind | "";
   canAddCustom?: boolean;
   normalizedQuery?: string;
   optionRows?: ConnectionPickerOptionRow[];
@@ -50,6 +51,7 @@ export interface ConnectionPickerChoices {
 }
 
 export interface ConnectionPickerOptionRow {
+  description?: string;
   isShowObject?: boolean;
   label?: string;
   nameText?: string;

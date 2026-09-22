@@ -16,11 +16,11 @@ Open `http://127.0.0.1:3000` and enter the Web password. On first startup, rauto
 - **Config Fetch**: fetch current-device or batch-target running/startup configurations and download results.
 - **Config History**: select a device, filter and order its collection records, then open raw configuration details on demand.
 - **Schedules**: create and manage recurring orchestration, multi-target configuration collection, and single-device transaction workflow jobs.
-- **Standard Delivery**: direct command/template and command-flow authoring for one target.
-- **Batch Delivery**: command/template or command-flow execution across saved devices, groups, and labels.
+- **Command Delivery**: direct command input or saved command templates, with Single and Batch tabs.
+- **Interactive**: one command with prompt/response rules, with Single and Batch tabs. Batch targets support saved devices, groups, and labels.
 - **Tx Block / Tx Workflow / Orchestrate**: direct and saved-template execution with form/JSON authoring and previews.
 - **Session Replay**: inspect and replay persisted recordings.
-- **Profile Management / Templates**: manage profiles, command and flow templates, transaction templates, config command mappings, TextFSM mappings, and custom show objects.
+- **Profile Management / Templates**: manage profiles, command and interactive templates, transaction templates, config command mappings, TextFSM mappings, and custom show objects.
 - **Inventory**: manage saved device connections, groups, and labels.
 - **Auto Discovery**: scan, filter, select, and import SSH devices.
 - **Credentials / SFTP Upload / Blacklist / Backup / Tasks**: dedicated management pages.
@@ -57,6 +57,6 @@ Load `device-discovery.md` for scan limits, statuses, persistence, progress phas
 ## Result And Retry Behavior
 
 - Successful command/show results emphasize prompt-free command content; failures preserve complete diagnostic transcripts.
-- Ordinary command/flow/show/config-fetch retries are opt-in and expose count/backoff controls. Keep them disabled for unsafe-to-repeat changes.
-- TextFSM is default for Show; command and flow parsing remains opt-in unless a template/export requires it.
+- Ordinary command/interactive/show/config-fetch retries are opt-in and expose count/backoff controls. Keep them disabled for unsafe-to-repeat changes.
+- TextFSM is default for Show; command and interactive parsing remains opt-in unless a template/export requires it.
 - The Web process owns the local scheduler. Keep it running for cron triggers and CLI-queued `schedule run` records to execute.

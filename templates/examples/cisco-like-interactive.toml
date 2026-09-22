@@ -1,0 +1,47 @@
+name = "cisco_like_copy"
+mode = "Enable"
+
+timeout_secs = 300
+command = "{{command}}"
+
+[[prompts]]
+patterns = ["(?i)^Address or name of remote host.*\\?\\s*$"]
+append_newline = true
+record_input = true
+response = "{{server_addr}}"
+
+[[prompts]]
+patterns = ["(?i)^Source (?:file ?name|filename).*\\?\\s*$"]
+append_newline = true
+record_input = true
+response = "{{remote_path}}"
+
+[[prompts]]
+patterns = ["(?i)^Destination (?:file ?name|filename).*\\?\\s*$"]
+append_newline = true
+record_input = true
+response = "{{remote_path}}"
+
+[[prompts]]
+patterns = ["(?i)^Source username.*\\?\\s*$", "(?i)^Destination username.*\\?\\s*$"]
+append_newline = true
+record_input = true
+response = "{{transfer_username}}"
+
+[[prompts]]
+patterns = ["(?i)^.*password.*:\\s*$"]
+append_newline = true
+record_input = false
+response = "{{transfer_password}}"
+
+[[prompts]]
+patterns = ["(?i)^.*\\[confirm\\]\\s*$"]
+append_newline = true
+record_input = false
+response = ""
+
+[[prompts]]
+patterns = ["(?i)^.*(?:overwrite|over write).*\\[(?:y/n|yes/no)\\].*$"]
+append_newline = true
+record_input = false
+response = "{{overwrite_answer}}"

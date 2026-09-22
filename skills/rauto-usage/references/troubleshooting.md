@@ -39,7 +39,7 @@ rauto device test --connection <name> --force-autodetect
 
 - Validate required vars before execution.
 - For tx/workflow/orchestrate, validate JSON before submit.
-- For flow templates, verify runtime vars and connection alias values are present.
+- For interactive templates, verify runtime vars and connection alias values are present.
 - For unexpected multiline behavior, verify `multiline_mode`: `split_lines` is fail-fast per line, while `whole` submits the complete text once.
 
 ## 5) Config Change Safety

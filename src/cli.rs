@@ -5,7 +5,7 @@ pub(crate) mod config_fetch;
 pub(crate) mod discovery;
 pub(crate) mod discovery_tui;
 pub(crate) mod exec;
-pub(crate) mod flow;
+pub(crate) mod interactive;
 pub(crate) mod json_templates;
 pub(crate) mod multi_target;
 pub(crate) mod ops;

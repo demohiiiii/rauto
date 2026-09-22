@@ -5,8 +5,9 @@ use anyhow::{Result, anyhow};
 use rneter::{
     device::DeviceHandler,
     session::{
-        Command, CommandFlow, CommandFlowOutput, ConnectionRequest, ExecutionContext, MANAGER,
-        MultilineMode, Output, RetryPolicy, SessionRecordLevel, SessionRecorder, SshAuthMethod,
+        Command, CommandFlow as ExecutionSequence, CommandFlowOutput as ExecutionSequenceOutput,
+        ConnectionRequest, ExecutionContext, MANAGER, MultilineMode, Output, RetryPolicy,
+        SessionRecordLevel, SessionRecorder, SshAuthMethod,
     },
 };
 use tracing::{debug, error, info, warn};
@@ -245,17 +246,20 @@ impl DeviceClient {
     pub async fn execute_multiline_command_structured(
         &self,
         command: Command,
-    ) -> Result<CommandFlowOutput> {
-        self.execute_command_flow(command.into_flow()?).await
+    ) -> Result<ExecutionSequenceOutput> {
+        self.execute_sequence(command.into_flow()?).await
     }
 
-    pub async fn execute_command_flow(&self, flow: CommandFlow) -> Result<CommandFlowOutput> {
+    pub async fn execute_sequence(
+        &self,
+        sequence: ExecutionSequence,
+    ) -> Result<ExecutionSequenceOutput> {
         let result = match &self.recorder {
             Some(recorder) => {
                 MANAGER
                     .execute_command_flow_with_recorder_and_context(
                         self.request.clone(),
-                        flow,
+                        sequence,
                         self.context.clone(),
                         recorder.clone(),
                     )
@@ -265,13 +269,13 @@ impl DeviceClient {
                 MANAGER
                     .execute_command_flow_with_context(
                         self.request.clone(),
-                        flow,
+                        sequence,
                         self.context.clone(),
                     )
                     .await
             }
         };
-        result.map_err(|error| anyhow!("Command flow execution failed: {}", error))
+        result.map_err(|error| anyhow!("Command sequence execution failed: {}", error))
     }
 
     pub async fn execute(&self, command_str: &str, target_mode: Option<&str>) -> Result<String> {

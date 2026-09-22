@@ -5,7 +5,7 @@
   import { currentLanguageState, tr } from "$lib/i18n.js";
   import SendIcon from "@lucide/svelte/icons/send";
   import BoxesIcon from "@lucide/svelte/icons/boxes";
-  import LayersIcon from "@lucide/svelte/icons/layers";
+  import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import WorkflowIcon from "@lucide/svelte/icons/workflow";
   import NetworkIcon from "@lucide/svelte/icons/network";
   import HistoryIcon from "@lucide/svelte/icons/history";
@@ -57,8 +57,8 @@
   const navIconComponents: Record<string, typeof SearchIcon> = {
     show: SearchIcon,
     "config-fetch": FileDownIcon,
-    standard: SendIcon,
-    batch: LayersIcon,
+    command: SendIcon,
+    interactive: GitBranchIcon,
     "tx-block": BoxesIcon,
     "tx-workflow": WorkflowIcon,
     orchestrate: NetworkIcon,

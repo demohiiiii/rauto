@@ -4,7 +4,7 @@ use crate::web::state::RunningTaskGuard;
 use rneter::session::{ConnectionRequest as ManagerConnectionRequest, ExecutionContext};
 
 mod config_fetch;
-mod flow_upload;
+mod interactive_upload;
 mod orchestration;
 mod standard;
 mod tx;
@@ -12,7 +12,7 @@ mod tx_workflow;
 
 pub(crate) use config_fetch::execute_scheduled_config_batch;
 pub use config_fetch::{fetch_config, fetch_config_batch};
-pub use flow_upload::{execute_command_flow, execute_flow_batch, execute_upload};
+pub use interactive_upload::{execute_interactive, execute_interactive_batch, execute_upload};
 pub(crate) use orchestration::execute_scheduled_orchestration;
 pub use orchestration::{execute_orchestration, execute_orchestration_async};
 pub use standard::{

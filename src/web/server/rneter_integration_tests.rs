@@ -30,8 +30,8 @@ fn is_execution_endpoint(path: &str) -> bool {
             | "/api/exec/batch-execute"
             | "/api/template/execute"
             | "/api/template/execute/async"
-            | "/api/command-flow/execute"
-            | "/api/flow/batch-execute"
+            | "/api/interactive/execute"
+            | "/api/interactive/batch-execute"
             | "/api/show/execute"
             | "/api/show/batch-execute"
             | "/api/config/fetch"
@@ -339,18 +339,12 @@ where
     }
 }
 
-fn three_step_flow() -> &'static str {
-    r#"name = "http-test-flow"
-default_mode = "Enable"
+fn multiline_interactive() -> &'static str {
+    r#"name = "http-test-interactive"
+mode = "Enable"
 
-[[steps]]
-command = "show clock"
-
-[[steps]]
-command = "show inventory"
-
-[[steps]]
-command = "show interfaces"
+command = "show clock\nshow inventory\nshow interfaces"
+multiline_mode = "split_lines"
 "#
 }
 
@@ -499,6 +493,100 @@ fn assert_single_target_batch_success<'a>(body: &'a Value, target: &str) -> &'a 
 }
 
 #[test]
+fn http_interactive_templates_save_inspect_and_execute_prompts() {
+    run_route_test(|context| async move {
+        let persona = DevicePersona::builtin("cisco_ios").unwrap().with_challenge(
+            "copy image",
+            "Continue?",
+            "yes",
+        );
+        let device = context
+            .spawn_cisco_with("edge-a", persona, Vec::new(), Vec::new())
+            .await;
+        let content = r#"name = "copy-image"
+command = "copy {{source}}"
+mode = "Enable"
+timeout_secs = 5
+[[prompts]]
+patterns = ['Continue\?']
+response = "{{answer}}"
+append_newline = true
+record_input = false
+"#;
+        let inspection = context
+            .post_json(
+                "/api/interactive-templates/inspect",
+                json!({"content":content}),
+            )
+            .await;
+        let inspection = inspection.assert_ok();
+        assert_eq!(inspection["vars_schema"].as_array().unwrap().len(), 2);
+        assert!(
+            !inspection["content"]
+                .as_str()
+                .unwrap()
+                .contains("[[steps]]")
+        );
+        context
+            .post_json(
+                "/api/interactive-templates",
+                json!({"name":"copy-image", "content":content}),
+            )
+            .await
+            .assert_ok();
+        let saved = context
+            .get_json("/api/interactive-templates/copy-image")
+            .await;
+        assert!(
+            saved.assert_ok()["content"]
+                .as_str()
+                .unwrap()
+                .contains("[[prompts]]")
+        );
+        let mut cursor = 0;
+        for batch in [false, true] {
+            let (path, payload) = if batch {
+                (
+                    "/api/interactive/batch-execute",
+                    json!({"template_name":"copy-image", "vars":{"source":"image", "answer":"yes"}, "targets":[device.connection_name]}),
+                )
+            } else {
+                (
+                    "/api/interactive/execute",
+                    json!({"template_name":"copy-image", "vars":{"source":"image", "answer":"yes"}, "connection":{"connection_name":device.connection_name}}),
+                )
+            };
+            let response = context.post_json(path, payload).await;
+            let result = response.assert_ok();
+            assert_success_summary(result);
+            let outputs = if batch {
+                &result["results"][0]["outputs"]
+            } else {
+                &result["outputs"]
+            };
+            assert_eq!(outputs.as_array().unwrap().len(), 1);
+            assert_next_commands(&device.handle, &mut cursor, &["copy image", "yes"]);
+        }
+        let old = "name = \"old\"\n[[steps]]\ncommand = \"show version\"";
+        for path in [
+            "/api/interactive-templates/inspect",
+            "/api/interactive-templates",
+            "/api/interactive/execute",
+        ] {
+            let response = context.post_json(path, json!({"name":"old", "content":old,"connection":{"connection_name":device.connection_name}})).await;
+            assert_eq!(response.status, StatusCode::BAD_REQUEST);
+            assert!(
+                response.body["error"]["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("unsupported interactive command field: steps")
+            );
+        }
+        assert_next_commands(&device.handle, &mut cursor, &[]);
+    });
+}
+
+#[test]
 fn http_execution_routes_reach_rneter_virtual_device() {
     run_route_test(|context| async move {
         let device = context.spawn_cisco("edge-a", FaultInjection::new()).await;
@@ -519,18 +607,21 @@ fn http_execution_routes_reach_rneter_virtual_device() {
         assert_success_summary(exec_body);
         assert_next_commands(&device.handle, &mut command_cursor, &["show clock"]);
 
-        let flow = context
+        let interactive = context
             .post_json(
-                "/api/command-flow/execute",
+                "/api/interactive/execute",
                 json!({
-                    "content": three_step_flow(),
+                    "content": multiline_interactive(),
                     "connection": connection()
                 }),
             )
             .await;
-        let flow_body = flow.assert_ok();
-        assert_eq!(flow_body["outputs"].as_array().map(Vec::len), Some(3));
-        assert_success_summary(flow_body);
+        let interactive_body = interactive.assert_ok();
+        assert_eq!(
+            interactive_body["outputs"].as_array().map(Vec::len),
+            Some(3)
+        );
+        assert_success_summary(interactive_body);
         assert_next_commands(
             &device.handle,
             &mut command_cursor,
@@ -823,18 +914,18 @@ fn http_batch_routes_execute_every_saved_target() {
         assert_next_commands(&edge_a.handle, &mut edge_a_cursor, &["show clock"]);
         assert_next_commands(&edge_b.handle, &mut edge_b_cursor, &["show clock"]);
 
-        let flow = context
+        let interactive = context
             .post_json(
-                "/api/flow/batch-execute",
+                "/api/interactive/batch-execute",
                 json!({
-                    "content": three_step_flow(),
+                    "content": multiline_interactive(),
                     "targets": targets(),
                     "max_parallel": 2
                 }),
             )
             .await;
-        let flow_results = assert_batch_success(flow.assert_ok());
-        for result in flow_results {
+        let interactive_results = assert_batch_success(interactive.assert_ok());
+        for result in interactive_results {
             assert_eq!(result["success"], json!(true));
             assert!(result["error"].is_null());
             assert_eq!(result["outputs"].as_array().map(Vec::len), Some(3));
@@ -930,7 +1021,64 @@ fn http_batch_exec_reports_partial_success_when_one_target_disconnects() {
 }
 
 #[test]
-fn http_batch_flow_reports_partial_success_when_one_target_disconnects() {
+fn http_batch_command_templates_render_per_device_and_parse_each_command() {
+    run_route_test(|context| async move {
+        let edge_a = context.spawn_cisco("edge-a", FaultInjection::new()).await;
+        let edge_b = context.spawn_cisco("edge-b", FaultInjection::new()).await;
+        for (name, command) in [("edge-a", "show clock"), ("edge-b", "show version")] {
+            let mut saved = crate::config::connection_store::load_connection_raw(name).unwrap();
+            saved.vars = json!({"inspection_command": command});
+            save_connection(name, &saved).unwrap();
+        }
+        let response = context
+            .post_json(
+                "/api/exec/batch-execute",
+                json!({
+                    "template_content": "{{ inspection_command }}\n{{ extra }}",
+                    "vars": {"extra": "show version"},
+                    "targets": ["edge-b", "edge-a"],
+                    "multiline_mode": "split_lines",
+                    "parse_textfsm": true,
+                    "max_parallel": 2
+                }),
+            )
+            .await;
+        let body = response.assert_ok();
+        assert_batch_success(body);
+        let results = body["results"].as_array().unwrap();
+        assert_eq!(results[0]["command"], "show clock\nshow version");
+        assert_eq!(results[1]["command"], "show version\nshow version");
+        for result in results {
+            let outputs = result["outputs"].as_array().unwrap();
+            assert_eq!(outputs.len(), 2);
+            assert_eq!(outputs[1]["command"], "show version");
+            assert!(outputs[1]["parsed_output"].is_array());
+            assert!(outputs[1]["parse_error"].is_null());
+        }
+        assert_eq!(command_attempts(&edge_a.handle, "show clock"), 1);
+        assert_eq!(command_attempts(&edge_b.handle, "show clock"), 0);
+        assert_eq!(command_attempts(&edge_b.handle, "show version"), 2);
+    });
+}
+
+#[test]
+fn http_batch_command_template_precheck_failure_prevents_all_execution() {
+    run_route_test(|context| async move {
+        let edge_a = context.spawn_cisco("edge-a", FaultInjection::new()).await;
+        let edge_b = context.spawn_cisco("edge-b", FaultInjection::new()).await;
+        let response = context.post_json("/api/exec/batch-execute", json!({
+            "template_content": "{% if connection.name == 'edge-b' %}{{ missing_function() }}{% else %}show clock{% endif %}",
+            "targets": ["edge-a", "edge-b"]
+        })).await;
+        assert_eq!(response.status, StatusCode::BAD_REQUEST);
+        assert!(response.body.to_string().contains("edge-b"));
+        assert_eq!(command_attempts(&edge_a.handle, "show clock"), 0);
+        assert_eq!(command_attempts(&edge_b.handle, "show clock"), 0);
+    });
+}
+
+#[test]
+fn http_batch_interactive_reports_partial_success_when_one_target_disconnects() {
     run_route_test(|context| async move {
         let edge_a = context.spawn_cisco("edge-a", FaultInjection::new()).await;
         let edge_b = context
@@ -941,9 +1089,9 @@ fn http_batch_flow_reports_partial_success_when_one_target_disconnects() {
             .await;
         let response = context
             .post_json(
-                "/api/flow/batch-execute",
+                "/api/interactive/batch-execute",
                 json!({
-                    "content": three_step_flow(),
+                    "content": multiline_interactive(),
                     "targets": ["edge-b", "edge-a"],
                     "max_parallel": 2
                 }),
@@ -1192,7 +1340,7 @@ fn http_batch_exec_propagates_retry_options() {
 }
 
 #[test]
-fn http_batch_flow_propagates_retry_options_and_resumes() {
+fn http_batch_interactive_propagates_retry_options_and_resumes() {
     run_route_test(|context| async move {
         let device = context
             .spawn_cisco(
@@ -1202,9 +1350,9 @@ fn http_batch_flow_propagates_retry_options_and_resumes() {
             .await;
         let response = context
             .post_json(
-                "/api/flow/batch-execute",
+                "/api/interactive/batch-execute",
                 json!({
-                    "content": three_step_flow(),
+                    "content": multiline_interactive(),
                     "targets": [device.connection_name],
                     "retry": retry_once_without_backoff()
                 }),
@@ -1500,7 +1648,7 @@ fn http_batch_show_deduplicates_and_sorts_multiple_objects() {
 }
 
 #[test]
-fn http_flow_retry_resumes_at_first_unfinished_step() {
+fn http_interactive_retry_resumes_at_first_unfinished_step() {
     run_route_test(|context| async move {
         let device = context
             .spawn_cisco(
@@ -1510,9 +1658,9 @@ fn http_flow_retry_resumes_at_first_unfinished_step() {
             .await;
         let response = context
             .post_json(
-                "/api/command-flow/execute",
+                "/api/interactive/execute",
                 json!({
-                    "content": three_step_flow(),
+                    "content": multiline_interactive(),
                     "retry": {
                         "max_retries": 1,
                         "initial_backoff_ms": 0,
@@ -1527,7 +1675,7 @@ fn http_flow_retry_resumes_at_first_unfinished_step() {
         assert_success_summary(body);
         let outputs = body["outputs"]
             .as_array()
-            .expect("flow outputs should be an array");
+            .expect("interactive outputs should be an array");
         assert_eq!(outputs.len(), 3);
         assert!(
             outputs
@@ -1548,7 +1696,7 @@ fn http_flow_retry_resumes_at_first_unfinished_step() {
 }
 
 #[test]
-fn http_flow_retry_exhaustion_stops_before_later_steps() {
+fn http_interactive_retry_exhaustion_stops_before_later_steps() {
     run_route_test(|context| async move {
         let device = context
             .spawn_cisco(
@@ -1558,9 +1706,9 @@ fn http_flow_retry_exhaustion_stops_before_later_steps() {
             .await;
         let response = context
             .post_json(
-                "/api/command-flow/execute",
+                "/api/interactive/execute",
                 json!({
-                    "content": three_step_flow(),
+                    "content": multiline_interactive(),
                     "retry": retry_once_without_backoff(),
                     "connection": { "connection_name": device.connection_name }
                 }),
@@ -1569,14 +1717,14 @@ fn http_flow_retry_exhaustion_stops_before_later_steps() {
 
         assert!(
             !response.status.is_success(),
-            "retry-exhausted flow unexpectedly succeeded: {}",
+            "retry-exhausted interactive unexpectedly succeeded: {}",
             response.body
         );
         assert!(
             response.body["error"]["message"]
                 .as_str()
                 .is_some_and(|error| !error.trim().is_empty()),
-            "retry-exhausted flow should return a useful error: {}",
+            "retry-exhausted interactive should return a useful error: {}",
             response.body
         );
         let mut cursor = 0;

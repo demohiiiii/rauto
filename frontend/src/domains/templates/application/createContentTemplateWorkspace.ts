@@ -102,8 +102,8 @@ export function createContentTemplateWorkspace({
   async function inspectSelectedContent(
     session: TemplateContentSession,
   ): Promise<void> {
-    if (session.kind === TEMPLATE_MANAGER_KIND.flow) {
-      const inspection = await api.inspectCommandFlowTemplate(session.content);
+    if (session.kind === TEMPLATE_MANAGER_KIND.interactive) {
+      const inspection = await api.inspectInteractiveTemplate(session.content);
       session.varsSchema = inspection.vars_schema;
       return;
     }
@@ -251,7 +251,7 @@ export function createContentTemplateWorkspace({
     if (inspectionTimer) clearTimeout(inspectionTimer);
     if (
       session.kind !== TEMPLATE_MANAGER_KIND.command &&
-      session.kind !== TEMPLATE_MANAGER_KIND.flow
+      session.kind !== TEMPLATE_MANAGER_KIND.interactive
     ) {
       session.varsSchema = [];
       publish();
@@ -261,8 +261,8 @@ export function createContentTemplateWorkspace({
     inspectionTimer = setTimeout(async () => {
       try {
         const inspection =
-          session.kind === TEMPLATE_MANAGER_KIND.flow
-            ? await api.inspectCommandFlowTemplate(content)
+          session.kind === TEMPLATE_MANAGER_KIND.interactive
+            ? await api.inspectInteractiveTemplate(content)
             : await api.inspectCommandTemplate(content);
         if (version !== inspectionVersion || session.content !== content)
           return;

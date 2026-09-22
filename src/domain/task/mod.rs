@@ -20,7 +20,7 @@ pub use summary::{
 pub enum TaskOperation {
     Exec,
     TemplateExecute,
-    CommandFlow,
+    Interactive,
     Upload,
     TxBlock,
     TxWorkflow,
@@ -33,7 +33,7 @@ impl TaskOperation {
         match self {
             Self::Exec => "exec",
             Self::TemplateExecute => "template_execute",
-            Self::CommandFlow => "command_flow",
+            Self::Interactive => "interactive",
             Self::Upload => "upload",
             Self::TxBlock => "tx_block",
             Self::TxWorkflow => "tx_workflow",

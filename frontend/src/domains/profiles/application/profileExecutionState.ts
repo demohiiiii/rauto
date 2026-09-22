@@ -27,7 +27,7 @@ export const MODE_SELECT = Object.freeze({
   batchExec: "batchExec",
   showSingle: "showSingle",
   standardDirect: "standardDirect",
-  standardFlow: "standardFlow",
+  standardInteractive: "standardInteractive",
   standardTemplate: "standardTemplate",
 });
 const MODE_SELECT_KEYS = new Set<string>(Object.values(MODE_SELECT));
@@ -201,7 +201,7 @@ async function refreshExecutionModeOptions(
     [string, keyof ProfileModeOverrides, ModeSelectConfig?]
   > = [
     [MODE_SELECT.standardDirect, "execMode"],
-    [MODE_SELECT.standardFlow, "flowMode"],
+    [MODE_SELECT.standardInteractive, "interactiveMode"],
     [MODE_SELECT.standardTemplate, "templateMode"],
     [MODE_SELECT.batchExec, "batchExecMode", autoModeSelect],
     [MODE_SELECT.showSingle, "showMode", autoModeSelect],

@@ -28,6 +28,17 @@ test("dashboard routes normalize paths and ids through the domain model", () => 
   assert.equal(routeByPath("/missing"), defaultDashboardRoute);
 });
 
+test("delivery routes are organized by command kind and retain existing entry URLs", () => {
+  assert.equal(routeById("command")?.path, "/app/command");
+  assert.equal(routeById("interactive")?.path, "/app/interactive");
+  assert.equal(routeByPath("/app/command").tab, "command");
+  assert.equal(routeByPath("/app/interactive").tab, "interactive");
+  assert.equal(routeByPath("/app/standard").tab, "command");
+  assert.equal(routeByPath("/app/batch").tab, "command");
+  assert.equal(routeById("standard"), null);
+  assert.equal(routeById("batch"), null);
+});
+
 test("dashboard startup populates query groups and labels without visiting inventory", async (t) => {
   setConnectionInventorySnapshots();
   t.after(() => setConnectionInventorySnapshots());

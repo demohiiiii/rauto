@@ -1,16 +1,13 @@
 <script lang="ts">
-  import * as Card from "$lib/components/ui/card";
   import ExecutionResultMeta from "$components/fragments/ExecutionResultMeta.svelte";
   import ExecutionResultsPanel from "$components/fragments/ExecutionResultsPanel.svelte";
+  import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";
   import OutputBlock from "$components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "$components/fragments/ParsedOutputBlock.svelte";
   import SessionRetryFields from "$components/fragments/SessionRetryFields.svelte";
   import TabList from "$components/fragments/TabList.svelte";
-  import CommandOutputDownloadControl from "$components/fragments/CommandOutputDownloadControl.svelte";
   import TextfsmControls from "$components/fragments/TextfsmControls.svelte";
-  import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
-  import SearchIcon from "@lucide/svelte/icons/search";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import { createSingleShowPanelWorkspace } from "../../application/createShowWorkspaces.js";
@@ -22,28 +19,13 @@
   type PanelWorkspace = ReturnType<typeof createSingleShowPanelWorkspace>;
   type PanelDisplay = StoreValue<PanelWorkspace["panelDisplayStateStore"]>;
 
-  interface Props {
-    active: boolean;
-    currentTab?: string;
-    onSelectQuery: (query: string) => void | Promise<void>;
-    queryAriaLabel?: string;
-    tabItems?: Array<{ label?: string; labelKey?: string; value: string }>;
-  }
-
-  let {
-    active,
-    currentTab = "",
-    onSelectQuery,
-    queryAriaLabel = "",
-    tabItems = [],
-  }: Props = $props();
+  let { active }: { active: boolean } = $props();
   const singleShowPanelWorkspace = createSingleShowPanelWorkspace();
   let i18nCurrentLanguage = $derived($currentLanguageState);
   let i18nLabels = $derived.by(() => {
     i18nCurrentLanguage;
     return {
-      configTitle: t("showPanelConfigTitle"),
-      configHint: t("showPanelConfigHint"),
+      runTitle: t("showPanelConfigTitle"),
       footerHint: t("showFooterHint"),
       downloadOutput: t("downloadCommandOutput"),
       resultsHint: t("showResultsHint"),
@@ -141,69 +123,42 @@
 {/snippet}
 
 <div class="flex flex-col gap-3" hidden={!active}>
-  <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
-    <WorkspaceActionHeader
-      title={i18nLabels.configTitle}
-      description={i18nLabels.configHint}
-      icon={SearchIcon}
-    >
-      {#snippet actions()}
-        <TabList
-          {tabItems}
-          activeValue={currentTab}
-          aria-label={queryAriaLabel}
-          themeAware={true}
-          onSelect={onSelectQuery}
-        />
-      {/snippet}
-    </WorkspaceActionHeader>
-    <Card.Content class="flex flex-col gap-5 p-4 sm:p-5">
-      <ShowObjectSelectionPanel
-        onModeChange={changeShowObjectMode}
-        onObjectChange={changeShowObject}
-        {selectionDisplay}
-        {showSelectionFields}
+  <div class="flex min-w-0 flex-col gap-5 p-4 sm:p-5">
+    <ShowObjectSelectionPanel
+      onModeChange={changeShowObjectMode}
+      onObjectChange={changeShowObject}
+      {selectionDisplay}
+      {showSelectionFields}
+    />
+
+    {#if active}
+      <TextfsmControls
+        hintKey="textfsmParseHint"
+        includeTemplateInput={false}
+        onEnabledChange={textfsmActionHandlers.enabledChange}
+        onAutoDownloadExcelChange={textfsmActionHandlers.autoDownloadExcelChange}
+        onStrictErrorsChange={textfsmActionHandlers.strictErrorsChange}
+        textfsmFields={showTextfsmFields}
       />
+    {/if}
 
-      {#if active}
-        <CommandOutputDownloadControl
-          checked={showTextfsmFields.autoDownloadOutput}
-          onCheckedChange={textfsmActionHandlers.autoDownloadOutputChange}
-        />
-        <TextfsmControls
-          hintKey="textfsmParseHint"
-          includeTemplateInput={false}
-          onEnabledChange={textfsmActionHandlers.enabledChange}
-          onAutoDownloadExcelChange={textfsmActionHandlers.autoDownloadExcelChange}
-          onStrictErrorsChange={textfsmActionHandlers.strictErrorsChange}
-          textfsmFields={showTextfsmFields}
-        />
-      {/if}
+    <SessionRetryFields
+      idPrefix="single-show-session-retry"
+      value={retryState}
+      onChange={changeSessionRetry}
+    />
 
-      <SessionRetryFields
-        idPrefix="single-show-session-retry"
-        value={retryState}
-        onChange={changeSessionRetry}
-      />
-
-      <div
-        class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3"
-      >
-        <p class="text-xs text-muted-foreground">
-          {i18nLabels.footerHint}
-        </p>
-        <LoadingButton
-          variant="default"
-          size="lg"
-          loading={showRunButtonDisplay.executeLoading}
-          disabled={!singleShowPanelDisplay.retryValid}
-          onclick={executeSingleShow}
-        >
-          <span>{showRunButtonDisplay.executeButtonLabel}</span>
-        </LoadingButton>
-      </div>
-    </Card.Content>
-  </Card.Root>
+    <ExecutionRunBar
+      autoDownloadOutput={showTextfsmFields.autoDownloadOutput}
+      onAutoDownloadOutputChange={textfsmActionHandlers.autoDownloadOutputChange}
+      title={i18nLabels.runTitle}
+      hint={i18nLabels.footerHint}
+      buttonLabel={showRunButtonDisplay.executeButtonLabel}
+      loading={showRunButtonDisplay.executeLoading}
+      disabled={!singleShowPanelDisplay.retryValid}
+      onRun={executeSingleShow}
+    />
+  </div>
 
   {#if singleShowResults.resultCount || singleShowResults.statusMessage}
     <ExecutionResultsPanel

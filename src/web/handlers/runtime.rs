@@ -1,11 +1,10 @@
 use super::*;
 
-mod command_flow;
 mod context;
 mod history;
+mod interactive;
 mod tx;
 
-pub(crate) use command_flow::{load_command_flow_template_from_input, resolve_flow_runtime_vars};
 pub(crate) use context::{
     WebTextfsmParseOptions, build_json_template_context, load_json_template_from_input,
     parse_textfsm_output_optional, render_commands_with_runtime_context,
@@ -15,6 +14,9 @@ pub(crate) use context::{
 pub(crate) use history::{
     normalize_recording_jsonl_for_web_level, persist_history_if_recorded, persist_history_jsonl,
     record_level_name, resolve_effective_mode, to_cli_record_level, to_record_level,
+};
+pub(crate) use interactive::{
+    load_interactive_template_from_input, resolve_interactive_connection_vars,
 };
 pub(crate) use tx::{
     build_tx_block_from_request, resolve_tx_block_request_from_template,

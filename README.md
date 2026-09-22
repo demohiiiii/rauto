@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/public/rauto-icon.svg" alt="rauto icon" width="112" />
+<img src="frontend/public/favicon.svg" alt="rauto icon" width="112" />
 
 # rauto
 
@@ -57,7 +57,7 @@ rauto web --bind 127.0.0.1 --port 3000
   - [Command Selection Guide](#command-selection-guide)
   - [Template Mode](#template-mode)
   - [Direct Execution](#direct-execution)
-  - [Command Flow Templates](#command-flow-templates)
+  - [Interactive Templates](#interactive-templates)
   - [SFTP Upload](#sftp-upload)
   - [Configuration Fetch](#configuration-fetch)
   - [Scheduled Jobs](#scheduled-jobs)
@@ -98,7 +98,7 @@ rauto web --bind 127.0.0.1 --port 3000
 - **SSH Security Profiles**: Choose `secure`, `balanced`, or `legacy-compatible` per target; the default is `legacy-compatible`.
 - **Device Management Groups & Labels**: Organize saved connections with reusable grouping metadata.
 - **Session Recording & Replay**: Record SSH sessions to JSONL and replay offline.
-- **Reusable Command Flow Templates**: Execute wizard-style interactive CLI workflows from saved TOML templates, including device-side file transfer, guided installers, or confirmation-heavy operational sequences.
+- **Reusable Interactive Templates**: Execute wizard-style interactive CLI workflows from saved TOML templates, including device-side file transfer, guided installers, or confirmation-heavy operational sequences.
 - **Reusable Execution Templates**: Save tx block / workflow / orchestration JSON as reusable templates with variable rendering.
 - **SFTP Upload**: Upload local files directly to SSH hosts that expose an `sftp` subsystem.
 - **Data Backup & Restore**: Backup full `~/.rauto` runtime data and restore when needed.
@@ -106,7 +106,7 @@ rauto web --bind 127.0.0.1 --port 3000
 - **Agent Mode**: Run `rauto agent` for manager registration, heartbeat, protected APIs, and task callbacks.
 - **Multi-device Orchestration (Web + CLI)**: Run staged serial/parallel plans across multiple devices, reusing saved connections and current `tx` / `tx-workflow` capabilities.
 - **Command Blacklist**: Block dangerous commands globally before they are sent, with `*` wildcard support.
-- **Parallel Multi-target Execution**: Fan out `show`, `exec`, and `flow` across saved connections, inventory groups, and labels with bounded concurrency (`--max-parallel`, default 4) and precheck-before-execute safety.
+- **Parallel Multi-target Execution**: Fan out `show`, `exec`, and `interactive` across saved connections, inventory groups, and labels with bounded concurrency (`--max-parallel`, default 4) and precheck-before-execute safety.
 - **Configuration Fetch**: Pull `running`/`startup` configs with per-profile commands, raw + normalized SHA-256 hashes for drift detection, timestamped file archiving, and batch APIs for manager integration.
 
 ## Installation
@@ -155,17 +155,17 @@ Add `--global` for a user-level installation or `--agent <agent>` to select a sp
 
 ### Command Selection Guide
 
-| If you need to...                            | Use                 | Notes                                                                              |
-| -------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------- |
-| Run one command immediately                  | `rauto exec`        | Best for direct ad-hoc commands; optional `--mode` narrows the target prompt/mode. |
-| Run a configured show object by profile      | `rauto show`        | Maps objects like `interfaces` or `route` to the right device command.             |
-| Render a reusable command template with vars | `rauto template`    | Best when command text should come from stored Jinja templates.                    |
-| Drive interactive prompt/response flows      | `rauto flow`        | Best for wizard-like CLI exchanges, copy dialogs, and confirmation-heavy steps.    |
-| Upload a local file over remote SFTP         | `rauto upload`      | Requires the SSH server to expose an `sftp` subsystem.                             |
+| If you need to...                            | Use                     | Notes                                                                                |
+| -------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------ |
+| Run one command immediately                  | `rauto exec`            | Best for direct ad-hoc commands; optional `--mode` narrows the target prompt/mode.   |
+| Run a configured show object by profile      | `rauto show`            | Maps objects like `interfaces` or `route` to the right device command.               |
+| Render a reusable command template with vars | `rauto template`        | Best when command text should come from stored Jinja templates.                      |
+| Drive interactive prompt/response flows      | `rauto interactive`     | Best for wizard-like CLI exchanges, copy dialogs, and confirmation-heavy steps.      |
+| Upload a local file over remote SFTP         | `rauto upload`          | Requires the SSH server to expose an `sftp` subsystem.                               |
 | Discover SSH devices on a network            | `rauto device discover` | Verifies SSH identification, probes device profiles, and persists the latest result. |
-| Execute one rollback-aware transaction block | `rauto tx`          | Best for one target with step rollback or resource rollback semantics.             |
-| Execute a multi-step workflow from JSON      | `rauto tx-workflow` | Best when a transaction is modeled as named blocks/stages in a workflow file.      |
-| Execute a multi-device staged plan           | `rauto orchestrate` | Best for serial/parallel rollout plans across many saved connections.              |
+| Execute one rollback-aware transaction block | `rauto tx`              | Best for one target with step rollback or resource rollback semantics.               |
+| Execute a multi-step workflow from JSON      | `rauto tx-workflow`     | Best when a transaction is modeled as named blocks/stages in a workflow file.        |
+| Execute a multi-device staged plan           | `rauto orchestrate`     | Best for serial/parallel rollout plans across many saved connections.                |
 
 ### Template Mode
 
@@ -259,14 +259,14 @@ rauto show interfaces --no-parse
 
 Linux profiles also provide common inspection objects in both CLI and Web:
 
-| Inspection | Show objects |
-| --- | --- |
-| System and load | `hostname`, `kernel`, `uptime`, `clock`, `cpu` |
-| Memory | `memory`, `memory-info`, `vm-statistics` |
-| Storage | `disk`, `disk-inodes`, `block-devices`, `mounts` |
-| Processes and sessions | `top`, `processes`, `processes-cpu`, `processes-memory`, `users` |
-| Network | `interfaces`, `interface-brief`, `interface-statistics`, `route`, `route-ipv6`, `arp`, `ports`, `socket-summary`, `dns` |
-| Services and logs | `services`, `services-failed`, `timers`, `time-sync`, `kernel-log`, `logs` |
+| Inspection             | Show objects                                                                                                            |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| System and load        | `hostname`, `kernel`, `uptime`, `clock`, `cpu`                                                                          |
+| Memory                 | `memory`, `memory-info`, `vm-statistics`                                                                                |
+| Storage                | `disk`, `disk-inodes`, `block-devices`, `mounts`                                                                        |
+| Processes and sessions | `top`, `processes`, `processes-cpu`, `processes-memory`, `users`                                                        |
+| Network                | `interfaces`, `interface-brief`, `interface-statistics`, `route`, `route-ipv6`, `arp`, `ports`, `socket-summary`, `dns` |
+| Services and logs      | `services`, `services-failed`, `timers`, `time-sync`, `kernel-log`, `logs`                                              |
 
 `top` captures one batch snapshot; `vm-statistics` takes two samples one second apart (the first reports averages since boot). Process queries show executable names without command-line arguments. Service, timer, time-sync, and log queries require systemd. Log queries require the `Root` mode and return at most 100 entries; `logs` selects warning and more severe messages. Other new objects use the existing `Root|User` modes and require the corresponding utilities on the target. Objects without a bundled TextFSM template still return raw output with a parse diagnostic; use `--no-parse` (or disable parsing in Web) for these queries, or bind a custom template for structured output.
 
@@ -308,15 +308,15 @@ rauto show-object delete --profile my_custom_profile --object access-list
 
 ### TextFSM Parse
 
-`show`, `exec`, `template`, and `flow` can parse command output with TextFSM after execution.
+`show`, `exec`, `template`, and `interactive` can parse command output with TextFSM after execution.
 
 - `show` enables TextFSM parsing by default. Pass `--no-parse` to print raw output only.
 - Parsing is off by default. Pass `--parse-textfsm` to enable TextFSM parsing.
 - Manual parsing: pass `--textfsm-template <path>` to use a specific TextFSM template file. This has the highest priority.
-- Multi-command parsing: `template` and `flow` can repeat `--textfsm-template <path>` to match template files by command order. If fewer template files are provided than commands, the last template file is reused for the remaining commands.
+- Multi-command parsing: `template` and `interactive` can repeat `--textfsm-template <path>` to match template files by command order. If fewer template files are provided than commands, the last template file is reused for the remaining commands.
 - Platform selection: when parsing is enabled, `rauto` infers the [ntc-templates](https://github.com/networktocode/ntc-templates) platform from the resolved device profile, for example `cisco_ios`, `huawei -> huawei_vrp`, or `cisco_xe -> cisco_ios`.
 - Lenient NTC parsing: by default, `rauto` filters TextFSM fallback rules such as `^. -> Error` before parsing, which avoids failing the whole parse when a template does not match a non-essential line. Pass `--textfsm-strict-errors` to keep those Error rules.
-- Excel export: pass `--textfsm-excel <file.xlsx>` to export successful parsed rows to an Excel workbook. This also enables TextFSM parsing for `exec`, `template`, and `flow`.
+- Excel export: pass `--textfsm-excel <file.xlsx>` to export successful parsed rows to an Excel workbook. This also enables TextFSM parsing for `exec`, `template`, and `interactive`.
 - If parsing is disabled and no manual template is provided, only raw output is shown.
 - Parsing never blocks execution. If parsing fails, raw output is still returned and the parse error is reported separately.
 
@@ -381,54 +381,54 @@ rauto textfsm mapping set \
     --template my_show_version
 ```
 
-### Command Flow Templates
+### Interactive Templates
 
-`rauto flow` executes a saved or ad-hoc interactive `CommandFlow` template. This is the generic abstraction for wizard-like CLI work: device-side file transfer, guided installers, feature selection prompts, or any multi-step prompt/response exchange that should stay reusable.
+`rauto interactive` executes one command definition with multiple prompt/response rules, for file transfers, installers, and confirmation prompts. Compose multiple operations in transaction workflows.
 
 Manage saved templates:
 
 ```bash
-rauto flow-template list
-rauto flow-template show cisco_like_copy
-rauto flow-template create cisco_like_copy --file ./templates/examples/cisco-like-command-flow.toml
-rauto flow-template create linux_scp_with_current_and_peer --file ./templates/examples/linux-scp-with-current-and-peer-command-flow.toml
-rauto flow-template update cisco_like_copy --file ./my-flow-template.toml
-rauto flow-template delete cisco_like_copy
+rauto interactive-template list
+rauto interactive-template show cisco_like_copy
+rauto interactive-template create cisco_like_copy --file ./templates/examples/cisco-like-interactive.toml
+rauto interactive-template create linux_scp_with_current_and_peer --file ./templates/examples/linux-scp-with-current-and-peer-interactive.toml
+rauto interactive-template update cisco_like_copy --file ./my-interactive-template.toml
+rauto interactive-template delete cisco_like_copy
 ```
 
 Execute a saved template with runtime variables:
 
 ```bash
-rauto flow \
+rauto interactive \
     --template cisco_like_copy \
     --vars-json '{"command":"copy scp: flash:/new.bin","server_addr":"192.168.1.50","remote_path":"/images/new.bin","transfer_username":"backup","transfer_password":"secret","overwrite_answer":"y"}' \
     --connection core-01
 ```
 
-Command flows support the same multi-target fan-out as `show` and `exec`. The flow template is rendered per target with that device's own connection context (so `{{host}}` and cross-connection references resolve per device), prechecked against the command blacklist per rendered step, then executed concurrently:
+Interactive commands support the same multi-target fan-out as `show` and `exec`. The interactive template is rendered per target with that device's own connection context (so `{{host}}` and cross-connection references resolve per device), prechecked against the command blacklist per rendered step, then executed concurrently:
 
 ```bash
-rauto flow \
+rauto interactive \
     --template push-snmp \
     --vars-json '{"community":"ro"}' \
     --label campus \
     --max-parallel 4
 ```
 
-The web UI runs batch flows on the **Batch Delivery** page (flow tab), and integrations can call `POST /api/flow/batch-execute` (or the agent gRPC `ExecuteFlowBatch` method) with the same per-target rendering and precheck semantics.
+The web UI runs batches under **Interactive → Batch**, and integrations can call `POST /api/interactive/batch-execute` (or the agent gRPC `ExecuteInteractiveBatch` method) with the same per-target rendering and precheck semantics.
 
 Notes:
 
-- `rauto flow` is the preferred way to run interactive command flows from the CLI.
-- Saved flow templates live in SQLite and are reused by both CLI and Web.
-- Built-in flow templates are exposed via `/api/flow-templates/builtins`; execution accepts `--template builtin:<name>` (CLI) or `builtin:<name>` values in Web selectors.
-- Flow templates follow rneter's current inline `{{var}}` `CommandFlowTemplate` model and execute steps linearly with prompt-driven interactions.
+- `rauto interactive` is the preferred way to run interactive commands from the CLI.
+- Saved interactive command templates live in SQLite and are reused by both CLI and Web.
+- Built-in interactive command templates are exposed via `/api/interactive-templates/builtins`; execution accepts `--template builtin:<name>` (CLI) or `builtin:<name>` values in Web selectors.
+- Templates use a top-level `command` and `[[prompts]]`, with `{{var}}` references. Legacy `steps`, `default_mode`, and `stop_on_error` fields are rejected; old templates are not converted.
 - Runtime variables are merged into the template render context under both their top-level names and a nested `vars` object.
 - Runtime var references support both `connection_name.param_name` (cross-connection lookup) and plain `param_name` (request vars first, then current target connection fallback).
-- Command flow template inputs are inferred from `{{var}}` references and must be supplied at runtime. Dotted references such as `{{peer.host}}` produce one root input named `peer`.
+- Interactive command template inputs are inferred from `{{var}}` references and must be supplied at runtime. Dotted references such as `{{peer.host}}` produce one root input named `peer`.
 - The selected execution target is available through flat fields such as `{{host}}`, `{{username}}`, and `{{password}}`; no current-connection alias declaration is required.
 - For alias-to-connection usage, set one runtime var to a saved connection name (for example `peer=edge94`) and reference `{{peer.host}}`/`{{peer.username}}`/`{{peer.password}}` directly in the template.
-- If a step omits `mode`, `rauto` uses the first mode defined by the selected device profile.
+- If `mode` is omitted, the selected device profile supplies its default mode.
 - Every execution records a session by default.
 - `--record-level key-events-only` keeps the audit-friendly minimum: input commands and device output.
 - `--record-level full` also captures richer prompt and state-transition details.
@@ -436,22 +436,24 @@ Notes:
 
 #### Multiline command submission
 
-Structured commands always serialize `multiline_mode` explicitly. Use `split_lines` to execute each non-empty trimmed line as an independent command, or `whole` to preserve the original text and submit it once. Missing legacy fields remain compatible and normalize to `split_lines`.
+Structured commands always serialize `multiline_mode` explicitly. Use `split_lines` to execute each non-empty trimmed line as an independent command, or `whole` to preserve the original text and submit it once. The default is `split_lines`.
 
 `split_lines` is fail-fast: after the first failed concrete command, later lines are not executed.
 
-Command-flow TOML:
+Interactive command TOML:
 
 ```toml
-[[steps]]
-mode = "Config"
-command = "interface Gi0/1\nno shutdown"
+name = "copy-image"
+command = "copy {{source}} flash:"
+mode = "Enable"
+timeout_secs = 300
 multiline_mode = "split_lines"
 
-[[steps]]
-mode = "Shell"
-command = "cat <<'EOF'\nline one\nline two\nEOF"
-multiline_mode = "whole"
+[[prompts]]
+patterns = ['(?i)continue\?']
+response = "yes"
+append_newline = true
+record_input = false
 ```
 
 Transaction JSON commands, including rollback commands, use the same field:
@@ -467,15 +469,15 @@ Transaction JSON commands, including rollback commands, use the same field:
 
 `POST /api/exec` accepts the same `multiline_mode`. Its existing top-level `output` and `exit_code` remain available, while `outputs` contains one result per concrete command produced by multiline expansion.
 
-Ready-to-edit sample flow template:
+Ready-to-edit sample interactive template:
 
-- [templates/examples/cisco-like-command-flow.toml](templates/examples/cisco-like-command-flow.toml)
-- [templates/examples/linux-scp-with-current-and-peer-command-flow.toml](templates/examples/linux-scp-with-current-and-peer-command-flow.toml)
+- [templates/examples/cisco-like-interactive.toml](templates/examples/cisco-like-interactive.toml)
+- [templates/examples/linux-scp-with-current-and-peer-interactive.toml](templates/examples/linux-scp-with-current-and-peer-interactive.toml)
 
-Example: run Linux SCP flow with only one peer var
+Example: run an interactive Linux SCP command with only one peer var
 
 ```bash
-rauto flow \
+rauto interactive \
     --template linux_scp_with_current_and_peer \
     --connection edge92 \
     --vars-json '{"peer":"edge94","local_path":"/tmp/app.tar","remote_path":"/tmp/app.tar"}'
@@ -483,9 +485,9 @@ rauto flow \
 
 ### SFTP Upload
 
-`rauto upload` is different from `rauto flow` with a built-in file transfer template:
+`rauto upload` is different from `rauto interactive` with a built-in file transfer template:
 
-- `rauto flow` can drive interactive device-side `copy scp:` / `copy tftp:` flows through a saved or built-in command flow template.
+- `rauto interactive` can drive interactive device-side `copy scp:` / `copy tftp:` flows through a saved or built-in interactive command template.
 - `rauto upload` uploads a local file directly over the remote SSH server's `sftp` subsystem.
 
 Use `rauto upload` when the target host exposes SFTP, which is common on Linux hosts and uncommon on many network devices.
@@ -621,7 +623,7 @@ When you create or customize a device profile, prefer reusing established mode n
 
 Benefits of following these names:
 
-- Keeps `exec --mode`, `tx --mode`, and flow step `mode` values consistent across vendors.
+- Keeps `exec --mode`, `tx --mode`, and interactive command `mode` values consistent across vendors.
 - Makes examples, templates, and operator habits easier to reuse without remembering profile-specific naming differences.
 - Makes default-mode fallback and mode validation behavior easier to understand when switching between built-in and custom profiles.
 - Reduces surprise when reading recordings, tx results, orchestration plans, or troubleshooting mode-related failures.
@@ -746,14 +748,14 @@ Web console key capabilities:
 
 - Manage reusable device credentials in the standalone `Credential Management` page. Password values are never returned to the browser after saving.
 - Manage saved connections in UI: add, load, update, delete, and inspect details.
-- Run one command or one command flow across many saved connections, groups, or labels on the dedicated `Batch Delivery` page, with per-device result cards and a concurrency control.
+- Run one command or one interactive command across many saved connections, groups, or labels under the `Batch` tab of `Command Delivery` or `Interactive`, with per-device result cards and a concurrency control.
 - Select a credential for saved and temporary connections instead of entering authentication fields on each connection.
 - Download a CSV import template and import saved connections from CSV / Excel in UI.
 - Choose SSH security profile in UI connection defaults and saved connections: `secure`, `balanced`, or `legacy-compatible`.
-- Run commands, command flows, tx blocks, tx workflows, and orchestration from `Operations`.
+- Run commands, interactive commands, tx blocks, tx workflows, and orchestration from `Operations`.
 - The command workbench accepts manual content or displays a read-only rendered preview of a saved command template, with its variable inputs above the commands. Variable inspection uses Jinja syntax and scopes, including filters, conditions, loops, macros, and indexing; object and array inputs can use the JSON field type. It inspects the selected template's source, without expanding referenced templates or computed field names.
 - Manual and imported commands share `{{var}}` inputs, rendered preview, TextFSM parsing, and multiline submission controls; the execution page never overwrites the saved template.
-- Manage profiles, command templates, and command flow templates in `Template Manager`.
+- Manage profiles, command templates, and interactive command templates in `Template Manager`.
 - Organize saved connections in `Device Management` with groups and labels (web-only management UI).
 - Track and inspect async task runs in `Task Center` (status, events, artifacts, recordings).
 - Use `SFTP Upload` as a dedicated page for direct file uploads to SSH hosts with an `sftp` subsystem. The Web API only reads upload sources from `RAUTO_HOME/uploads` (default `~/.rauto/uploads`).
@@ -997,16 +999,16 @@ The default `--status identified` output contains only newly identified devices 
 
 On an interactive terminal, the CLI displays a live progress bar and opens a TUI after scanning. Newly identified devices are selected by default; existing connections, imported devices, and failed results cannot be selected. Use the following keys to review and save results:
 
-| Key | Action |
-| --- | ------ |
-| `Up` / `Down` or `j` / `k` | Move through results |
-| `Space` | Select or clear the current device |
-| `a` | Select or clear all importable devices in the current filter |
-| `f` / `Shift+f` or `Right` / `Left` | Cycle status filters |
-| `/` | Search hosts, ports, profiles, models, versions, and errors |
-| `e` | Edit the selected device's connection name |
-| `s` | Save selected devices as connections |
-| `q` or `Ctrl+C` | Exit the TUI |
+| Key                                 | Action                                                       |
+| ----------------------------------- | ------------------------------------------------------------ |
+| `Up` / `Down` or `j` / `k`          | Move through results                                         |
+| `Space`                             | Select or clear the current device                           |
+| `a`                                 | Select or clear all importable devices in the current filter |
+| `f` / `Shift+f` or `Right` / `Left` | Cycle status filters                                         |
+| `/`                                 | Search hosts, ports, profiles, models, versions, and errors  |
+| `e`                                 | Edit the selected device's connection name                   |
+| `s`                                 | Save selected devices as connections                         |
+| `q` or `Ctrl+C`                     | Exit the TUI                                                 |
 
 Use `--no-tui` to keep the progress bar but print the filtered tabular result instead. `--json` disables both the progress bar and TUI so stdout remains machine-readable; it can be redirected or piped safely. JSON result `status` values use the same derived states as filtering and the TUI, so imported and existing connections are reported as `imported` and `existing`. A non-interactive stdin/stdout also falls back to plain output automatically.
 
@@ -1039,7 +1041,7 @@ rauto backup restore ./rauto-backup.tar.gz --replace
 
 ### Command Blacklist
 
-Use a global blacklist to reject commands before they are sent from CLI or Web execution paths (`exec`, template execute, `flow`, `tx`, `tx-workflow`, `orchestrate`).
+Use a global blacklist to reject commands before they are sent from CLI or Web execution paths (`exec`, template execute, `interactive`, `tx`, `tx-workflow`, `orchestrate`).
 
 ```bash
 # List current patterns
@@ -1083,12 +1085,12 @@ rauto tx \
     --host 192.168.1.1 \
     --credential network-admin
 
-# Command-flow mode with reusable flow templates
+# Interactive mode with reusable interactive command templates
 rauto tx \
-    --run-kind command-flow \
-    --flow-template cisco_like_copy \
-    --flow-vars ./flow-vars.json \
-    --rollback-flow-file ./rollback-flow.toml \
+    --run-kind interactive \
+    --interactive-template cisco_like_copy \
+    --interactive-vars ./interactive-vars.json \
+    --rollback-interactive-file ./rollback-interactive.toml \
     --host 192.168.1.1 \
     --credential network-admin
 ```
@@ -1096,7 +1098,7 @@ rauto tx \
 Notes:
 
 - `--run-kind commands` uses repeated `--command` entries and optional per-step rollback commands.
-- `--run-kind command-flow` uses saved/ad-hoc command flow templates for both forward and rollback paths.
+- `--run-kind interactive` uses saved/ad-hoc interactive command templates for both forward and rollback paths.
 - `--dry-run` prints the normalized tx block without executing it.
 - `--json` prints tx execution results as JSON.
 - `--record-file` and `--record-level` work the same way as other execution commands.
@@ -1379,7 +1381,7 @@ Template rendering context:
 - Top-level shorthand is available: `{{ peer_host }}` resolves from request vars first, then falls back to current target connection params.
 - Direct connection object refs are supported in template strings: `{{ edge94.host }}`, `{{ edge94.password }}`, `{{ edge94.vars.site }}`.
 
-The runtime template context can still expose `username`, `password`, and `enable_password` when a flow or execution template explicitly needs them, but those values are resolved from the selected device credential and are never persisted in the connection record.
+The runtime template context can still expose `username`, `password`, and `enable_password` when an interactive or execution template explicitly needs them, but those values are resolved from the selected device credential and are never persisted in the connection record.
 
 Any string field can use minijinja syntax, for example:
 
@@ -1449,21 +1451,21 @@ These runtime directories are auto-created on startup.
 
 ## Configuration
 
-| Argument               | Env Var | Description                                                                                       |
-| ---------------------- | ------- | ------------------------------------------------------------------------------------------------- |
-| `--host`               | -       | Device hostname or IP (`-H`)                                                                      |
-| `--credential`         | -       | Reusable device credential name or ID                                                             |
-| `--ssh-port`           | -       | SSH port (default: 22)                                                                            |
-| `--ssh-security`       | -       | SSH security profile (default: `legacy-compatible`): `secure`, `balanced`, `legacy-compatible`    |
-| `--linux-shell-flavor` | -       | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`                        |
-| `--device-profile`     | -       | Device type/profile (default: `autodetect`; examples: `huawei`, `linux`, `fortinet`, `cisco_ios`) |
-| `--force-autodetect`   | -       | Ignore cached autodetect result and probe the target again                                        |
-| `--session-retries`    | `RAUTO_SESSION_RETRIES` | Retry transient failures for ordinary commands/flows (default: `0`)                 |
-| `--retry-initial-backoff-ms` | `RAUTO_RETRY_INITIAL_BACKOFF_MS` | Initial retry delay in milliseconds (default: `200`)       |
-| `--retry-max-backoff-ms` | `RAUTO_RETRY_MAX_BACKOFF_MS` | Maximum exponential retry delay in milliseconds (default: `2000`) |
-| `--retry-authentication-errors` | `RAUTO_RETRY_AUTHENTICATION_ERRORS` | Also retry authentication rejections (default: off) |
-| `--connection`         | -       | Load saved connection profile by name (`-c`)                                                      |
-| `--save-connection`    | -       | Save effective connection profile and credential reference after successful connect (`-S`)       |
+| Argument                        | Env Var                             | Description                                                                                       |
+| ------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `--host`                        | -                                   | Device hostname or IP (`-H`)                                                                      |
+| `--credential`                  | -                                   | Reusable device credential name or ID                                                             |
+| `--ssh-port`                    | -                                   | SSH port (default: 22)                                                                            |
+| `--ssh-security`                | -                                   | SSH security profile (default: `legacy-compatible`): `secure`, `balanced`, `legacy-compatible`    |
+| `--linux-shell-flavor`          | -                                   | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`                        |
+| `--device-profile`              | -                                   | Device type/profile (default: `autodetect`; examples: `huawei`, `linux`, `fortinet`, `cisco_ios`) |
+| `--force-autodetect`            | -                                   | Ignore cached autodetect result and probe the target again                                        |
+| `--session-retries`             | `RAUTO_SESSION_RETRIES`             | Retry transient failures for ordinary commands/flows (default: `0`)                               |
+| `--retry-initial-backoff-ms`    | `RAUTO_RETRY_INITIAL_BACKOFF_MS`    | Initial retry delay in milliseconds (default: `200`)                                              |
+| `--retry-max-backoff-ms`        | `RAUTO_RETRY_MAX_BACKOFF_MS`        | Maximum exponential retry delay in milliseconds (default: `2000`)                                 |
+| `--retry-authentication-errors` | `RAUTO_RETRY_AUTHENTICATION_ERRORS` | Also retry authentication rejections (default: off)                                               |
+| `--connection`                  | -                                   | Load saved connection profile by name (`-c`)                                                      |
+| `--save-connection`             | -                                   | Save effective connection profile and credential reference after successful connect (`-S`)        |
 
 Common shorthand aliases:
 
@@ -1483,26 +1485,26 @@ Common command-specific options:
 - `show --print-command`: Print the resolved device command before execution.
 - `show-object set/list/delete`: Manage profile-specific custom show objects saved in SQLite. Custom objects override bundled show mappings for the same profile and object.
 - `--force-autodetect`: Bypass the local `host:port` autodetect cache, probe again, and refresh the cached profile. Useful when the device behind an existing IP/port has changed.
-- `--session-retries <N>`: Retry transient connection, initialization, transport, and channel-disconnect failures for ordinary commands and command flows. Backoff starts at `--retry-initial-backoff-ms` and doubles up to `--retry-max-backoff-ms`; completed flow steps are retained and execution resumes at the first unfinished step.
+- `--session-retries <N>`: Retry transient connection, initialization, transport, and channel-disconnect failures for ordinary commands and interactive commands. Backoff starts at `--retry-initial-backoff-ms` and doubles up to `--retry-max-backoff-ms`.
 - Retries are disabled by default and have at-least-once semantics: a device may apply a command before the connection drops. Enable them only for commands that are safe to repeat. Transactions, workflows, and uploads are not automatically retried. Authentication rejections are excluded unless `--retry-authentication-errors` is explicitly set.
-- `exec/template/flow --parse-textfsm`: Enable TextFSM parsing for the command output. Without it, `rauto` skips TextFSM unless you provide a manual template.
-- `exec/template/flow --textfsm-template <path>`: Parse command output with a specific TextFSM template file. For `template` and `flow`, repeat this option to match templates by command order; the last template is reused for remaining commands.
-- `show/exec/template/flow --textfsm-strict-errors`: Keep TextFSM `-> Error` rules instead of filtering them before parsing.
-- `show/exec/template/flow --textfsm-excel <file.xlsx>`: Export successful TextFSM parsed rows to Excel.
+- `exec/template/interactive --parse-textfsm`: Enable TextFSM parsing for the command output. Without it, `rauto` skips TextFSM unless you provide a manual template.
+- `exec/template/interactive --textfsm-template <path>`: Parse command output with a specific TextFSM template file. For `template` and `interactive`, repeat this option to match templates by command order; the last template is reused for remaining commands.
+- `show/exec/template/interactive --textfsm-strict-errors`: Keep TextFSM `-> Error` rules instead of filtering them before parsing.
+- `show/exec/template/interactive --textfsm-excel <file.xlsx>`: Export successful TextFSM parsed rows to Excel.
 - `textfsm template ...`: Manage custom TextFSM templates saved in SQLite.
 - `textfsm mapping ...`: Manage custom `(device profile, command) -> TextFSM template` mappings. These mappings have higher priority than bundled NTC templates when parsing is enabled and no explicit template file is provided.
 - `template --vars <file>` / `template -v <file>`: Load JSON/YAML vars for a stored command template.
-- `flow --template <name>` / `flow -t <name>`: Run a saved command flow template.
-- `flow --file <path>` / `flow -f <path>`: Run an ad-hoc command flow template from a TOML file.
-- `flow --vars <file>` / `flow -v <file>` / `flow --vars-json <json>`: Provide file-based or inline JSON vars to a command flow template.
+- `interactive --template <name>` / `interactive -t <name>`: Run a saved interactive command template.
+- `interactive --file <path>` / `interactive -f <path>`: Run an ad-hoc interactive command template from a TOML file.
+- `interactive --vars <file>` / `interactive -v <file>` / `interactive --vars-json <json>`: Provide file-based or inline JSON vars to an interactive command template.
 - `template --dry-run`: Render the command template without executing it on the target.
-- `tx --mode <mode>` / `tx -m <mode>`: Force tx commands or command-flow steps to run in a specific mode.
+- `tx --mode <mode>` / `tx -m <mode>`: Force tx commands or interactive commands to run in a specific mode.
 - `tx --dry-run`: Print the planned tx block without executing it.
 
 Recording-related options (command-specific):
 
-- `exec/template/flow/tx --record-file <path>` / `-r <path>`: Save recording JSONL after execution.
-- `exec/template/flow/tx --record-level <key-events-only|full>` / `-l <level>`: Recording granularity.
+- `exec/template/interactive/tx --record-file <path>` / `-r <path>`: Save recording JSONL after execution.
+- `exec/template/interactive/tx --record-level <key-events-only|full>` / `-l <level>`: Recording granularity.
 - `session`: Show the most recent saved session record.
 - `session list [connection] [--limit N] [--json]`: List saved records, newest first.
 - `session show [record_id] [--connection <name>] [--json|--raw]`: Show a record; when the ID is omitted, show the most recent matching record.

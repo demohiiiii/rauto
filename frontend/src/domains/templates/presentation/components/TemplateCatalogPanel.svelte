@@ -20,16 +20,16 @@
     Trash2Icon,
   } from "@lucide/svelte";
   import { untrack } from "svelte";
-  import { CommandFlowAuthoringViews } from "$domains/command/presentation/components/index.js";
+  import { InteractiveAuthoringViews } from "$domains/command/presentation/components/index.js";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";
   import { browserConfirm } from "$lib/browser.js";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import { cn } from "$lib/utils.js";
   import { showToast } from "$domains/overlays/index.js";
   import {
-    commandFlowTemplateModelToToml,
-    createCommandFlowDraftWorkspace,
-    type CommandFlowTemplateModel,
+    interactiveTemplateModelToToml,
+    createInteractiveDraftWorkspace,
+    type InteractiveTemplateModel,
   } from "$domains/command/index.js";
   import {
     MODE_SELECT,
@@ -61,14 +61,16 @@
     workspace: ContentTemplateWorkspace;
   } = $props();
   const { filteredItemsStore, stateStore } = untrack(() => workspace);
-  const flowDraftWorkspace = createCommandFlowDraftWorkspace();
+  const interactiveDraftWorkspace = createInteractiveDraftWorkspace();
   const {
-    activeTabStateStore: flowEditorTabStateStore,
-    errorStateStore: flowDraftErrorStateStore,
-    modelStateStore: flowDraftModelStateStore,
-    tomlTextStateStore: flowDraftTomlStateStore,
-  } = flowDraftWorkspace;
-  const flowModeStateStore = modeSelection(MODE_SELECT.standardFlow).state;
+    activeTabStateStore: interactiveEditorTabStateStore,
+    errorStateStore: interactiveDraftErrorStateStore,
+    modelStateStore: interactiveDraftModelStateStore,
+    tomlTextStateStore: interactiveDraftTomlStateStore,
+  } = interactiveDraftWorkspace;
+  const interactiveModeStateStore = modeSelection(
+    MODE_SELECT.standardInteractive,
+  ).state;
   let templateState = $derived($stateStore);
   let filteredItems = $derived($filteredItemsStore);
   let currentLanguage = $derived($currentLanguageState);
@@ -78,15 +80,17 @@
     value: "",
     error: "",
   });
-  let flowDraftModel = $derived($flowDraftModelStateStore);
-  let flowDraftToml = $derived($flowDraftTomlStateStore);
-  let flowDraftError = $derived($flowDraftErrorStateStore);
-  let flowEditorTab = $derived($flowEditorTabStateStore);
-  let flowModeState = $derived($flowModeStateStore);
-  let flowModeOptions = $derived(
-    Array.isArray(flowModeState?.modes) ? flowModeState.modes : [],
+  let interactiveDraftModel = $derived($interactiveDraftModelStateStore);
+  let interactiveDraftToml = $derived($interactiveDraftTomlStateStore);
+  let interactiveDraftError = $derived($interactiveDraftErrorStateStore);
+  let interactiveEditorTab = $derived($interactiveEditorTabStateStore);
+  let interactiveModeState = $derived($interactiveModeStateStore);
+  let interactiveModeOptions = $derived(
+    Array.isArray(interactiveModeState?.modes)
+      ? interactiveModeState.modes
+      : [],
   );
-  let flowModesPrepared = false;
+  let interactiveModesPrepared = false;
 
   let labels = $derived.by(() => {
     currentLanguage;
@@ -96,7 +100,7 @@
       search: t("templateManagerSearchPlaceholder"),
       newResource: t("templateManagerNewResource"),
       save: t("templateSaveBtn"),
-      saveAs: t("flowSaveAsButton"),
+      saveAs: t("interactiveSaveAsButton"),
       delete: t("templateDeleteBtn"),
       refresh: t("blacklistRefreshBtn"),
       format: t("templateManagerFormatJson"),
@@ -123,9 +127,9 @@
       lines: t("templateManagerLinesLabel"),
       immutableHint: t("templateManagerNameImmutableHint"),
       name: t("fieldName"),
-      flowParseTitle: t("templateManagerFlowParseTitle"),
-      flowTomlLabel: t("flowTomlLabel"),
-      flowTomlHint: t("flowTomlHint"),
+      interactiveParseTitle: t("templateManagerInteractiveParseTitle"),
+      interactiveTomlLabel: t("interactiveTomlLabel"),
+      interactiveTomlHint: t("interactiveTomlHint"),
     };
   });
 
@@ -137,7 +141,10 @@
     !!selected &&
       !selected.builtin &&
       (selected.isDraft || templateState.dirty) &&
-      !(templateState.kind === TEMPLATE_MANAGER_KIND.flow && flowDraftError),
+      !(
+        templateState.kind === TEMPLATE_MANAGER_KIND.interactive &&
+        interactiveDraftError
+      ),
   );
   let busy = $derived(!!templateState.loadingAction);
   let lineCount = $derived(
@@ -203,15 +210,15 @@
     if (!result.ok && result.message) showToast(result.message, "error");
   }
 
-  function changeFlowModel(model: CommandFlowTemplateModel): void {
+  function changeInteractiveModel(model: InteractiveTemplateModel): void {
     if (selected?.builtin) return;
-    flowDraftWorkspace.setModel(model);
-    workspace.setContent(commandFlowTemplateModelToToml(model));
+    interactiveDraftWorkspace.setModel(model);
+    workspace.setContent(interactiveTemplateModelToToml(model));
   }
 
-  function changeFlowToml(tomlText: string): boolean {
+  function changeInteractiveToml(tomlText: string): boolean {
     if (selected?.builtin) return false;
-    const valid = flowDraftWorkspace.setTomlText(tomlText);
+    const valid = interactiveDraftWorkspace.setTomlText(tomlText);
     workspace.setContent(tomlText);
     return valid;
   }
@@ -234,15 +241,19 @@
   }
 
   $effect(() => {
-    if (templateState.kind !== TEMPLATE_MANAGER_KIND.flow || !selected) return;
-    if (templateState.content === flowDraftToml) return;
-    flowDraftWorkspace.setTomlText(templateState.content);
+    if (templateState.kind !== TEMPLATE_MANAGER_KIND.interactive || !selected)
+      return;
+    if (templateState.content === interactiveDraftToml) return;
+    interactiveDraftWorkspace.setTomlText(templateState.content);
   });
 
   $effect(() => {
-    if (templateState.kind !== TEMPLATE_MANAGER_KIND.flow || flowModesPrepared)
+    if (
+      templateState.kind !== TEMPLATE_MANAGER_KIND.interactive ||
+      interactiveModesPrepared
+    )
       return;
-    flowModesPrepared = true;
+    interactiveModesPrepared = true;
     void refreshExecutionModeOptionsForCurrentConnection();
   });
 </script>
@@ -436,8 +447,8 @@
               size="sm"
               onclick={() => openNameDialog("saveAs")}
               disabled={busy ||
-                (templateState.kind === TEMPLATE_MANAGER_KIND.flow &&
-                  !!flowDraftError)}
+                (templateState.kind === TEMPLATE_MANAGER_KIND.interactive &&
+                  !!interactiveDraftError)}
             >
               <CopyPlusIcon data-icon="inline-start" />
               {labels.saveAs}
@@ -470,34 +481,34 @@
                 {/each}
               </div>
             </div>
-          {:else if templateState.kind === "command" || templateState.kind === "flow"}
+          {:else if templateState.kind === "command" || templateState.kind === "interactive"}
             <div class="text-xs text-muted-foreground">
               {labels.noVariables}
             </div>
           {/if}
 
-          {#if templateState.kind === TEMPLATE_MANAGER_KIND.flow}
-            {#if flowDraftError}
+          {#if templateState.kind === TEMPLATE_MANAGER_KIND.interactive}
+            {#if interactiveDraftError}
               <Alert.Root variant="destructive">
-                <Alert.Title>{labels.flowParseTitle}</Alert.Title>
-                <Alert.Description>{flowDraftError}</Alert.Description>
+                <Alert.Title>{labels.interactiveParseTitle}</Alert.Title>
+                <Alert.Description>{interactiveDraftError}</Alert.Description>
               </Alert.Root>
             {/if}
             <div
               class="min-w-0 overflow-hidden rounded-xl border border-border"
             >
-              <CommandFlowAuthoringViews
-                activeTab={flowEditorTab}
+              <InteractiveAuthoringViews
+                activeTab={interactiveEditorTab}
                 ariaLabel={labels.content}
                 disabled={selected.builtin}
-                model={flowDraftModel}
-                modeOptions={flowModeOptions}
-                tomlLabel={labels.flowTomlLabel}
-                tomlHint={labels.flowTomlHint}
-                tomlText={flowDraftToml}
-                onSelectTab={flowDraftWorkspace.selectTab}
-                onModelChange={changeFlowModel}
-                onTomlChange={changeFlowToml}
+                model={interactiveDraftModel}
+                modeOptions={interactiveModeOptions}
+                tomlLabel={labels.interactiveTomlLabel}
+                tomlHint={labels.interactiveTomlHint}
+                tomlText={interactiveDraftToml}
+                onSelectTab={interactiveDraftWorkspace.selectTab}
+                onModelChange={changeInteractiveModel}
+                onTomlChange={changeInteractiveToml}
               />
             </div>
           {:else}

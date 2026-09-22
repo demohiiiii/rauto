@@ -1,9 +1,9 @@
-use crate::config::command_flow_vars::inline_runtime_var_names;
 use crate::config::content_store;
+use crate::config::interactive_vars::inline_runtime_var_names;
 use crate::web::error::ApiError;
 use crate::web::models::{
-    CommandFlowTemplateVarField, CommandTemplateInspection, CreateTemplateRequest,
-    InspectCommandTemplateRequest, TemplateDetail, TemplateMeta, UpdateTemplateRequest,
+    CommandTemplateInspection, CreateTemplateRequest, InspectCommandTemplateRequest,
+    InteractiveTemplateVarField, TemplateDetail, TemplateMeta, UpdateTemplateRequest,
 };
 use crate::web::state::AppState;
 use crate::web::storage;
@@ -17,7 +17,7 @@ fn inspect_command_template_content(content: &str) -> Result<CommandTemplateInsp
         vars_schema: inline_runtime_var_names(content)
             .map_err(|error| ApiError::bad_request(error.to_string()))?
             .into_iter()
-            .map(|name| CommandFlowTemplateVarField::inferred(name, false))
+            .map(|name| InteractiveTemplateVarField::inferred(name, false))
             .collect(),
     })
 }

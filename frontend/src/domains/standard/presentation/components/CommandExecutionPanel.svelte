@@ -1,22 +1,23 @@
 <script lang="ts">
   import { MANUAL_COMMAND_SOURCE } from "$domains/command/index.js";
+  import { createBatchDeliveryWorkspace } from "../../application/createBatchDeliveryWorkspace.js";
+  import BatchDeliveryTargets from "./batch/BatchDeliveryTargets.svelte";
+  import BatchDeliveryResults from "./batch/BatchDeliveryResults.svelte";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
-  import { onDestroy, tick } from "svelte";
-  import {
-    CommandEditor,
-    CommandFlowSurface,
-    CommandTemplateSourceField,
-  } from "$domains/command/presentation/components/index.js";
+  import { onDestroy, tick, untrack } from "svelte";
+  import CommandEditor from "$domains/command/presentation/components/CommandEditor.svelte";
+  import CommandSurface from "$domains/command/presentation/components/CommandSurface.svelte";
+  import CommandTemplateSourceField from "$domains/command/presentation/components/CommandTemplateSourceField.svelte";
   import JsonObjectFieldsEditor from "$components/fragments/JsonObjectFieldsEditor.svelte";
   import ExecutionResultMeta from "$components/fragments/ExecutionResultMeta.svelte";
   import ExecutionResultsPanel from "$components/fragments/ExecutionResultsPanel.svelte";
+  import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";
   import ModeExpressionField from "$components/fragments/ModeExpressionField.svelte";
   import OutputBlock from "$components/fragments/OutputBlock.svelte";
   import ParsedOutputBlock from "$components/fragments/ParsedOutputBlock.svelte";
   import SessionRetryFields from "$components/fragments/SessionRetryFields.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
-  import CommandOutputDownloadControl from "$components/fragments/CommandOutputDownloadControl.svelte";
   import TextfsmControls from "$components/fragments/TextfsmControls.svelte";
   import { t } from "$lib/i18n.js";
   import { createStandardCommandExecutionWorkspace } from "../../application/createStandardCommandExecutionWorkspace.js";
@@ -38,11 +39,17 @@
     title: string;
   }
 
-  let { active }: { active: boolean } = $props();
+  let { active, batch = false }: { active: boolean; batch?: boolean } =
+    $props();
+  const batchWorkspace = untrack(() =>
+    batch ? createBatchDeliveryWorkspace("command") : undefined,
+  );
   let panelElement: HTMLElement;
   let initialized = false;
   let activeResultKey = $state("");
-  const workspace = createStandardCommandExecutionWorkspace();
+  const workspace = createStandardCommandExecutionWorkspace({
+    batch: batchWorkspace,
+  });
   const { stateStore } = workspace;
   let commandState = $derived($stateStore);
   let executedItems = $derived(
@@ -165,6 +172,7 @@
   class="grid min-w-0 gap-5 p-4 sm:p-5"
   hidden={!active}
 >
+  {#if batchWorkspace}<BatchDeliveryTargets workspace={batchWorkspace} />{/if}
   <div class="grid min-w-0 gap-2">
     <CommandTemplateSourceField
       hintText={t("commandTemplateSourceHint")}
@@ -230,10 +238,6 @@
         <StatusCard message={commandState.preview.message} tone="error" />
       {/if}
 
-      <CommandOutputDownloadControl
-        checked={commandState.textfsm.autoDownloadOutput}
-        onCheckedChange={changeAutoDownloadOutput}
-      />
       <TextfsmControls
         hintKey="textfsmParseHint"
         includeTemplateInput={true}
@@ -245,7 +249,9 @@
       />
 
       <SessionRetryFields
-        idPrefix="command-session-retry"
+        idPrefix={batch
+          ? "batch-command-session-retry"
+          : "command-session-retry"}
         value={commandState.retry}
         onChange={workspace.changeRetry}
       />
@@ -256,50 +262,56 @@
           tone={commandState.status.tone}
         />
       {/if}
-
-      <div class="flex flex-wrap justify-end gap-2">
-        <LoadingButton
-          variant="outline"
-          size="sm"
-          loading={commandState.loadingActions.includes("preview")}
-          onclick={workspace.preview}
-        >
-          {t("commandPreviewButton")}
-        </LoadingButton>
-        <LoadingButton
-          variant="default"
-          size="sm"
-          loading={commandState.loadingActions.includes("execute")}
-          disabled={!retryValid ||
-            commandState.loadingActions.includes("template") ||
-            (templateSelected && commandState.preview.kind !== "result")}
-          onclick={workspace.execute}
-        >
-          {t("execBtn")}
-        </LoadingButton>
-      </div>
     </CommandEditor>
   </div>
 
   {#if !templateSelected && commandState.preview.kind !== "empty"}
-    <CommandFlowSurface variant="section" title={t("commandPreviewTitle")}>
+    <CommandSurface variant="section" title={t("commandPreviewTitle")}>
       {#if commandState.preview.kind === "error"}
         <StatusCard message={commandState.preview.message} tone="error" />
       {:else if commandState.preview.text}
         <OutputBlock>{commandState.preview.text}</OutputBlock>
       {/if}
-    </CommandFlowSurface>
+    </CommandSurface>
   {/if}
 
+  <ExecutionRunBar
+    autoDownloadOutput={commandState.textfsm.autoDownloadOutput}
+    onAutoDownloadOutputChange={changeAutoDownloadOutput}
+    title={t("commandDeliveryTitle")}
+    hint={t(batch ? "batchExecFooterHint" : "commandDeliveryHint")}
+    buttonLabel={t("execBtn")}
+    loading={commandState.loadingActions.includes("execute")}
+    disabled={!retryValid ||
+      commandState.loadingActions.includes("template") ||
+      (templateSelected && commandState.preview.kind !== "result")}
+    onRun={workspace.execute}
+  >
+    {#snippet actions()}
+      <LoadingButton
+        variant="outline"
+        size="lg"
+        class="flex-1 sm:flex-none"
+        loading={commandState.loadingActions.includes("preview")}
+        onclick={workspace.preview}
+      >
+        {t("commandPreviewButton")}
+      </LoadingButton>
+    {/snippet}
+  </ExecutionRunBar>
+
+  {#if batchWorkspace}
+    <BatchDeliveryResults workspace={batchWorkspace} />
+  {/if}
   {#if commandState.executionResult.kind !== "empty"}
     <div class="border-t-4 border-muted p-4 sm:p-5">
       <ExecutionResultsPanel
-        title={t("flowResultsTitle")}
-        description={t("flowResultsHint")}
+        title={t("interactiveResultsTitle")}
+        description={t("interactiveResultsHint")}
         icon={TerminalIcon}
         items={resultItems}
         activeKey={activeResultItem?.key || ""}
-        navigationAriaLabel={t("flowResultsTitle")}
+        navigationAriaLabel={t("interactiveResultsTitle")}
         onSelect={(key) => (activeResultKey = key)}
         statusMessage={resultStatusMessage}
         statusTone={resultStatusTone}

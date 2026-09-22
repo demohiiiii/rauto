@@ -1,17 +1,18 @@
+export { createInteractiveTemplateRuntime } from "./application/interactiveTemplateRuntime.js";
 export { createContentTemplateWorkspace } from "./application/createContentTemplateWorkspace.js";
 export { createShowObjectWorkspace } from "./application/createShowObjectWorkspace.js";
 export { createTextfsmMappingWorkspace } from "./application/createTextfsmMappingWorkspace.js";
 export {
-  buildFlowVarsPayload,
-  ensureFlowRunTemplateDetail,
-  flowVarsFieldState,
-  getCurrentFlowTemplateFieldDraft,
-  loadFlowTemplates,
-  parseBuiltinFlowTemplateValue,
-  runFlowTemplateSelectState,
-  setFlowVarDraftValue,
-  updateFlowTemplateVarFields,
-} from "./application/flowTemplateRuntime.js";
+  buildInteractiveVarsPayload,
+  ensureInteractiveRunTemplateDetail,
+  interactiveVarsFieldState,
+  getCurrentInteractiveTemplateFieldDraft,
+  loadInteractiveTemplates,
+  parseBuiltinInteractiveTemplateValue,
+  runInteractiveTemplateSelectState,
+  setInteractiveVarDraftValue,
+  updateInteractiveTemplateVarFields,
+} from "./application/interactiveTemplateRuntime.js";
 export {
   getCachedDeviceProfiles,
   notifyCustomShowObjectsChanged,
@@ -28,19 +29,19 @@ export {
   templateManagerSections,
   templateResourceDefinitions,
 } from "./model/templateResources.js";
-export { flowVarsPresentation } from "./presentation/flowVarsPresentation.js";
+export { interactiveVarsPresentation } from "./presentation/interactiveVarsPresentation.js";
 export type {
-  CommandFlowTemplateDetail,
+  InteractiveTemplateDetail,
   CommandTemplateInspection,
   ContentTemplateWorkspace,
   CustomShowObjectApiPayload,
   CustomShowObjectApiRow,
-  FlowVarControlKind,
-  FlowVarFieldRow,
-  FlowTemplateSelectState,
-  FlowVarField,
-  FlowVarsPresentation,
-  FlowVarsState,
+  InteractiveVarControlKind,
+  InteractiveVarFieldRow,
+  InteractiveTemplateSelectState,
+  InteractiveVarField,
+  InteractiveVarsPresentation,
+  InteractiveVarsState,
   ShowObjectWorkspace,
   TemplateManagerKind,
   TemplateManagerSection,

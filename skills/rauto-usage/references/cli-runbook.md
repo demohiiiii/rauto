@@ -64,7 +64,7 @@ rauto exec "uname -a" --connection edge92
 rauto exec "id" --connection linux-01 --mode 'Root,User'
 rauto exec "show clock" --group access --label campus --max-parallel 8
 rauto template show_ver --connection core-01 --vars ./command-vars.json
-rauto flow --template health-check --target core-01 --target core-02 --max-parallel 4
+rauto interactive --template health-check --target core-01 --target core-02 --max-parallel 4
 ```
 
 Use raw `exec` for one-off harmless commands or when no show object exists.
@@ -72,16 +72,16 @@ Keep `exec` and stored `template` distinct: use `exec` for literal command text 
 For device state/config retrieval, prefer `rauto show`.
 For config changes, prefer `tx`, `tx-workflow`, or `orchestrate`.
 
-`exec`, `flow`, `show`, and `config fetch` share multi-target selection. Repeat `--target`, `--group`, and `--label`/`--tag`; selectors use deduplicated union semantics. rauto resolves and validates every target before starting concurrent execution.
+`exec`, `interactive`, `show`, and `config fetch` share multi-target selection. Repeat `--target`, `--group`, and `--label`/`--tag`; selectors use deduplicated union semantics. rauto resolves and validates every target before starting concurrent execution.
 
 Mode-bearing CLI options and structured models accept either one mode or ordered candidates separated by comma or pipe. For example, `--mode 'Root,User'` first validates both modes against the selected profile, then allows rneter to execute from or transition to an available candidate. Do not rewrite the value as one invented mode.
 
-Command-flow TOML and transaction JSON support `multiline_mode`:
+Interactive command TOML and transaction JSON support `multiline_mode`:
 
 - `split_lines`: execute non-empty trimmed lines independently and stop on the first failed command.
 - `whole`: preserve the original newlines and submit the text once.
 
-Do not invent a CLI `exec --multiline-mode` option; use a structured flow/transaction model when explicit multiline behavior is required.
+Do not invent a CLI `exec --multiline-mode` option; use a structured interactive/transaction model when explicit multiline behavior is required.
 
 ## Show Queries
 
@@ -175,16 +175,16 @@ rauto device discover save --profile cisco_ios
 
 Load `device-discovery.md` before scanning, filtering, using the TUI, or saving discovered devices.
 
-## Command Flow
+## Interactive Commands
 
 ```bash
-rauto flow-template list
-rauto flow-template show my_copy_flow
-rauto flow --template builtin:cisco_like_copy --connection core-01 --vars-json '{"command":"copy scp: flash:/new.bin"}'
+rauto interactive-template list
+rauto interactive-template show my_copy_interactive
+rauto interactive --template builtin:cisco_like_copy --connection core-01 --vars-json '{"command":"copy scp: flash:/new.bin"}'
 ```
 
-`rauto` owns command-flow parsing and rendering. rneter executes the resulting concrete flow but no longer owns a command-flow-template model.
-`builtin:cisco_like_copy` is an executable built-in, not a saved record returned by `flow-template list/show`. Use `flow-template create/update/delete` only for custom saved templates.
+`rauto` owns interactive template parsing and rendering. rneter executes the resulting command sequence; the template model belongs to rauto.
+`builtin:cisco_like_copy` is an executable built-in, not a saved record returned by `interactive-template list/show`. Use `interactive-template create/update/delete` only for custom saved templates.
 
 ## Transaction Family (JSON)
 

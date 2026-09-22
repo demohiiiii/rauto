@@ -34,12 +34,12 @@ service AgentTaskService {
   rpc CreateTemplate(CreateTemplateRequest) returns (TemplateDetail);
   rpc UpdateTemplate(UpdateTemplateRequest) returns (TemplateDetail);
   rpc DeleteTemplate(DeleteTemplateRequest) returns (JsonResponse);
-  rpc ListCommandFlowTemplates(ListCommandFlowTemplatesRequest) returns (ListCommandFlowTemplatesResponse);
-  rpc ListBuiltinCommandFlowTemplates(ListBuiltinCommandFlowTemplatesRequest) returns (ListCommandFlowTemplatesResponse);
-  rpc GetCommandFlowTemplate(GetCommandFlowTemplateRequest) returns (CommandFlowTemplateDetail);
-  rpc GetBuiltinCommandFlowTemplate(GetBuiltinCommandFlowTemplateRequest) returns (CommandFlowTemplateDetail);
-  rpc UpsertCommandFlowTemplate(UpsertCommandFlowTemplateRequest) returns (CommandFlowTemplateDetail);
-  rpc DeleteCommandFlowTemplate(DeleteCommandFlowTemplateRequest) returns (DeleteCommandFlowTemplateResponse);
+  rpc ListInteractiveTemplates(ListInteractiveTemplatesRequest) returns (ListInteractiveTemplatesResponse);
+  rpc ListBuiltinInteractiveTemplates(ListBuiltinInteractiveTemplatesRequest) returns (ListInteractiveTemplatesResponse);
+  rpc GetInteractiveTemplate(GetInteractiveTemplateRequest) returns (InteractiveTemplateDetail);
+  rpc GetBuiltinInteractiveTemplate(GetBuiltinInteractiveTemplateRequest) returns (InteractiveTemplateDetail);
+  rpc UpsertInteractiveTemplate(UpsertInteractiveTemplateRequest) returns (InteractiveTemplateDetail);
+  rpc DeleteInteractiveTemplate(DeleteInteractiveTemplateRequest) returns (DeleteInteractiveTemplateResponse);
   rpc ListTxBlockTemplates(ListTxBlockTemplatesRequest) returns (ListTemplatesResponse);
   rpc GetTxBlockTemplate(GetTemplateRequest) returns (TemplateDetail);
   rpc CreateTxBlockTemplate(CreateTemplateRequest) returns (TemplateDetail);
@@ -70,13 +70,13 @@ service AgentTaskService {
   rpc ExecuteShow(ExecuteShowRequest) returns (ExecuteShowResponse);
   rpc ExecuteShowBatch(ExecuteShowBatchRequest) returns (ExecuteShowBatchResponse);
   rpc ExecuteExecBatch(ExecuteExecBatchRequest) returns (ExecuteExecBatchResponse);
-  rpc ExecuteFlowBatch(ExecuteFlowBatchRequest) returns (ExecuteFlowBatchResponse);
+  rpc ExecuteInteractiveBatch(ExecuteInteractiveBatchRequest) returns (ExecuteInteractiveBatchResponse);
   rpc FetchConfigBatch(FetchConfigBatchRequest) returns (FetchConfigBatchResponse);
   rpc ExecuteCommand(ExecuteCommandRequest) returns (ExecuteCommandResponse);
   rpc ExecuteCommandAsync(ExecuteCommandRequest) returns (AcceptedTaskResponse);
   rpc ExecuteTemplate(ExecuteTemplateRequest) returns (ExecuteTemplateResponse);
   rpc ExecuteTemplateAsync(ExecuteTemplateRequest) returns (AcceptedTaskResponse);
-  rpc ExecuteCommandFlow(ExecuteCommandFlowRequest) returns (ExecuteCommandFlowResponse);
+  rpc ExecuteInteractive(ExecuteInteractiveRequest) returns (ExecuteInteractiveResponse);
   rpc ExecuteUpload(ExecuteUploadRequest) returns (ExecuteUploadResponse);
   rpc ExecuteTxBlock(ExecuteTxBlockRequest) returns (ExecuteTxBlockResponse);
   rpc ExecuteTxBlockAsync(ExecuteTxBlockRequest) returns (AcceptedTaskResponse);
@@ -353,11 +353,11 @@ message DeleteTemplateRequest {
   string name = 1;
 }
 
-message ListCommandFlowTemplatesRequest {}
+message ListInteractiveTemplatesRequest {}
 
-message ListBuiltinCommandFlowTemplatesRequest {}
+message ListBuiltinInteractiveTemplatesRequest {}
 
-message CommandFlowTemplateMeta {
+message InteractiveTemplateMeta {
   string name          = 1;
   string kind          = 2;
   string source        = 3;
@@ -367,19 +367,19 @@ message CommandFlowTemplateMeta {
   int64  updated_at_ms = 7;
 }
 
-message ListCommandFlowTemplatesResponse {
-  repeated CommandFlowTemplateMeta templates = 1;
+message ListInteractiveTemplatesResponse {
+  repeated InteractiveTemplateMeta templates = 1;
 }
 
-message GetCommandFlowTemplateRequest {
+message GetInteractiveTemplateRequest {
   string name = 1;
 }
 
-message GetBuiltinCommandFlowTemplateRequest {
+message GetBuiltinInteractiveTemplateRequest {
   string name = 1;
 }
 
-message CommandFlowTemplateVarField {
+message InteractiveTemplateVarField {
   string          name         = 1;
   string          label        = 2;
   optional string description  = 3;
@@ -391,22 +391,22 @@ message CommandFlowTemplateVarField {
   bool allow_empty = 9;
 }
 
-message CommandFlowTemplateDetail {
+message InteractiveTemplateDetail {
   string                               name        = 1;
   string                               content     = 2;
-  repeated CommandFlowTemplateVarField vars_schema = 3;
+  repeated InteractiveTemplateVarField vars_schema = 3;
 }
 
-message UpsertCommandFlowTemplateRequest {
+message UpsertInteractiveTemplateRequest {
   string name    = 1;
   string content = 2;
 }
 
-message DeleteCommandFlowTemplateRequest {
+message DeleteInteractiveTemplateRequest {
   string name = 1;
 }
 
-message DeleteCommandFlowTemplateResponse {
+message DeleteInteractiveTemplateResponse {
   bool ok = 1;
 }
 
@@ -552,6 +552,8 @@ message ExecuteExecBatchRequest {
   repeated string labels                = 11;
   uint32          max_parallel          = 12;
   string          record_level          = 13;
+  optional string template_content = 14;
+  string vars_json = 15;
 }
 
 message ExecuteExecBatchResponse {
@@ -579,7 +581,7 @@ message FetchConfigBatchResponse {
   optional string result_summary_json = 4;
 }
 
-message ExecuteFlowBatchRequest {
+message ExecuteInteractiveBatchRequest {
   string          task_id               = 1;
   string          template_name         = 2;
   string          builtin_template_name = 3;
@@ -596,7 +598,7 @@ message ExecuteFlowBatchRequest {
   string          record_level          = 14;
 }
 
-message ExecuteFlowBatchResponse {
+message ExecuteInteractiveBatchResponse {
   string          template_name       = 1;
   repeated string targets             = 2;
   string          results_json        = 3;
@@ -700,7 +702,7 @@ message ExecuteTemplateResponse {
   optional string                 result_summary_json = 4;
 }
 
-message ExecuteCommandFlowRequest {
+message ExecuteInteractiveRequest {
   optional string template_name = 1;
   optional string content       = 2;
   optional string vars_json     = 3;
@@ -713,7 +715,7 @@ message ExecuteCommandFlowRequest {
   bool            textfsm_strict_errors = 10;
 }
 
-message ExecuteCommandFlowResponse {
+message ExecuteInteractiveResponse {
   bool                            success             = 1;
   string                          template_name       = 2;
   repeated CommandExecutionResult outputs             = 3;

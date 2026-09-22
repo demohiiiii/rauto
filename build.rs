@@ -17,6 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=proto/rauto/manager/v1/agent_reporting.proto");
     println!("cargo:rerun-if-changed=proto/rauto/agent/v1/task_service.proto");
     println!("cargo:rerun-if-changed=static");
+    println!("cargo:rerun-if-changed=migrations");
     println!("cargo:rerun-if-changed=assets/ntc_templates/templates");
     Ok(())
 }

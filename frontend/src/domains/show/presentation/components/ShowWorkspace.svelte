@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { showQueryTabs } from "$config/dashboardModes.js";
+  import SearchIcon from "@lucide/svelte/icons/search";
+  import ExecutionScopePanel from "$components/fragments/ExecutionScopePanel.svelte";
+  import { currentLanguageState, t } from "$lib/i18n.js";
   import { afterDomUpdate } from "$lib/svelte.js";
   import {
     createShowPageWorkspace,
@@ -11,7 +13,10 @@
   import SingleShowPanel from "./SingleShowPanel.svelte";
 
   let { active }: { active: boolean } = $props();
-  const showQueryTabItems = [...showQueryTabs];
+  let labels = $derived.by(() => {
+    $currentLanguageState;
+    return { title: t("showPanelConfigTitle"), hint: t("showPanelConfigHint") };
+  });
   const showPageWorkspace = createShowPageWorkspace({ afterDomUpdate });
   const {
     batchResultDisplayStateStore,
@@ -42,28 +47,27 @@
 
 <div class="tab-panel" role="tabpanel" hidden={!active}>
   <div class="grid gap-3">
-    {#if singleActive}
-      <SingleShowPanel
-        active={true}
-        tabItems={showQueryTabItems}
-        {currentTab}
-        queryAriaLabel={pageDisplay.queryAriaLabel}
-        onSelectQuery={showPageWorkspace.selectQuery}
-      />
-    {:else if batchActive}
-      <div class="grid gap-3">
-        <BatchShowInputPanel
-          active={true}
-          tabItems={showQueryTabItems}
-          {currentTab}
-          queryAriaLabel={pageDisplay.queryAriaLabel}
-          onSelectQuery={showPageWorkspace.selectQuery}
-        />
-        <BatchShowResultsPanel
-          {batchResultDisplay}
-          {batchResultsPresentation}
-        />
-      </div>
-    {/if}
+    <ExecutionScopePanel
+      title={labels.title}
+      description={labels.hint}
+      icon={SearchIcon}
+      activeValue={currentTab}
+      ariaLabel={pageDisplay.queryAriaLabel}
+      onSelect={showPageWorkspace.selectQuery}
+    >
+      {#if singleActive}
+        <div class="workspace-panel-enter">
+          <SingleShowPanel active={true} />
+        </div>
+      {:else if batchActive}
+        <div class="workspace-panel-enter grid gap-3">
+          <BatchShowInputPanel active={true} />
+          <BatchShowResultsPanel
+            {batchResultDisplay}
+            {batchResultsPresentation}
+          />
+        </div>
+      {/if}
+    </ExecutionScopePanel>
   </div>
 </div>

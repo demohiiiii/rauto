@@ -1,84 +1,77 @@
 import type { Writable } from "svelte/store";
 import type { TemplateVariableField } from "$domains/templates/index.js";
 
-export type CommandFlowMultilineMode = "split_lines" | "whole";
-export type CommandFlowEditorTab = "visual" | "toml" | "readonly";
+export type InteractiveMultilineMode = "split_lines" | "whole";
+export type InteractiveEditorTab = "visual" | "toml" | "readonly";
 
-export interface CommandFlowTemplatePromptModel {
+export interface InteractiveTemplatePromptModel {
   appendNewline: boolean;
   patterns: string[];
   recordInput: boolean;
   response: string;
 }
 
-export interface CommandFlowTemplateStepModel {
+export interface InteractiveCommandModel {
   command: string;
   hasMode: boolean;
   hasTimeoutSecs: boolean;
   mode: string | null;
-  multilineMode: CommandFlowMultilineMode;
-  prompts: CommandFlowTemplatePromptModel[];
+  multilineMode: InteractiveMultilineMode;
+  prompts: InteractiveTemplatePromptModel[];
   timeoutSecs: number | null;
 }
 
-export interface CommandFlowTemplateModel {
-  defaultMode: string | null;
-  hasDefaultMode: boolean;
+export interface InteractiveTemplateModel extends InteractiveCommandModel {
   name: string;
-  steps: CommandFlowTemplateStepModel[];
-  stopOnError: boolean;
 }
 
-export interface CommandFlowPromptDocument {
+export interface InteractivePromptDocument {
   append_newline: boolean;
   patterns: string[];
   record_input: boolean;
   response: string;
 }
 
-export interface CommandFlowStepDocument {
+export interface InteractiveCommandDocument {
   command: string;
   mode?: string;
-  multiline_mode: CommandFlowMultilineMode;
-  prompts: CommandFlowPromptDocument[];
+  multiline_mode: InteractiveMultilineMode;
+  prompts: InteractivePromptDocument[];
   timeout_secs?: number;
 }
 
-export interface CommandFlowTemplateDocument {
-  default_mode?: string;
+export interface InteractiveTemplateDocument extends InteractiveCommandDocument {
   name: string;
-  steps: CommandFlowStepDocument[];
-  stop_on_error: boolean;
 }
 
-export interface CommandFlowInspectionPayload {
+export interface InteractiveInspectionPayload {
   vars_schema?: TemplateVariableField[];
 }
 
-export interface CommandFlowInspectionState {
+export interface InteractiveInspectionState {
   errorMessage: string;
   loading: boolean;
   varsSchema: TemplateVariableField[];
 }
 
-export interface CommandFlowDraftWorkspace {
-  activeTabStateStore: Writable<CommandFlowEditorTab>;
+export interface InteractiveDraftWorkspace {
+  activeTabStateStore: Writable<InteractiveEditorTab>;
   applyInspection(
     version: number,
-    detail?: CommandFlowInspectionPayload,
+    detail?: InteractiveInspectionPayload,
   ): boolean;
   beginInspection(): number;
   canSubmit(): boolean;
   errorStateStore: Writable<string>;
   failInspection(version: number, error: unknown): boolean;
-  inspectionStateStore: Writable<CommandFlowInspectionState>;
+  inspectionStateStore: Writable<InteractiveInspectionState>;
   isDirty(): boolean;
   markClean(): void;
   markUnsaved(): void;
-  modelStateStore: Writable<CommandFlowTemplateModel>;
+  modelStateStore: Writable<InteractiveTemplateModel>;
   replaceFromToml(tomlText?: string): boolean;
   selectTab(tab?: string): void;
-  setModel(model: CommandFlowTemplateModel): void;
+  setModel(model: InteractiveTemplateModel): void;
   setTomlText(tomlText?: string): boolean;
   tomlTextStateStore: Writable<string>;
 }
@@ -109,7 +102,7 @@ export interface CommandTemplateCatalogOptions {
 
 export type CommandTranslate = (key: string) => string;
 
-export interface CommandFlowReadonlyPromptDisplay {
+export interface InteractiveReadonlyPromptDisplay {
   appendNewlineLabelText: string;
   appendNewlineText: string;
   patternRows: string[];
@@ -121,29 +114,26 @@ export interface CommandFlowReadonlyPromptDisplay {
   titleText: string;
 }
 
-export interface CommandFlowReadonlyStepDisplay {
+export interface InteractiveReadonlyCommandDisplay {
   commandLabelText: string;
   commandText: string;
   modeLabelText: string;
   modeText: string;
   multilineModeLabelText: string;
   multilineModeText: string;
-  promptRows: CommandFlowReadonlyPromptDisplay[];
+  promptRows: InteractiveReadonlyPromptDisplay[];
   timeoutLabelText: string;
   timeoutText: string;
   titleText: string;
 }
 
-export interface CommandFlowReadonlyDisplay {
-  emptyText: string;
-  hasSteps: boolean;
+export interface InteractiveReadonlyDisplay {
   nameLabelText: string;
   nameText: string;
-  stepRows: CommandFlowReadonlyStepDisplay[];
-  stepsTitleText: string;
+  command: InteractiveReadonlyCommandDisplay;
   summaryRows: Array<{ labelText: string; valueText: string }>;
 }
 
-export interface CommandFlowDraftOptions {
-  initialModel?: CommandFlowTemplateModel | null;
+export interface InteractiveDraftOptions {
+  initialModel?: InteractiveTemplateModel | null;
 }

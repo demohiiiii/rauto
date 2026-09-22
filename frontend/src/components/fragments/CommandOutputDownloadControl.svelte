@@ -8,6 +8,7 @@
   }
 
   let { checked, onCheckedChange }: Props = $props();
+  const switchId = $props.id();
   let label = $derived.by(() => {
     $currentLanguageState;
     return t("autoDownloadCommandOutput");
@@ -15,8 +16,18 @@
 </script>
 
 <div
-  class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 p-4"
+  class="flex min-w-0 w-full items-center justify-between gap-3 py-1 sm:mr-2 sm:w-auto"
 >
-  <span class="min-w-0 text-sm font-medium text-foreground">{label}</span>
-  <Switch class="shrink-0" aria-label={label} {checked} {onCheckedChange} />
+  <label
+    for={switchId}
+    class="min-w-0 cursor-pointer text-xs font-medium text-muted-foreground"
+    >{label}</label
+  >
+  <Switch
+    id={switchId}
+    class="shrink-0"
+    aria-label={label}
+    {checked}
+    {onCheckedChange}
+  />
 </div>

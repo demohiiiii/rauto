@@ -228,7 +228,7 @@ test("timeline rows expose localized operation summaries and movement flags", as
   assert.equal(display.stepRows[0].titleText, "Step 1");
   assert.equal(display.stepRows[0].kindText, "Command");
   assert.equal(display.stepRows[0].summaryText, "show interfaces");
-  assert.match(display.stepRows[1].summaryText, /Flow steps/);
+  assert.match(display.stepRows[1].summaryText, /Command sequence steps/);
   assert.match(display.stepRows[1].summaryText, /2/);
   assert.equal(display.stepRows[2].summaryText, "Empty command");
 });
@@ -378,7 +378,7 @@ test("timeline selection and localized displays react to language changes", asyn
   );
 
   const englishTimeline = get(workspace.timelineDisplayStateStore).stepRows;
-  assert.match(englishTimeline[0].summaryText, /Flow steps/);
+  assert.match(englishTimeline[0].summaryText, /Command sequence steps/);
   assert.equal(englishTimeline[1].summaryText, "Empty command");
 
   const english = get(workspace.editorSummaryStateStore).cellRows;
@@ -393,7 +393,7 @@ test("timeline selection and localized displays react to language changes", asyn
 
   await loadI18nLanguage("zh");
   const chineseTimeline = get(workspace.timelineDisplayStateStore).stepRows;
-  assert.match(chineseTimeline[0].summaryText, /命令流步骤/);
+  assert.match(chineseTimeline[0].summaryText, /命令序列步骤/);
   assert.equal(chineseTimeline[1].summaryText, "空命令");
 
   const chinese = get(workspace.editorSummaryStateStore).cellRows;

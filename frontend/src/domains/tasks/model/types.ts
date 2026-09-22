@@ -8,7 +8,7 @@ export type TaskJsonValue =
 export type TaskOperation =
   | "exec"
   | "template_execute"
-  | "command_flow"
+  | "interactive"
   | "upload"
   | "tx_block"
   | "tx_workflow"

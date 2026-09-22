@@ -2,8 +2,8 @@ use super::connections::{
     connection_facts_response, upsert_connection_target_name, validate_persisted_connect_timeout,
 };
 use super::{
-    TaskReportContext, build_json_template_context, builtin_command_flow_template_by_name,
-    parse_builtin_command_flow_template_token, require_managed_async_task,
+    TaskReportContext, build_json_template_context, builtin_interactive_template_by_name,
+    parse_builtin_interactive_template_token, require_managed_async_task,
     resolve_tx_block_value_from_input, sanitize_rendered_output_for_response,
     saved_connection_detail_response,
 };
@@ -299,25 +299,25 @@ fn sanitize_rendered_output_masks_password_like_values() {
 }
 
 #[test]
-fn parse_builtin_flow_template_token_supports_prefix() {
+fn parse_builtin_interactive_template_token_supports_prefix() {
     assert_eq!(
-        parse_builtin_command_flow_template_token("builtin:cisco_like_copy").as_deref(),
+        parse_builtin_interactive_template_token("builtin:cisco_like_copy").as_deref(),
         Some("cisco-like-copy")
     );
     assert_eq!(
-        parse_builtin_command_flow_template_token("BUILTIN:cisco-like-copy").as_deref(),
+        parse_builtin_interactive_template_token("BUILTIN:cisco-like-copy").as_deref(),
         Some("cisco-like-copy")
     );
     assert_eq!(
-        parse_builtin_command_flow_template_token("cisco-like-copy"),
+        parse_builtin_interactive_template_token("cisco-like-copy"),
         None
     );
 }
 
 #[test]
-fn builtin_flow_template_can_be_loaded() {
-    let template = builtin_command_flow_template_by_name("cisco_like_copy")
-        .expect("builtin flow template should exist");
+fn builtin_interactive_template_can_be_loaded() {
+    let template = builtin_interactive_template_by_name("cisco_like_copy")
+        .expect("builtin interactive template should exist");
     assert_eq!(template.name, "cisco-like-copy");
-    assert!(!template.steps.is_empty());
+    assert!(!template.operation.command.is_empty());
 }

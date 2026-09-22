@@ -39,10 +39,10 @@ Apply action-first behavior:
    - `tx`: CLI parameter-driven transaction construction
    - `tx-workflow`: workflow JSON
    - `orchestrate`: multi-device plan JSON whose jobs select saved devices, persisted device groups, or saved-device labels and execute only `tx_workflow` actions
-6. Treat command-flow as the reusable interactive path:
-   - run with `rauto flow`
-   - manage with `rauto flow-template`
-   - run the rauto-owned Cisco-like copy flow as `--template builtin:cisco_like_copy`; built-ins are executable but are not saved-template records
+6. Treat interactive commands as the reusable single-command prompt/response path:
+   - run with `rauto interactive`
+   - manage with `rauto interactive-template`
+   - run the rauto-owned Cisco-like copy interactive template as `--template builtin:cisco_like_copy`; built-ins are executable but are not saved-template records
 7. Resolve connection using:
    - explicit host flags > `--connection <name>` > ask only for missing must-have inputs.
 8. Keep SSH/profile defaults current:
@@ -59,9 +59,9 @@ Apply action-first behavior:
    - do not classify parenthesized Cisco-like prompts as Enable; current rneter templates reserve them for Config/submodes.
 10. Keep TextFSM behavior current:
    - `show` parses with TextFSM by default unless `--no-parse`
-   - `exec/template/flow` parse only when requested, when a template is supplied, or when Excel export needs parsed rows
+   - `exec/template/interactive` parse only when requested, when a template is supplied, or when Excel export needs parsed rows
    - default parsing filters TextFSM fallback Error rules such as `^. -> Error`; use strict mode only when user asks to preserve template errors.
-11. Use shared multi-target selectors for `exec`, `flow`, `show`, and `config fetch`: repeat `--target`, `--group`, or `--label`/`--tag`, then bound concurrency with `--max-parallel`. Treat selectors as a deduplicated union and preserve preflight-before-execute behavior.
+11. Use shared multi-target selectors for `exec`, `interactive`, `show`, and `config fetch`: repeat `--target`, `--group`, or `--label`/`--tag`, then bound concurrency with `--max-parallel`. Treat selectors as a deduplicated union and preserve preflight-before-execute behavior.
 12. Use `rauto config fetch` for running/startup configuration retrieval, raw and normalized SHA-256 drift hashes, exact single-device output paths, or timestamped multi-device archives. Every successful CLI fetch creates a raw configuration collection record and reports its `snapshot_id`; device-error output must not become a snapshot.
 13. Use `rauto config history` to inspect collection records without starting Web. Treat unchanged collections as distinct audit records that share one deduplicated raw content body; do not describe them as missing history.
 14. Use `rauto schedule` for persisted cron automation. Create/update from a complete `ScheduleDefinition` JSON, preview five-field cron expressions before mutation, and remember that `schedule run` only queues work for a running `rauto web` scheduler.
@@ -77,9 +77,9 @@ Apply action-first behavior:
 - Managing recurring orchestration, configuration collection, or single-device workflows: `schedule`.
 - Discovering SSH devices or importing the latest scan: `device discover` / `device discover list|save`.
 - Running one harmless raw command: `exec`.
-- Running one command or flow across saved targets/groups/labels: multi-target `exec` or `flow`.
+- Running one command or interactive template across saved targets/groups/labels: multi-target `exec` or `interactive`.
 - Running saved command text with vars: `template`.
-- Handling interactive prompts or wizard-like workflows: `flow`.
+- Handling interactive prompts or wizard-like workflows: `interactive`.
 - Changing config on one target: `tx`.
 - Changing config through reusable multi-block workflow: `tx-workflow`.
 - Changing config across devices/groups/sites: `orchestrate`.
@@ -128,7 +128,7 @@ If user explicitly asks to execute destructive action, proceed.
 
 Ask only for missing mandatory fields:
 
-- `exec/template/flow/tx/tx-workflow/upload/device test`:
+- `exec/template/interactive/tx/tx-workflow/upload/device test`:
   require either complete host credentials or a valid `--connection`.
 - `orchestrate`:
   require every job to resolve at least one saved device through `targets`, `target_groups`, or `target_tags`; never generate inline connection objects.
@@ -168,6 +168,6 @@ Report executed operations with:
 - JSON validation command guide: `references/json-validation.md`
 - JSON failure-to-fix cookbook: `references/json-common-errors.md`
 - Scenario-driven tx/workflow/orchestration patterns: `references/tx-orchestration-use-cases.md`
-- Command-flow template model and runtime vars: `references/flow-templates.md`
+- Interactive template model and runtime vars: `references/interactive-templates.md`
 - Agent mode + manager integration pointers: `references/agent-runbook.md`
 - Troubleshooting and recovery checklist: `references/troubleshooting.md`

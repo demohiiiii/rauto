@@ -15,7 +15,7 @@ const LAZY_ONLY_MODULE_PATTERNS = [
 ];
 const NON_EDITOR_LAZY_ENTRIES = [
   "BackupWorkspace",
-  "BatchPage",
+  "CommandDeliveryPage",
   "BlacklistWorkspace",
   "ConfigFetchWorkspace",
   "ConfigHistoryPage",

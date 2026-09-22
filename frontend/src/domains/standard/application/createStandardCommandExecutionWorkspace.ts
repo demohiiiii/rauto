@@ -1,3 +1,5 @@
+import type { BatchDeliveryWorkspace } from "./createBatchDeliveryWorkspace.js";
+import { MODE_SELECT, modeSelection } from "$domains/profiles/index.js";
 import { get, writable } from "svelte/store";
 import {
   MANUAL_COMMAND_SOURCE,
@@ -49,14 +51,28 @@ export function commandExecutionPayload(
 }
 
 export function createStandardCommandExecutionWorkspace({
+  batch,
   api: apiOverrides = {},
   confirmReplace,
   inspectionDelay = 180,
   runtime: runtimeOverrides = {},
-}: StandardCommandWorkspaceOptions = {}): StandardCommandExecutionWorkspace {
-  const api: StandardCommandApi = { ...standardCommandApi, ...apiOverrides };
+}: StandardCommandWorkspaceOptions & {
+  batch?: BatchDeliveryWorkspace;
+} = {}): StandardCommandExecutionWorkspace {
+  const api: StandardCommandApi = {
+    ...standardCommandApi,
+    ...(batch ? { renderTemplate: batch.renderTemplate } : {}),
+    ...apiOverrides,
+  };
   const runtime: StandardCommandRuntime = {
     ...standardCommandRuntime,
+    ...(batch
+      ? {
+          commandModePicker: () => modeSelection(MODE_SELECT.batchExec),
+          connection: () => ({}),
+          subscribeConnectionChange: batch.subscribeTargets,
+        }
+      : {}),
     ...runtimeOverrides,
   };
   const confirm = confirmReplace ?? runtime.confirm;
@@ -379,7 +395,20 @@ export function createStandardCommandExecutionWorkspace({
   }
 
   async function execute(): Promise<boolean> {
-    if (!commandReady() || !runtime.ensureTarget()) return false;
+    if (!commandReady() || get(stateStore).loadingActions.includes("execute"))
+      return false;
+    if (batch) {
+      setLoading("execute", true);
+      try {
+        return await batch.executeCommand(
+          currentExecutionPayload(),
+          get(stateStore).textfsm,
+        );
+      } finally {
+        if (!destroyed) setLoading("execute", false);
+      }
+    }
+    if (!runtime.ensureTarget()) return false;
     const autoDownloadExcel = get(stateStore).textfsm.autoDownloadExcel;
     const autoDownloadOutput = get(stateStore).textfsm.autoDownloadOutput;
     setLoading("execute", true);
@@ -447,6 +476,7 @@ export function createStandardCommandExecutionWorkspace({
 
   function destroy(): void {
     destroyed = true;
+    batch?.destroy();
     loadVersion += 1;
     inspectionVersion += 1;
     previewVersion += 1;

@@ -1,3 +1,4 @@
+import { interactiveTemplateModelFromToml } from "../src/domains/command/index.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { get } from "svelte/store";
@@ -117,32 +118,38 @@ test("template manager maps every backend content-template endpoint", () => {
     ),
     {
       command: "/api/templates",
-      flow: "/api/flow-templates",
+      interactive: "/api/interactive-templates",
       "tx-block": "/api/tx-block-templates",
       "tx-workflow": "/api/tx-workflow-templates",
       orchestration: "/api/orchestration-templates",
       textfsm: "/api/textfsm/templates",
     },
   );
-  const flowDefinition = templateResourceDefinitions.flow;
+  const flowDefinition = templateResourceDefinitions.interactive;
   assert.ok(flowDefinition);
-  assert.equal(flowDefinition.builtinApiBase, "/api/flow-templates/builtins");
+  assert.equal(
+    flowDefinition.builtinApiBase,
+    "/api/interactive-templates/builtins",
+  );
 });
 
 test("new structured templates include current command multiline fields", () => {
   const txBlock = JSON.parse(
     defaultTemplateResourceContent(TEMPLATE_MANAGER_KIND.txBlock, "precheck"),
   );
-  const flow = defaultTemplateResourceContent(
-    TEMPLATE_MANAGER_KIND.flow,
+  const interactive = defaultTemplateResourceContent(
+    TEMPLATE_MANAGER_KIND.interactive,
     "show-version",
   );
 
   assert.equal(txBlock.name, "precheck");
   assert.equal(txBlock.steps[0].run.kind, "command");
   assert.equal(txBlock.steps[0].run.multiline_mode, "split_lines");
-  assert.match(flow, /name = "show-version"/);
-  assert.match(flow, /multiline_mode = "split_lines"/);
+  assert.match(interactive, /name = "show-version"/);
+  assert.match(interactive, /multiline_mode = "split_lines"/);
+  const model = interactiveTemplateModelFromToml(interactive);
+  assert.equal(model.command, "show version");
+  assert.equal(Object.hasOwn(model, "steps"), false);
 });
 
 test("built-in flows are read-only and can be saved as custom snapshots", async () => {
@@ -156,28 +163,28 @@ test("built-in flows are read-only and can be saved as custom snapshots", async 
           : [resourceMeta("custom-copy")],
       getTemplateResource: async (base, name) => ({
         name,
-        content: `name = "${name}"\n[[steps]]\ncommand = "show version"`,
+        content: `name = "${name}"\ncommand = "show version"`,
         vars_schema: [],
       }),
       createTemplateResource: async (base, name, content) => {
         creates.push({ base, name, content });
         return { name, content };
       },
-      inspectCommandFlowTemplate: async (content) => ({
-        name: "flow",
+      inspectInteractiveTemplate: async (content) => ({
+        name: "interactive",
         content,
         vars_schema: [],
       }),
     },
   });
 
-  await workspace.activate(TEMPLATE_MANAGER_KIND.flow);
+  await workspace.activate(TEMPLATE_MANAGER_KIND.interactive);
   const selected = get(workspace.stateStore).selected;
   assert.ok(selected);
   assert.equal(selected.builtin, true);
   assert.equal((await workspace.save()).ok, false);
   assert.equal((await workspace.saveAs("copy-snapshot")).ok, true);
-  assert.equal(creates[0].base, "/api/flow-templates");
+  assert.equal(creates[0].base, "/api/interactive-templates");
   assert.equal(creates[0].name, "copy-snapshot");
   assert.match(creates[0].content, /^name = "copy-snapshot"/);
 });

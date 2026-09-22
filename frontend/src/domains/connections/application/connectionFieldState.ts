@@ -27,6 +27,7 @@ import {
   removeConnectionPickerSelection,
   removeConnectionVarsRow,
   setConnectionPickerQueryValue,
+  setConnectionPickerSelectedValues,
   setConnectionVarRowName,
   setConnectionVarRowType,
   setConnectionVarRowValue,
@@ -338,8 +339,11 @@ function connectionPickerFieldPresentation(
 ) {
   const selectedValues = Array.isArray(state.values) ? state.values : [];
   const normalizedQuery = displayString(choices.normalizedQuery || "");
-  const placeholder = displayString(pickerPlaceholder);
+  const placeholder = selectedValues.length
+    ? ""
+    : displayString(pickerPlaceholder);
   return {
+    kind: choices.kind || "",
     addCustomLabel: tr("connectionLabelsAddCustom"),
     canAddCustom: !!choices.canAddCustom,
     canRemoveLastOnBackspace: !normalizedQuery && selectedValues.length > 0,
@@ -392,6 +396,7 @@ export function createConnectionPickerFieldWorkspace() {
         connectionPickerChoices(
           $pickerFieldInputStateStore.keyName,
           $pickerStateSnapshotStore,
+          { includeSelected: true },
         ),
         {
           labelText: $pickerFieldInputStateStore.labelText,
@@ -444,6 +449,29 @@ export function createConnectionPickerFieldWorkspace() {
     );
   }
 
+  function setSelectedValues(values: string[]) {
+    const { active, onSelectionChange } = getStore(callbackInputsStateStore);
+    if (!active) return;
+    const { keyName } = getStore(pickerFieldInputStateStore);
+    setConnectionPickerSelectedValues(keyName, values);
+    notifyConnectionPickerSelectionChange({
+      active,
+      keyName,
+      onSelectionChange,
+    });
+  }
+
+  function setOpen(open: boolean) {
+    const { keyName } = getStore(pickerFieldInputStateStore);
+    if (open) {
+      if (getStore(callbackInputsStateStore).active)
+        openConnectionPickerMenu(keyName);
+    } else {
+      hideConnectionPickerMenu(keyName);
+      setConnectionPickerQueryValue(keyName, "");
+    }
+  }
+
   function setFieldContext({
     active = true,
     keyName = "",
@@ -474,6 +502,8 @@ export function createConnectionPickerFieldWorkspace() {
   return {
     addPickerValueAction,
     commitKeysStateStore,
+    setSelectedValues,
+    setOpen,
     handleFocusOut,
     handleKeydown,
     handleQueryInput,

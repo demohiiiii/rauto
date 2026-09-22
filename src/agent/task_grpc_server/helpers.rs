@@ -321,14 +321,15 @@ pub(super) fn map_fetch_config_batch_response(
     })
 }
 
-pub(super) fn map_execute_flow_batch_response(
-    response: crate::web::models::FlowBatchExecuteResponse,
-) -> Result<ExecuteFlowBatchResponse, Status> {
-    Ok(ExecuteFlowBatchResponse {
+pub(super) fn map_execute_interactive_batch_response(
+    response: crate::web::models::InteractiveBatchExecuteResponse,
+) -> Result<ExecuteInteractiveBatchResponse, Status> {
+    Ok(ExecuteInteractiveBatchResponse {
         template_name: response.template_name,
         targets: response.targets,
-        results_json: serde_json::to_string(&response.results)
-            .map_err(|err| Status::internal(format!("failed to serialize flow results: {err}")))?,
+        results_json: serde_json::to_string(&response.results).map_err(|err| {
+            Status::internal(format!("failed to serialize interactive results: {err}"))
+        })?,
         result_summary_json: Some(serde_json::to_string(&response.result_summary).map_err(
             |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
         )?),
@@ -371,7 +372,7 @@ fn encode_json_value(value: Option<Value>) -> Result<Option<String>, Status> {
         .map(|item| {
             serde_json::to_string(&item).map_err(|err| {
                 Status::internal(format!(
-                    "failed to serialize command flow template value: {}",
+                    "failed to serialize interactive command template value: {}",
                     err
                 ))
             })
@@ -379,10 +380,10 @@ fn encode_json_value(value: Option<Value>) -> Result<Option<String>, Status> {
         .transpose()
 }
 
-pub(super) fn map_command_flow_template_meta(
-    meta: WebCommandFlowTemplateMeta,
-) -> GrpcCommandFlowTemplateMeta {
-    GrpcCommandFlowTemplateMeta {
+pub(super) fn map_interactive_template_meta(
+    meta: WebInteractiveTemplateMeta,
+) -> GrpcInteractiveTemplateMeta {
+    GrpcInteractiveTemplateMeta {
         name: meta.name,
         kind: meta.kind,
         source: meta.source,
@@ -412,17 +413,17 @@ pub(super) fn map_template_detail(detail: WebTemplateDetail) -> TemplateDetail {
     }
 }
 
-pub(super) fn map_command_flow_template_detail(
-    detail: WebCommandFlowTemplateDetail,
-) -> Result<GrpcCommandFlowTemplateDetail, Status> {
-    Ok(GrpcCommandFlowTemplateDetail {
+pub(super) fn map_interactive_template_detail(
+    detail: WebInteractiveTemplateDetail,
+) -> Result<GrpcInteractiveTemplateDetail, Status> {
+    Ok(GrpcInteractiveTemplateDetail {
         name: detail.name,
         content: detail.content,
         vars_schema: detail
             .vars_schema
             .into_iter()
             .map(|field| {
-                Ok(GrpcCommandFlowTemplateVarField {
+                Ok(GrpcInteractiveTemplateVarField {
                     name: field.name,
                     label: field.label,
                     description: field.description,

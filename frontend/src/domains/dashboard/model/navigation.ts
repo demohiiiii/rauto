@@ -35,21 +35,21 @@ const navigationDefinitions: NavigationDefinition[] = [
     group: "operations",
   },
   {
-    id: "standard",
-    path: "/app/standard",
-    tab: "standard",
-    labelKey: "opSectionStandard",
-    navLabelKey: "navStandard",
-    label: "Standard Delivery",
+    id: "command",
+    path: "/app/command",
+    tab: "command",
+    labelKey: "commandDeliveryTitle",
+    navLabelKey: "navCommand",
+    label: "Command Delivery",
     group: "operations",
   },
   {
-    id: "batch",
-    path: "/app/batch",
-    tab: "batch",
-    labelKey: "opSectionBatch",
-    navLabelKey: "navBatch",
-    label: "Batch Delivery",
+    id: "interactive",
+    path: "/app/interactive",
+    tab: "interactive",
+    labelKey: "interactiveDeliveryTitle",
+    navLabelKey: "navInteractive",
+    label: "Interactive",
     group: "operations",
   },
   {
@@ -214,8 +214,14 @@ export const dashboardPageDefinitions: DashboardPageDefinition[] = [
     load: () =>
       import("$domains/config-fetch/presentation/components/ConfigFetchWorkspace.svelte"),
   },
-  { id: "standard", load: () => import("../../../pages/StandardPage.svelte") },
-  { id: "batch", load: () => import("../../../pages/BatchPage.svelte") },
+  {
+    id: "command",
+    load: () => import("../../../pages/CommandDeliveryPage.svelte"),
+  },
+  {
+    id: "interactive",
+    load: () => import("../../../pages/InteractiveDeliveryPage.svelte"),
+  },
   {
     id: "orchestrated",
     load: () => import("../../../pages/OrchestratedPage.svelte"),
@@ -296,8 +302,12 @@ export const dashboardOverlayDefinitions: DashboardComponentDefinitions<Dashboar
 export const defaultDashboardRoute = dashboardRoutes[0];
 
 export function routeByPath(pathname: string): DashboardRoute {
+  const path =
+    pathname === "/app/standard" || pathname === "/app/batch"
+      ? "/app/command"
+      : pathname;
   return (
-    dashboardRoutes.find((route) => route.path === pathname) ||
+    dashboardRoutes.find((route) => route.path === path) ||
     defaultDashboardRoute
   );
 }

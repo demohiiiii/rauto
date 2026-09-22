@@ -1,12 +1,14 @@
 import {
   executeExecBatch,
-  executeFlowBatch,
-  listTemplateResource,
+  executeInteractiveBatch,
+  listConnections,
+  renderTemplate,
 } from "../../../api/client.js";
 import type { StandardBatchApi } from "../model/types.js";
 
 export const standardBatchApi: StandardBatchApi = {
   executeCommand: executeExecBatch,
-  executeFlow: executeFlowBatch,
-  listTemplates: listTemplateResource,
+  executeInteractive: executeInteractiveBatch,
+  listConnections,
+  renderTemplate,
 };

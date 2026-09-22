@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/public/rauto-icon.svg" alt="rauto icon" width="112" />
+<img src="frontend/public/favicon.svg" alt="rauto icon" width="112" />
 
 # rauto
 
@@ -57,7 +57,7 @@ rauto web --bind 127.0.0.1 --port 3000
   - [命令选型指南](#命令选型指南)
   - [模板模式](#模板模式)
   - [直接执行](#直接执行)
-  - [命令流程模板](#命令流程模板)
+  - [交互式命令模板](#交互式命令模板)
   - [SFTP-上传](#sftp-上传)
   - [配置抓取](#配置抓取)
   - [计划任务](#计划任务)
@@ -98,7 +98,7 @@ rauto web --bind 127.0.0.1 --port 3000
 - **SSH 安全档位**：可按目标选择 `secure`、`balanced`、`legacy-compatible`；默认使用 `legacy-compatible`。
 - **设备管理分组与标签**：支持用分组和标签组织已保存连接。
 - **会话录制与回放**：支持将 SSH 会话录制为 JSONL 并离线回放。
-- **可复用命令流程模板**：支持把向导式 CLI 交互保存为可复用模板，用来执行设备侧文件传输、安装向导、功能确认等多步交互流程。
+- **可复用交互式命令模板**：支持把向导式 CLI 交互保存为可复用模板，用来执行设备侧文件传输、安装向导、功能确认等多步交互流程。
 - **可复用执行模板**：支持把 tx block / workflow / orchestration JSON 保存为可复用模板，并在执行前渲染变量。
 - **SFTP 上传**：支持将本地文件直接上传到暴露 `sftp` 子系统的 SSH 主机。
 - **数据备份与恢复**：支持对 `~/.rauto` 运行数据做全量备份与恢复。
@@ -106,7 +106,7 @@ rauto web --bind 127.0.0.1 --port 3000
 - **Agent 模式**：支持通过 `rauto agent` 接入 manager，完成注册、心跳、受保护 API 与任务回调。
 - **多设备编排执行（Web + CLI）**：支持基于计划文件对多台设备分阶段串行/并发执行，并复用现有 `tx` / `tx-workflow` 能力。
 - **命令黑名单**：支持在命令真正下发前做全局拦截，并支持 `*` 通配符。
-- **多目标并行执行**：`show`、`exec`、`flow` 均支持按已保存连接、inventory 分组和标签扇出执行，受控并发（`--max-parallel`，默认 4），并在执行前完成全量预检。
+- **多目标并行执行**：`show`、`exec`、`interactive` 均支持按已保存连接、inventory 分组和标签扇出执行，受控并发（`--max-parallel`，默认 4），并在执行前完成全量预检。
 - **配置抓取**：按设备 profile 抓取 `running`/`startup` 配置，返回原文与规范化双 SHA-256 哈希用于漂移检测，支持按时间戳落盘归档，并提供供 manager 集成的批量 API。
 
 ## 安装
@@ -160,7 +160,7 @@ npx skills add demohiiiii/rauto --skill rauto-usage
 | 立即执行一条命令                     | `rauto exec`        | 适合临时直连执行；可配合 `--mode` 限定目标模式。          |
 | 按 profile 执行 NTC 支持的 show 对象 | `rauto show`        | 将 `interfaces`、`route` 等对象映射为设备实际命令。       |
 | 用变量渲染一个可复用命令模板         | `rauto template`    | 适合命令文本来自已保存 Jinja 模板的场景。                 |
-| 驱动交互式问答/确认流程              | `rauto flow`        | 适合复制向导、安装向导和多轮 prompt/response 场景。       |
+| 驱动交互式问答/确认流程              | `rauto interactive`        | 适合复制向导、安装向导和多轮 prompt/response 场景。       |
 | 通过远端 SFTP 直接上传本地文件       | `rauto upload`      | 要求目标 SSH 服务暴露 `sftp` 子系统。                     |
 | 自动发现网段内的 SSH 设备            | `rauto device discover` | 验证 SSH identification、探测设备 profile，并保存最新扫描结果。 |
 | 执行一个带回滚能力的事务块           | `rauto tx`          | 适合单目标、单事务单元、需要步骤级或资源级回滚的场景。    |
@@ -308,15 +308,15 @@ rauto show-object delete --profile my_custom_profile --object access-list
 
 ### TextFSM 解析
 
-`show`、`exec`、`template` 和 `flow` 可以在命令执行后用 TextFSM 解析输出。
+`show`、`exec`、`template` 和 `interactive` 可以在命令执行后用 TextFSM 解析输出。
 
 - `show` 默认启用 TextFSM 解析。只想看原始输出时传 `--no-parse`。
 - 默认不会解析。需要解析时传 `--parse-textfsm`。
 - 手动解析：传 `--textfsm-template <path>`，使用指定 TextFSM 模板文件，优先级最高。
-- 多命令解析：`template` 和 `flow` 可以重复传多个 `--textfsm-template <path>`，按命令顺序匹配模板文件；如果模板文件数量少于命令数量，最后一个模板会用于后续所有命令。
+- 多命令解析：`template` 和 `interactive` 可以重复传多个 `--textfsm-template <path>`，按命令顺序匹配模板文件；如果模板文件数量少于命令数量，最后一个模板会用于后续所有命令。
 - 平台推断：启用解析时，`rauto` 会从当前连接的 device profile 推断 [ntc-templates](https://github.com/networktocode/ntc-templates) platform，例如 `cisco_ios`、`huawei -> huawei_vrp`、`cisco_xe -> cisco_ios`。
 - 宽松解析：默认会在解析前过滤 TextFSM 模板里的 `^. -> Error` 这类兜底 Error 规则，避免某些非关键行未匹配时导致整次解析失败。需要严格保留 Error 规则时，传 `--textfsm-strict-errors`。
-- Excel 导出：传 `--textfsm-excel <file.xlsx>` 可以把解析成功的表格行导出为 Excel 工作簿。对 `exec`、`template` 和 `flow` 来说，这个参数也会启用 TextFSM 解析。
+- Excel 导出：传 `--textfsm-excel <file.xlsx>` 可以把解析成功的表格行导出为 Excel 工作簿。对 `exec`、`template` 和 `interactive` 来说，这个参数也会启用 TextFSM 解析。
 - 如果没有启用解析，也没有指定模板，则只展示原始输出。
 - 解析失败不会阻断命令执行；原始输出仍会返回，解析错误会单独展示。
 
@@ -381,54 +381,54 @@ rauto textfsm mapping set \
     --template my_show_version
 ```
 
-### 命令流程模板
+### 交互式命令模板
 
-`rauto flow` 用来执行已保存或临时提供的交互式 `CommandFlow` 模板。这是更通用的一层能力，适合处理向导式 CLI 交互，例如设备侧文件传输、安装向导、功能确认提示等。
+`rauto interactive` 执行一条命令及其多条提示应答规则，适用于设备侧文件传输、安装向导、功能确认等。多个操作通过事务工作流编排。
 
 管理已保存模板：
 
 ```bash
-rauto flow-template list
-rauto flow-template show cisco_like_copy
-rauto flow-template create cisco_like_copy --file ./templates/examples/cisco-like-command-flow.toml
-rauto flow-template create linux_scp_with_current_and_peer --file ./templates/examples/linux-scp-with-current-and-peer-command-flow.toml
-rauto flow-template update cisco_like_copy --file ./my-flow-template.toml
-rauto flow-template delete cisco_like_copy
+rauto interactive-template list
+rauto interactive-template show cisco_like_copy
+rauto interactive-template create cisco_like_copy --file ./templates/examples/cisco-like-interactive.toml
+rauto interactive-template create linux_scp_with_current_and_peer --file ./templates/examples/linux-scp-with-current-and-peer-interactive.toml
+rauto interactive-template update cisco_like_copy --file ./my-interactive-template.toml
+rauto interactive-template delete cisco_like_copy
 ```
 
 执行已保存模板，并传入运行时变量：
 
 ```bash
-rauto flow \
+rauto interactive \
     --template cisco_like_copy \
     --vars-json '{"command":"copy scp: flash:/new.bin","server_addr":"192.168.1.50","remote_path":"/images/new.bin","transfer_username":"backup","transfer_password":"secret","overwrite_answer":"y"}' \
     --connection core-01
 ```
 
-命令流程同样支持与 `show` / `exec` 一致的多目标扇出。流程模板会按每台设备各自的连接上下文渲染（`{{host}}` 与跨连接引用逐台解析），渲染后的实际命令逐台通过黑名单校验，然后并发执行：
+交互式命令同样支持与 `show` / `exec` 一致的多目标扇出。交互式命令模板会按每台设备各自的连接上下文渲染（`{{host}}` 与跨连接引用逐台解析），渲染后的实际命令逐台通过黑名单校验，然后并发执行：
 
 ```bash
-rauto flow \
+rauto interactive \
     --template push-snmp \
     --vars-json '{"community":"ro"}' \
     --label campus \
     --max-parallel 4
 ```
 
-Web UI 可在 **批量下发** 页面的命令流标签页执行批量命令流；集成方可调用 `POST /api/flow/batch-execute`（或 agent gRPC 的 `ExecuteFlowBatch` 方法），预检与按设备渲染语义与 CLI 完全一致。
+Web UI 可在 **交互式命令 → 批量** 页面执行；集成方可调用 `POST /api/interactive/batch-execute`（或 agent gRPC 的 `ExecuteInteractiveBatch` 方法），预检与按设备渲染语义与 CLI 完全一致。
 
 说明：
 
-- `rauto flow` 是 CLI 里执行交互式命令流程的推荐入口。
-- 已保存的命令流程模板存放在 SQLite 中，CLI 和 Web 共用同一套模板。
-- 内置命令流程模板可通过 `/api/flow-templates/builtins` 获取；执行时支持 `builtin:<name>`（CLI `--template` 与 Web 下拉值都可用）。
-- 命令流程模板遵循 rneter 当前的 `{{var}}` 内联 `CommandFlowTemplate` 模型，并按线性步骤执行，通过 prompt 交互规则驱动多轮问答。
-- 命令流程模板的输入字段会从 `{{var}}` 引用自动推导，并且必须在运行时提供。`{{peer.host}}` 这类点号引用会生成一个名为 `peer` 的根输入。
+- `rauto interactive` 是 CLI 里执行交互式命令的推荐入口。
+- 已保存的交互式命令模板存放在 SQLite 中，CLI 和 Web 共用同一套模板。
+- 内置交互式命令模板可通过 `/api/interactive-templates/builtins` 获取；执行时支持 `builtin:<name>`（CLI `--template` 与 Web 下拉值都可用）。
+- 模板统一使用顶层 `command` 和 `[[prompts]]`，支持 `{{var}}` 引用。不再支持 `steps`、`default_mode` 或 `stop_on_error` 等旧模板字段，也不会自动转换旧模板。
+- 交互式命令模板的输入字段会从 `{{var}}` 引用自动推导，并且必须在运行时提供。`{{peer.host}}` 这类点号引用会生成一个名为 `peer` 的根输入。
 - 运行时变量会同时注入到模板顶层字段和 `vars` 嵌套对象中。
 - 运行时变量支持两种引用：`连接名.参数名`（跨连接取值）与 `参数名`（先查请求变量，再回退当前目标连接参数）。
 - 当前执行目标可直接通过 `{{host}}`、`{{username}}`、`{{password}}` 等扁平字段访问，不再需要声明当前连接别名。
 - 连接别名变量支持“变量值指向连接名”的模式。例如 `peer=edge94` 后，可直接引用 `{{peer.host}}` / `{{peer.username}}` / `{{peer.password}}`。
-- 如果某个步骤没有显式写 `mode`，`rauto` 会使用设备 profile 定义的第一个状态。
+- 未指定 `mode` 时，使用设备 profile 的默认模式。
 - 现在所有执行都会默认保存会话记录。
 - `--record-level key-events-only` 会保存最小审计信息：输入命令和设备回显。
 - `--record-level full` 会进一步保存更完整的 prompt 和状态变更信息。
@@ -436,22 +436,24 @@ Web UI 可在 **批量下发** 页面的命令流标签页执行批量命令流�
 
 #### 多行命令提交
 
-结构化命令会始终显式序列化 `multiline_mode`。`split_lines` 会去除空行并把每个非空行作为独立命令执行；`whole` 会保留原始换行并将整段文本提交一次。旧数据缺少该字段时仍保持兼容，并统一规范化为 `split_lines`。
+结构化命令会始终显式序列化 `multiline_mode`。`split_lines` 会去除空行并把每个非空行作为独立命令执行；`whole` 会保留原始换行并将整段文本提交一次。未指定时默认为 `split_lines`。
 
 `split_lines` 采用失败即停策略：第一条实际命令失败后，后续行不会继续执行。
 
-命令流程 TOML：
+交互式命令 TOML：
 
 ```toml
-[[steps]]
-mode = "Config"
-command = "interface Gi0/1\nno shutdown"
+name = "copy-image"
+command = "copy {{source}} flash:"
+mode = "Enable"
+timeout_secs = 300
 multiline_mode = "split_lines"
 
-[[steps]]
-mode = "Shell"
-command = "cat <<'EOF'\nline one\nline two\nEOF"
-multiline_mode = "whole"
+[[prompts]]
+patterns = ['(?i)continue\?']
+response = "yes"
+append_newline = true
+record_input = false
 ```
 
 事务 JSON 的普通命令和回滚命令使用相同字段：
@@ -469,13 +471,13 @@ multiline_mode = "whole"
 
 可直接修改的示例模板：
 
-- [templates/examples/cisco-like-command-flow.toml](templates/examples/cisco-like-command-flow.toml)
-- [templates/examples/linux-scp-with-current-and-peer-command-flow.toml](templates/examples/linux-scp-with-current-and-peer-command-flow.toml)
+- [templates/examples/cisco-like-interactive.toml](templates/examples/cisco-like-interactive.toml)
+- [templates/examples/linux-scp-with-current-and-peer-interactive.toml](templates/examples/linux-scp-with-current-and-peer-interactive.toml)
 
 示例：只传一个 `peer` 变量执行 Linux SCP 流程
 
 ```bash
-rauto flow \
+rauto interactive \
     --template linux_scp_with_current_and_peer \
     --connection edge92 \
     --vars-json '{"peer":"edge94","local_path":"/tmp/app.tar","remote_path":"/tmp/app.tar"}'
@@ -483,9 +485,9 @@ rauto flow \
 
 ### SFTP 上传
 
-`rauto upload` 和使用内置文件传输模板的 `rauto flow` 定位不同：
+`rauto upload` 和使用内置文件传输模板的 `rauto interactive` 定位不同：
 
-- `rauto flow` 可以通过已保存或内置的命令流程模板，驱动设备侧 `copy scp:` / `copy tftp:` 交互流程。
+- `rauto interactive` 可以通过已保存或内置的交互式命令模板，驱动设备侧 `copy scp:` / `copy tftp:` 交互流程。
 - `rauto upload` 用于通过远端 SSH 服务暴露的 `sftp` 子系统，直接上传本地文件。
 
 当目标主机支持 SFTP 时，优先使用 `rauto upload`。这在 Linux 主机上很常见，但很多网络设备并不提供 SFTP 子系统。
@@ -621,7 +623,7 @@ rauto schedule delete "夜间核心配置采集"
 
 这样做的好处：
 
-- 让 `exec --mode`、`tx --mode` 和命令流程步骤中的 `mode` 在不同厂商 profile 之间保持一致。
+- 让 `exec --mode`、`tx --mode` 和交互式命令中的 `mode` 在不同厂商 profile 之间保持一致。
 - 便于复用示例、模板和日常操作习惯，不必为不同 profile 反复记忆一套新的模式命名。
 - 在内置 profile 和自定义 profile 之间切换时，更容易理解默认 mode 回退和 mode 校验行为。
 - 阅读录制结果、tx 输出、编排计划，或排查 mode 相关问题时，整体会更直观、更少歧义。
@@ -745,14 +747,14 @@ Web 控制台主要能力：
 
 - 在独立的“凭证管理”页面管理可复用设备凭证；保存后不会把明文密码返回给浏览器。
 - 在页面中管理连接配置：新增、加载、更新、删除、查看详情。
-- 在独立的 `批量下发` 页面对多个已保存连接、分组或标签批量执行同一条命令或同一个命令流，逐台展示结果卡片并支持并发数控制。
+- 在 `命令下发` 或 `交互式命令` 页面的 `批量` 标签中，选择多个已保存连接、分组或标签执行，逐台展示结果卡片并支持并发数控制。
 - 在已保存连接和临时连接中选择设备凭证，不再在每条连接里重复填写账号和密码。
 - 支持在页面中下载连接导入模板，并从 CSV / Excel 批量导入已保存连接。
 - 在页面连接参数和已保存连接中选择 SSH 安全档位：`secure`、`balanced`、`legacy-compatible`。
-- 在 `Operations` 里统一执行命令、命令流程、事务块、事务工作流和多设备编排。
+- 在 `Operations` 里统一执行命令、交互式命令、事务块、事务工作流和多设备编排。
 - 命令工作台支持手动输入，选择已保存的普通命令模板后展示只读的渲染结果，变量输入位于命令上方。变量扫描按 Jinja 语法和作用域处理过滤器、条件、循环、宏和索引等表达式；对象和数组可选择 JSON 字段类型填写。扫描范围为所选模板源码，不展开引用的其他模板或动态计算的字段名。
 - 手动命令和模板快照共用 `{{var}}` 变量、渲染预览、TextFSM 解析和多行提交模式；执行页面不会覆盖已保存模板。
-- 在 `Template 管理` 中统一管理 profile、命令模板和命令流程模板。
+- 在 `Template 管理` 中统一管理 profile、命令模板和交互式命令模板。
 - 在 `设备管理` 中通过分组（Groups）与标签（Labels）组织已保存连接（仅 Web 提供完整管理界面）。
 - 在 `任务中心` 中查看异步任务运行情况（状态、事件、附件、录制）。
 - 使用独立的 `SFTP 上传` 页面执行直接文件上传。Web API 仅从 `RAUTO_HOME/uploads`（默认 `~/.rauto/uploads`）读取待上传文件。
@@ -1038,7 +1040,7 @@ rauto backup restore ./rauto-backup.tar.gz --replace
 
 ### 命令黑名单
 
-可以使用全局黑名单，在命令真正发送到设备前拒绝执行。CLI 和 Web 的执行链路都会生效，包括 `exec`、模板执行、`flow`、`tx`、`tx-workflow` 和 `orchestrate`。
+可以使用全局黑名单，在命令真正发送到设备前拒绝执行。CLI 和 Web 的执行链路都会生效，包括 `exec`、模板执行、`interactive`、`tx`、`tx-workflow` 和 `orchestrate`。
 
 ```bash
 # 查看当前黑名单
@@ -1082,10 +1084,10 @@ rauto tx \
     --credential network-admin
 
 rauto tx \
-    --run-kind command-flow \
-    --flow-template cisco_like_copy \
-    --flow-vars ./flow-vars.json \
-    --rollback-flow-file ./rollback-flow.toml \
+    --run-kind interactive \
+    --interactive-template cisco_like_copy \
+    --interactive-vars ./interactive-vars.json \
+    --rollback-interactive-file ./rollback-interactive.toml \
     --host 192.168.1.1 \
     --credential network-admin
 ```
@@ -1093,7 +1095,7 @@ rauto tx \
 说明：
 
 - `--run-kind commands` 使用重复的 `--command` 与可选的步骤级 `--rollback-command`。
-- `--run-kind command-flow` 使用已保存或临时提供的命令流程模板来执行正向和回滚路径。
+- `--run-kind interactive` 使用已保存或临时提供的交互式命令模板来执行正向和回滚路径。
 - `--dry-run` 会打印标准化后的 tx block，而不真正执行。
 - `--json` 会以 JSON 形式输出执行结果。
 - `--record-file` 与 `--record-level` 的行为和其他执行命令一致。
@@ -1451,7 +1453,7 @@ Rust 后端是单一 Cargo package。`src/domain/` 负责领域模型和规则�
 | `--linux-shell-flavor` | -        | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                              |
 | `--device-profile`     | -        | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`、`cisco_ios`） |
 | `--force-autodetect`   | -        | 忽略已缓存的 autodetect 结果并重新探测目标设备                                           |
-| `--session-retries`    | `RAUTO_SESSION_RETRIES` | 普通命令/命令流发生瞬时故障时的重试次数（默认：`0`）                         |
+| `--session-retries`    | `RAUTO_SESSION_RETRIES` | 普通命令/交互式命令发生瞬时故障时的重试次数（默认：`0`）                         |
 | `--retry-initial-backoff-ms` | `RAUTO_RETRY_INITIAL_BACKOFF_MS` | 首次重试等待毫秒数（默认：`200`）                     |
 | `--retry-max-backoff-ms` | `RAUTO_RETRY_MAX_BACKOFF_MS` | 指数退避最大毫秒数（默认：`2000`）                         |
 | `--retry-authentication-errors` | `RAUTO_RETRY_AUTHENTICATION_ERRORS` | 同时重试认证拒绝（默认关闭）                  |
@@ -1476,26 +1478,26 @@ Rust 后端是单一 Cargo package。`src/domain/` 负责领域模型和规则�
 - `show --print-command`：执行前打印内部解析出的设备命令。
 - `show-object set/list/delete`：管理保存到 SQLite 的 profile 级自定义 show object。同一 profile 和 object 下，自定义对象会覆盖内置 show 映射。
 - `--force-autodetect`：跳过本地 `host:port` autodetect 缓存，重新探测并刷新缓存。适合设备更换、同 IP/端口后的设备类型变化等特殊情况。
-- `--session-retries <N>`：普通命令和命令流遇到连接、初始化、传输或通道断开等瞬时故障时执行有界重试。退避从 `--retry-initial-backoff-ms` 开始，指数增长到 `--retry-max-backoff-ms`；命令流已完成步骤会保留，重连后从首个未完成步骤继续。
+- `--session-retries <N>`：普通命令和交互式命令遇到连接、初始化、传输或通道断开等瞬时故障时执行有界重试。退避从 `--retry-initial-backoff-ms` 开始，指数增长到 `--retry-max-backoff-ms`。
 - 重试默认关闭，并具有“至少执行一次”语义：设备可能已经应用命令，但连接在返回提示符前断开。只应为可安全重复的命令开启。事务、工作流和上传不会自动重试；认证拒绝只有显式设置 `--retry-authentication-errors` 后才会重试。
-- `exec/template/flow --parse-textfsm`：启用 TextFSM 解析命令输出；不传时默认跳过 TextFSM，除非你指定了手动模板。
-- `exec/template/flow --textfsm-template <path>`：使用指定 TextFSM 模板文件解析命令输出。对 `template` 和 `flow` 可以重复传多个，按命令顺序匹配；数量不足时复用最后一个模板。
-- `show/exec/template/flow --textfsm-strict-errors`：严格保留 TextFSM `-> Error` 规则，不在解析前过滤。
-- `show/exec/template/flow --textfsm-excel <file.xlsx>`：把 TextFSM 解析成功的表格行导出为 Excel。
+- `exec/template/interactive --parse-textfsm`：启用 TextFSM 解析命令输出；不传时默认跳过 TextFSM，除非你指定了手动模板。
+- `exec/template/interactive --textfsm-template <path>`：使用指定 TextFSM 模板文件解析命令输出。对 `template` 和 `interactive` 可以重复传多个，按命令顺序匹配；数量不足时复用最后一个模板。
+- `show/exec/template/interactive --textfsm-strict-errors`：严格保留 TextFSM `-> Error` 规则，不在解析前过滤。
+- `show/exec/template/interactive --textfsm-excel <file.xlsx>`：把 TextFSM 解析成功的表格行导出为 Excel。
 - `textfsm template ...`：管理保存到 SQLite 的自定义 TextFSM 模板。
 - `textfsm mapping ...`：管理自定义 `(device profile, command) -> TextFSM template` 映射。启用解析且没有显式指定模板文件时，自定义映射优先级高于内置 NTC 模板。
 - `template --vars <file>` / `template -v <file>`：为已保存命令模板加载 JSON/YAML 变量文件。
-- `flow --template <name>` / `flow -t <name>`：运行已保存的命令流程模板。
-- `flow --file <path>` / `flow -f <path>`：从 TOML 文件运行临时命令流程模板。
-- `flow --vars <file>` / `flow -v <file>` / `flow --vars-json <json>`：为命令流程模板提供文件变量或内联 JSON 变量。
+- `interactive --template <name>` / `interactive -t <name>`：运行已保存的交互式命令模板。
+- `interactive --file <path>` / `interactive -f <path>`：从 TOML 文件运行临时交互式命令模板。
+- `interactive --vars <file>` / `interactive -v <file>` / `interactive --vars-json <json>`：为交互式命令模板提供文件变量或内联 JSON 变量。
 - `template --dry-run`：只渲染模板，不在目标上执行。
-- `tx --mode <mode>` / `tx -m <mode>`：强制 tx 命令或命令流程步骤在指定模式下运行。
+- `tx --mode <mode>` / `tx -m <mode>`：强制 tx 命令或交互式命令在指定模式下运行。
 - `tx --dry-run`：只打印计划中的 tx block，而不真正执行。
 
 录制/回放相关参数（命令级参数）：
 
-- `exec/template/flow/tx --record-file <path>` / `-r <path>`：执行后保存录制 JSONL。
-- `exec/template/flow/tx --record-level <key-events-only|full>` / `-l <level>`：录制粒度。
+- `exec/template/interactive/tx --record-file <path>` / `-r <path>`：执行后保存录制 JSONL。
+- `exec/template/interactive/tx --record-level <key-events-only|full>` / `-l <level>`：录制粒度。
 - `session`：展示最近一条已保存的会话记录。
 - `session list [connection] [--limit N] [--json]`：按时间倒序列出会话记录。
 - `session show [record_id] [--connection <name>] [--json|--raw]`：展示记录详情；不传 ID 时展示符合条件的最近一条。

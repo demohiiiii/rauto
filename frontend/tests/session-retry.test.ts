@@ -8,7 +8,7 @@ import {
 import type { SessionRetryState } from "../src/domains/execution/index.js";
 import {
   commandExecutionPayload,
-  commandFlowExecutionPayload,
+  interactiveExecutionPayload,
 } from "../src/domains/standard/index.js";
 
 const enabledRetry: SessionRetryState = {
@@ -50,14 +50,14 @@ test("session retry rejects invalid values before execution", () => {
   );
 });
 
-test("command and command flow payloads share the retry contract", () => {
+test("command and interactive command payloads share the retry contract", () => {
   assert.deepEqual(
     commandExecutionPayload({ content: "show version", retry: enabledRetry })
       .retry,
     sessionRetryRequestFields(enabledRetry).retry,
   );
   assert.deepEqual(
-    commandFlowExecutionPayload({
+    interactiveExecutionPayload({
       connection: {},
       recordLevel: null,
       retry: enabledRetry,

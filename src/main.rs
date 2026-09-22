@@ -37,9 +37,10 @@ pub(crate) use cli::runtime::{
     EffectiveConnection, manager_connection_request, manager_execution_context_with_security,
     manager_retry_policy, maybe_save_connection_profile, normalize_recording_jsonl_for_cli_level,
     persist_auto_recording_history, persist_auto_recording_history_jsonl, read_required_text_input,
-    resolve_autodetect_connection, resolve_effective_connection, resolve_flow_runtime_vars,
-    resolve_runtime_vars_for_connection, save_named_connection, to_record_level,
-    write_recording_if_requested, write_recording_text_if_requested,
+    resolve_autodetect_connection, resolve_effective_connection,
+    resolve_interactive_connection_vars, resolve_runtime_vars_for_connection,
+    save_named_connection, to_record_level, write_recording_if_requested,
+    write_recording_text_if_requested,
 };
 
 #[tokio::main]
@@ -100,14 +101,14 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::ShowObject(cmd) => {
             cli::exec::run_show_object_command(cmd)?;
         }
-        Commands::Flow(args) => {
-            cli::flow::run_command_flow(args, &cli.global_opts).await?;
+        Commands::Interactive(args) => {
+            cli::interactive::run_interactive(args, &cli.global_opts).await?;
         }
-        Commands::FlowTemplate(cmd) => {
-            cli::flow::run_command_flow_template_command(cmd)?;
+        Commands::InteractiveTemplate(cmd) => {
+            cli::interactive::run_interactive_template_command(cmd)?;
         }
         Commands::Upload(args) => {
-            cli::flow::run_upload(args, &cli.global_opts).await?;
+            cli::interactive::run_upload(args, &cli.global_opts).await?;
         }
         Commands::Config(cmd) => {
             cli::config_fetch::run_config_command(cmd, &cli.global_opts).await?;

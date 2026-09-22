@@ -1,9 +1,12 @@
 import type { Readable, Writable } from "svelte/store";
 import type {
-  CommandFlowDraftWorkspace,
-  CommandFlowTemplateModel,
+  InteractiveDraftWorkspace,
+  InteractiveTemplateModel,
 } from "$domains/command/index.js";
-import type { ConnectionRequestPayload } from "$domains/connections/index.js";
+import type {
+  ConnectionRequestPayload,
+  SavedConnection,
+} from "$domains/connections/index.js";
 import type {
   ParsedOutputSheet,
   SessionRetryPayload,
@@ -12,7 +15,7 @@ import type {
 import type { RecordLevel } from "$domains/overlays/index.js";
 import type { ModeSelectState } from "$domains/profiles/index.js";
 import type {
-  CommandFlowTemplateDetail,
+  InteractiveTemplateDetail,
   CommandTemplateInspection,
   TemplateVariableField,
 } from "$domains/templates/index.js";
@@ -207,38 +210,38 @@ export interface StandardCommandExecutionWorkspace {
   stateStore: Writable<StandardCommandWorkspaceState>;
 }
 
-export type StandardFlowSelectionKind = "builtin" | "custom" | "new";
-export type StandardFlowNameDialogAction = "new" | "saveAs";
+export type StandardInteractiveSelectionKind = "builtin" | "custom" | "new";
+export type StandardInteractiveNameDialogAction = "new" | "saveAs";
 
-export interface StandardFlowSelection {
-  kind: StandardFlowSelectionKind;
+export interface StandardInteractiveSelection {
+  kind: StandardInteractiveSelectionKind;
   name: string;
   value: string;
 }
 
-export interface StandardFlowAuthoringOperationState {
+export interface StandardInteractiveAuthoringOperationState {
   loadingAction: string;
   statusMessage: string;
   statusTone: StandardCommandStatusTone;
 }
 
-export interface StandardFlowNameDialogState {
-  action: StandardFlowNameDialogAction;
+export interface StandardInteractiveNameDialogState {
+  action: StandardInteractiveNameDialogAction;
   errorMessage: string;
   open: boolean;
   value: string;
 }
 
-export interface StandardFlowAuthoringActionState extends StandardFlowAuthoringOperationState {
+export interface StandardInteractiveAuthoringActionState extends StandardInteractiveAuthoringOperationState {
   canRun: boolean;
   canSave: boolean;
   canSaveAs: boolean;
   dirty: boolean;
 }
 
-export type StandardFlowTemplateDetail = CommandFlowTemplateDetail;
+export type StandardInteractiveTemplateDetail = InteractiveTemplateDetail;
 
-export interface StandardFlowAuthoringOptions {
+export interface StandardInteractiveAuthoringOptions {
   confirmDiscard?: (message: string) => boolean | Promise<boolean>;
   createTemplate?: (
     name: string,
@@ -247,9 +250,11 @@ export interface StandardFlowAuthoringOptions {
   getTemplate?: (
     name: string,
     options: { builtin: boolean },
-  ) => Promise<StandardFlowTemplateDetail>;
-  inspectTemplate?: (content: string) => Promise<StandardFlowTemplateDetail>;
-  onInspection?: (detail: StandardFlowTemplateDetail | null) => void;
+  ) => Promise<StandardInteractiveTemplateDetail>;
+  inspectTemplate?: (
+    content: string,
+  ) => Promise<StandardInteractiveTemplateDetail>;
+  onInspection?: (detail: StandardInteractiveTemplateDetail | null) => void;
   parseBuiltinSelection?: (value: string) => string | null;
   refreshTemplates?: () => Promise<void>;
   updateTemplate?: (
@@ -258,61 +263,61 @@ export interface StandardFlowAuthoringOptions {
   ) => Promise<StandardTemplateDetail>;
 }
 
-export interface StandardFlowExecutionSource {
+export interface StandardInteractiveExecutionSource {
   content: string;
   kind: "temporary";
 }
 
-export interface StandardCommandFlowAuthoringState {
-  actionStateStore: Readable<StandardFlowAuthoringActionState>;
+export interface StandardInteractiveAuthoringState {
+  actionStateStore: Readable<StandardInteractiveAuthoringActionState>;
   closeNameDialog(): void;
   createNewDraft(name?: string): boolean;
-  draft: CommandFlowDraftWorkspace;
-  executeSource(): StandardFlowExecutionSource;
+  draft: InteractiveDraftWorkspace;
+  executeSource(): StandardInteractiveExecutionSource;
   inspectCurrent(): Promise<boolean>;
-  nameDialogStateStore: Writable<StandardFlowNameDialogState>;
+  nameDialogStateStore: Writable<StandardInteractiveNameDialogState>;
   openNewDialog(): void;
   openSaveAsDialog(): void;
-  operationStateStore: Writable<StandardFlowAuthoringOperationState>;
+  operationStateStore: Writable<StandardInteractiveAuthoringOperationState>;
   save(): Promise<boolean>;
   saveAs(name?: string): Promise<boolean>;
-  selectionStateStore: Writable<StandardFlowSelection>;
+  selectionStateStore: Writable<StandardInteractiveSelection>;
   selectTemplate(value?: string): Promise<boolean>;
-  setModel(model: CommandFlowTemplateModel): void;
+  setModel(model: InteractiveTemplateModel): void;
   setNameDialogValue(value?: string): void;
   setTomlText(tomlText?: string): boolean;
   submitNameDialog(): Promise<boolean>;
 }
 
-export interface StandardCommandFlowSavedExecutionSource {
+export interface StandardInteractiveSavedExecutionSource {
   builtinTemplateName: string | null;
   kind: "saved";
   templateSelection: string;
 }
 
-export interface StandardCommandFlowTemporaryExecutionSource {
+export interface StandardInteractiveTemporaryExecutionSource {
   content: string;
   kind: "temporary";
 }
 
-export type StandardCommandFlowNormalizedExecutionSource =
-  | StandardCommandFlowSavedExecutionSource
-  | StandardCommandFlowTemporaryExecutionSource;
+export type StandardInteractiveNormalizedExecutionSource =
+  | StandardInteractiveSavedExecutionSource
+  | StandardInteractiveTemporaryExecutionSource;
 
-export type StandardCommandFlowExecutionSourceInput =
+export type StandardInteractiveExecutionSourceInput =
   | { content?: string; kind: "temporary" }
   | { kind: "saved"; templateSelection?: string };
 
-export interface StandardCommandFlowExecutionInput {
+export interface StandardInteractiveExecutionInput {
   connection?: ConnectionRequestPayload;
   recordLevel?: RecordLevel | null;
   retry?: SessionRetryState;
-  source?: StandardCommandFlowExecutionSourceInput;
-  textfsm?: Partial<StandardCommandFlowTextfsmPayload>;
+  source?: StandardInteractiveExecutionSourceInput;
+  textfsm?: Partial<StandardInteractiveTextfsmPayload>;
   vars?: JsonValue;
 }
 
-export type StandardCommandFlowSourcePayload =
+export type StandardInteractiveSourcePayload =
   | {
       builtin_template_name: null;
       content?: never;
@@ -329,7 +334,7 @@ export type StandardCommandFlowSourcePayload =
       template_name?: never;
     };
 
-export interface StandardCommandFlowExecutionFields {
+export interface StandardInteractiveExecutionFields {
   connection?: ConnectionRequestPayload;
   parse_textfsm?: boolean;
   record_level?: RecordLevel | null;
@@ -340,10 +345,10 @@ export interface StandardCommandFlowExecutionFields {
   vars: JsonValue;
 }
 
-export type StandardCommandFlowExecutionPayload =
-  StandardCommandFlowSourcePayload & StandardCommandFlowExecutionFields;
+export type StandardInteractiveExecutionPayload =
+  StandardInteractiveSourcePayload & StandardInteractiveExecutionFields;
 
-export interface StandardCommandFlowTextfsmFields {
+export interface StandardInteractiveTextfsmFields {
   autoDownloadExcel?: boolean;
   autoDownloadOutput?: boolean;
   enabled?: boolean;
@@ -351,7 +356,7 @@ export interface StandardCommandFlowTextfsmFields {
   template?: string;
 }
 
-export interface StandardCommandFlowTextfsmState {
+export interface StandardInteractiveTextfsmState {
   autoDownloadExcel: boolean;
   autoDownloadOutput: boolean;
   enabled: boolean;
@@ -359,7 +364,7 @@ export interface StandardCommandFlowTextfsmState {
   template: string;
 }
 
-export interface StandardCommandFlowTextfsmPayload {
+export interface StandardInteractiveTextfsmPayload {
   parse_textfsm: boolean;
   textfsm_strict_errors: boolean;
   textfsm_template: string | null;
@@ -367,7 +372,7 @@ export interface StandardCommandFlowTextfsmPayload {
 
 export type StandardParsedOutputSheet = ParsedOutputSheet;
 
-export interface StandardCommandFlowExecutionResponse {
+export interface StandardInteractiveExecutionResponse {
   outputs: StandardCommandResult[];
   recording_jsonl: string | null;
   result_summary: TaskResultSummary;
@@ -375,13 +380,13 @@ export interface StandardCommandFlowExecutionResponse {
   template_name: string;
 }
 
-export interface StandardCommandFlowApi {
-  executeFlow(
-    payload: StandardCommandFlowExecutionPayload,
-  ): Promise<StandardCommandFlowExecutionResponse>;
+export interface StandardInteractiveApi {
+  executeInteractive(
+    payload: StandardInteractiveExecutionPayload,
+  ): Promise<StandardInteractiveExecutionResponse>;
 }
 
-export interface StandardCommandFlowRuntime {
+export interface StandardInteractiveRuntime {
   buildVarsPayload(): JsonObject | null;
   connectionPayload(): ConnectionRequestPayload;
   createRetryState(): SessionRetryState;
@@ -410,32 +415,10 @@ export type StandardLoadingRunnerFactory = (
   writeKeys: (keys: string[]) => void,
 ) => StandardLoadingRunner;
 
-export type StandardBatchExecField = "command" | "maxParallel" | "mode";
-export type StandardBatchFlowField = "maxParallel" | "template" | "varsJson";
-
 export interface StandardBatchTargetSelection {
   groups: string[];
   labels: string[];
   targets: string[];
-}
-
-export interface StandardBatchExecForm {
-  command: string;
-  maxParallel: string;
-  mode: string;
-  retry: SessionRetryState;
-}
-
-export interface StandardBatchFlowForm {
-  maxParallel: string;
-  retry: SessionRetryState;
-  template: string;
-  varsJson: string;
-}
-
-export interface StandardBatchTemplateOption {
-  labelText: string;
-  valueText: string;
 }
 
 export type StandardBatchExecutionResult<TPayload> =
@@ -445,6 +428,7 @@ export type StandardBatchExecutionResult<TPayload> =
   | { kind: "result"; resultPayload: TPayload; deviceName?: string };
 
 export interface StandardBatchExecTargetResponse {
+  outputs: StandardCommandResult[];
   command: string;
   error: string | null;
   exit_code: number | null;
@@ -464,7 +448,7 @@ export interface StandardBatchExecResponse {
   targets: string[];
 }
 
-export interface StandardBatchFlowTargetResponse {
+export interface StandardBatchInteractiveTargetResponse {
   error: string | null;
   host: string;
   outputs: StandardCommandResult[];
@@ -473,9 +457,9 @@ export interface StandardBatchFlowTargetResponse {
   target: string;
 }
 
-export interface StandardBatchFlowResponse {
+export interface StandardBatchInteractiveResponse {
   result_summary: TaskResultSummary;
-  results: StandardBatchFlowTargetResponse[];
+  results: StandardBatchInteractiveTargetResponse[];
   targets: string[];
   template_name: string;
 }
@@ -494,7 +478,9 @@ export interface StandardBatchTargetPayload extends StandardBatchRetryFields {
 }
 
 export interface StandardBatchExecPayload extends StandardBatchTargetPayload {
-  command: string;
+  command?: string;
+  template_content?: string;
+  vars?: JsonObject;
   multiline_mode?: StandardCommandMultilineMode;
   mode: string | null;
   parse_textfsm?: boolean;
@@ -503,20 +489,20 @@ export interface StandardBatchExecPayload extends StandardBatchTargetPayload {
   textfsm_vendor?: string | null;
 }
 
-export type StandardBatchFlowTemplatePayload =
+export type StandardBatchInteractiveTemplatePayload =
   | { builtin_template_name: string; template_name?: never }
   | { builtin_template_name?: never; template_name: string };
 
-export type StandardBatchFlowSourcePayload =
-  | (StandardBatchFlowTemplatePayload & { content?: never })
+export type StandardBatchInteractiveSourcePayload =
+  | (StandardBatchInteractiveTemplatePayload & { content?: never })
   | {
       builtin_template_name?: never;
       content: string;
       template_name?: never;
     };
 
-export type StandardBatchFlowPayload = StandardBatchTargetPayload &
-  StandardBatchFlowSourcePayload & {
+export type StandardBatchInteractivePayload = StandardBatchTargetPayload &
+  StandardBatchInteractiveSourcePayload & {
     parse_textfsm?: boolean;
     textfsm_strict_errors?: boolean;
     textfsm_template?: string | null;
@@ -528,15 +514,18 @@ export interface StandardBatchApi {
   executeCommand(
     payload: StandardBatchExecPayload,
   ): Promise<StandardBatchExecResponse>;
-  executeFlow(
-    payload: StandardBatchFlowPayload,
-  ): Promise<StandardBatchFlowResponse>;
-  listTemplates(basePath: string): Promise<StandardTemplateMeta[]>;
+  executeInteractive(
+    payload: StandardBatchInteractivePayload,
+  ): Promise<StandardBatchInteractiveResponse>;
+  listConnections(): Promise<(SavedConnection & { name: string })[]>;
+  renderTemplate(
+    payload: StandardCommandRenderPayload,
+  ): Promise<StandardCommandRenderResponse>;
 }
 
 export interface StandardBatchRuntime {
   batchExecTargets(): StandardBatchTargetSelection;
-  batchFlowTargets(): StandardBatchTargetSelection;
+  batchInteractiveTargets(): StandardBatchTargetSelection;
   createRetryState(): SessionRetryState;
   recordLevelPayload(): RecordLevel;
   retryRequestFields(retry: SessionRetryState): StandardBatchRetryFields;

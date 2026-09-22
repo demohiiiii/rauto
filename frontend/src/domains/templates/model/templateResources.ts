@@ -1,6 +1,6 @@
 import {
-  commandFlowTemplateModelFromToml,
-  commandFlowTemplateModelToToml,
+  interactiveTemplateModelFromToml,
+  interactiveTemplateModelToToml,
 } from "$domains/command/index.js";
 import type { ConfigCommandRow } from "$domains/config-fetch/index.js";
 import type {
@@ -19,7 +19,7 @@ import type {
 
 export const TEMPLATE_MANAGER_KIND = Object.freeze({
   command: "command",
-  flow: "flow",
+  interactive: "interactive",
   txBlock: "tx-block",
   txWorkflow: "tx-workflow",
   orchestration: "orchestration",
@@ -37,10 +37,10 @@ export const templateManagerSections = Object.freeze<TemplateManagerSection[]>([
     descriptionKey: "templateManagerCommandDescription",
   },
   {
-    key: TEMPLATE_MANAGER_KIND.flow,
+    key: TEMPLATE_MANAGER_KIND.interactive,
     group: "execution",
-    labelKey: "templateManagerFlowTitle",
-    descriptionKey: "templateManagerFlowDescription",
+    labelKey: "templateManagerInteractiveTitle",
+    descriptionKey: "templateManagerInteractiveDescription",
   },
   {
     key: TEMPLATE_MANAGER_KIND.txBlock,
@@ -88,7 +88,7 @@ export const templateManagerSections = Object.freeze<TemplateManagerSection[]>([
 
 export const contentTemplateKinds = new Set<TemplateManagerKind>([
   TEMPLATE_MANAGER_KIND.command,
-  TEMPLATE_MANAGER_KIND.flow,
+  TEMPLATE_MANAGER_KIND.interactive,
   TEMPLATE_MANAGER_KIND.txBlock,
   TEMPLATE_MANAGER_KIND.txWorkflow,
   TEMPLATE_MANAGER_KIND.orchestration,
@@ -103,9 +103,9 @@ export const templateResourceDefinitions = Object.freeze<
     format: "jinja",
     contentType: "text/plain",
   },
-  [TEMPLATE_MANAGER_KIND.flow]: {
-    apiBase: "/api/flow-templates",
-    builtinApiBase: "/api/flow-templates/builtins",
+  [TEMPLATE_MANAGER_KIND.interactive]: {
+    apiBase: "/api/interactive-templates",
+    builtinApiBase: "/api/interactive-templates/builtins",
     format: "toml",
     contentType: "application/toml",
   },
@@ -196,8 +196,8 @@ export function defaultTemplateResourceContent(
 ): string {
   const safeName = trimmedText(name) || "new-template";
   if (kind === TEMPLATE_MANAGER_KIND.command) return "show version";
-  if (kind === TEMPLATE_MANAGER_KIND.flow) {
-    return `name = ${JSON.stringify(safeName)}\nstop_on_error = true\n\n[[steps]]\ncommand = "show version"\nmultiline_mode = "split_lines"\n`;
+  if (kind === TEMPLATE_MANAGER_KIND.interactive) {
+    return `name = ${JSON.stringify(safeName)}\ncommand = "show version"\nmultiline_mode = "split_lines"\n`;
   }
   if (kind === TEMPLATE_MANAGER_KIND.txBlock) {
     return jsonTemplateContent(safeName, {
@@ -263,9 +263,9 @@ export function contentWithEmbeddedName(
   content: string,
   name: string,
 ): string {
-  if (kind === TEMPLATE_MANAGER_KIND.flow) {
-    return commandFlowTemplateModelToToml({
-      ...commandFlowTemplateModelFromToml(content),
+  if (kind === TEMPLATE_MANAGER_KIND.interactive) {
+    return interactiveTemplateModelToToml({
+      ...interactiveTemplateModelFromToml(content),
       name,
     });
   }

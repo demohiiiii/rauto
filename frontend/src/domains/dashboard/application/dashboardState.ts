@@ -28,7 +28,7 @@ import type {
   DashboardThemeSettingsInput,
 } from "../model/types.js";
 
-const DEFAULT_TAB = "standard";
+const DEFAULT_TAB = "command";
 
 const dashboardStateDefaults: DashboardState = {
   currentTab: DEFAULT_TAB,

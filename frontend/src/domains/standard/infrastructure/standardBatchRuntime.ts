@@ -31,11 +31,11 @@ export const standardBatchRuntime: StandardBatchRuntime = {
       CONNECTION_PICKER.batchExecGroups,
       CONNECTION_PICKER.batchExecLabels,
     ),
-  batchFlowTargets: () =>
+  batchInteractiveTargets: () =>
     targetSelection(
-      CONNECTION_PICKER.batchFlowTargets,
-      CONNECTION_PICKER.batchFlowGroups,
-      CONNECTION_PICKER.batchFlowLabels,
+      CONNECTION_PICKER.batchInteractiveTargets,
+      CONNECTION_PICKER.batchInteractiveGroups,
+      CONNECTION_PICKER.batchInteractiveLabels,
     ),
   createRetryState: createSessionRetryState,
   recordLevelPayload,

@@ -11,41 +11,41 @@ use crate::web::auth::{
 };
 use crate::web::handlers::{
     add_blacklist_pattern, add_config_volatile_pattern, cancel_device_discovery_run,
-    check_blacklist_command, create_backup, create_command_flow_template, create_credential,
-    create_device_discovery_run, create_or_update_custom_profile, create_orchestration_template,
+    check_blacklist_command, create_backup, create_credential, create_device_discovery_run,
+    create_interactive_template, create_or_update_custom_profile, create_orchestration_template,
     create_schedule, create_template, create_textfsm_template, create_tx_block_template,
-    create_tx_workflow_template, delete_blacklist_pattern, delete_command_flow_template,
-    delete_config_command, delete_connection, delete_connection_history, delete_credential,
-    delete_custom_profile, delete_custom_show_object, delete_device_config_snapshot,
+    create_tx_workflow_template, delete_blacklist_pattern, delete_config_command,
+    delete_connection, delete_connection_history, delete_credential, delete_custom_profile,
+    delete_custom_show_object, delete_device_config_snapshot, delete_interactive_template,
     delete_inventory_group, delete_inventory_label, delete_orchestration_template, delete_schedule,
     delete_session_history, delete_template, delete_textfsm_mapping, delete_textfsm_template,
     delete_tx_block_template, delete_tx_workflow_template, detect_connection_facts,
     diagnose_profile, disable_schedule, download_backup, download_connection_import_template,
     download_credential_import_template, enable_schedule, exec_command, exec_command_async,
-    execute_command_flow, execute_exec_batch, execute_flow_batch, execute_orchestration,
+    execute_exec_batch, execute_interactive, execute_interactive_batch, execute_orchestration,
     execute_orchestration_async, execute_show, execute_show_batch, execute_template,
     execute_template_async, execute_tx_block, execute_tx_block_async, execute_tx_workflow,
     execute_tx_workflow_async, execute_upload, export_textfsm_excel, fetch_config,
-    fetch_config_batch, get_builtin_command_flow_template, get_builtin_profile_detail,
-    get_builtin_profile_form, get_command_flow_template, get_connection, get_connection_history,
+    fetch_config_batch, get_builtin_interactive_template, get_builtin_profile_detail,
+    get_builtin_profile_form, get_connection, get_connection_history,
     get_connection_history_detail, get_credential, get_custom_profile, get_custom_profile_form,
-    get_device_config_snapshot, get_device_discovery_run, get_inventory_group, get_inventory_label,
-    get_orchestration_template, get_profile_modes, get_schedule, get_session_history_detail,
-    get_task_run_detail, get_template, get_textfsm_template, get_tx_block_template,
-    get_tx_workflow_template, health, import_connections, import_credentials,
-    import_device_discovery_results, inspect_command_flow_template, inspect_command_template,
-    list_backups, list_blacklist_patterns, list_builtin_command_flow_templates,
-    list_command_flow_templates, list_config_commands, list_config_volatile_patterns,
+    get_device_config_snapshot, get_device_discovery_run, get_interactive_template,
+    get_inventory_group, get_inventory_label, get_orchestration_template, get_profile_modes,
+    get_schedule, get_session_history_detail, get_task_run_detail, get_template,
+    get_textfsm_template, get_tx_block_template, get_tx_workflow_template, health,
+    import_connections, import_credentials, import_device_discovery_results,
+    inspect_command_template, inspect_interactive_template, list_backups, list_blacklist_patterns,
+    list_builtin_interactive_templates, list_config_commands, list_config_volatile_patterns,
     list_connections, list_credentials, list_custom_show_objects, list_device_config_history,
-    list_device_config_history_devices, list_device_discovery_runs, list_inventory_groups,
-    list_inventory_labels, list_orchestration_templates, list_profiles, list_schedule_runs,
-    list_schedules, list_session_history, list_session_history_devices, list_show_objects,
-    list_task_runs, list_templates, list_textfsm_mappings, list_textfsm_templates,
-    list_tx_block_templates, list_tx_workflow_templates, preview_schedule,
+    list_device_config_history_devices, list_device_discovery_runs, list_interactive_templates,
+    list_inventory_groups, list_inventory_labels, list_orchestration_templates, list_profiles,
+    list_schedule_runs, list_schedules, list_session_history, list_session_history_devices,
+    list_show_objects, list_task_runs, list_templates, list_textfsm_mappings,
+    list_textfsm_templates, list_tx_block_templates, list_tx_workflow_templates, preview_schedule,
     preview_tx_workflow_template, profiles_overview, remove_config_volatile_pattern,
     render_template, replay_session, restore_backup, run_schedule_now, test_connection,
-    update_command_flow_template, update_credential, update_orchestration_template,
-    update_schedule, update_template, update_textfsm_template, update_tx_block_template,
+    update_credential, update_interactive_template, update_orchestration_template, update_schedule,
+    update_template, update_textfsm_template, update_tx_block_template,
     update_tx_workflow_template, upsert_config_command, upsert_connection,
     upsert_custom_profile_form, upsert_custom_show_object, upsert_inventory_group,
     upsert_inventory_label, upsert_textfsm_mapping,
@@ -273,8 +273,9 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         .route("/api/device-profiles/diagnose", post(diagnose_profile))
         .route("/api/render", post(render_template))
         .route("/api/textfsm/export/xlsx", post(export_textfsm_excel))
-        .route("/api/command-flow/execute", post(execute_command_flow))
-        .route("/api/flow/execute", post(execute_command_flow))
+        .route("/api/command-flow/execute", post(execute_interactive))
+        .route("/api/interactive/execute", post(execute_interactive))
+        .route("/api/flow/execute", post(execute_interactive))
         .route("/api/connections", get(list_connections))
         .route(
             "/api/credentials",
@@ -367,7 +368,11 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         .route("/api/show/execute", post(execute_show))
         .route("/api/show/batch-execute", post(execute_show_batch))
         .route("/api/exec/batch-execute", post(execute_exec_batch))
-        .route("/api/flow/batch-execute", post(execute_flow_batch))
+        .route(
+            "/api/interactive/batch-execute",
+            post(execute_interactive_batch),
+        )
+        .route("/api/flow/batch-execute", post(execute_interactive_batch))
         .route("/api/config/fetch", post(fetch_config))
         .route("/api/config/batch-fetch", post(fetch_config_batch))
         .route(
@@ -426,43 +431,65 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         )
         .route(
             "/api/command-flow-templates",
-            get(list_command_flow_templates).post(create_command_flow_template),
+            get(list_interactive_templates).post(create_interactive_template),
+        )
+        .route(
+            "/api/interactive-templates",
+            get(list_interactive_templates).post(create_interactive_template),
         )
         .route(
             "/api/flow-templates",
-            get(list_command_flow_templates).post(create_command_flow_template),
+            get(list_interactive_templates).post(create_interactive_template),
+        )
+        .route(
+            "/api/interactive-templates/inspect",
+            post(inspect_interactive_template),
         )
         .route(
             "/api/flow-templates/inspect",
-            post(inspect_command_flow_template),
+            post(inspect_interactive_template),
         )
         .route(
             "/api/command-flow-templates/builtins",
-            get(list_builtin_command_flow_templates),
+            get(list_builtin_interactive_templates),
+        )
+        .route(
+            "/api/interactive-templates/builtins",
+            get(list_builtin_interactive_templates),
         )
         .route(
             "/api/flow-templates/builtins",
-            get(list_builtin_command_flow_templates),
+            get(list_builtin_interactive_templates),
         )
         .route(
             "/api/command-flow-templates/builtins/{name}",
-            get(get_builtin_command_flow_template),
+            get(get_builtin_interactive_template),
+        )
+        .route(
+            "/api/interactive-templates/builtins/{name}",
+            get(get_builtin_interactive_template),
         )
         .route(
             "/api/flow-templates/builtins/{name}",
-            get(get_builtin_command_flow_template),
+            get(get_builtin_interactive_template),
         )
         .route(
             "/api/command-flow-templates/{name}",
-            get(get_command_flow_template)
-                .put(update_command_flow_template)
-                .delete(delete_command_flow_template),
+            get(get_interactive_template)
+                .put(update_interactive_template)
+                .delete(delete_interactive_template),
+        )
+        .route(
+            "/api/interactive-templates/{name}",
+            get(get_interactive_template)
+                .put(update_interactive_template)
+                .delete(delete_interactive_template),
         )
         .route(
             "/api/flow-templates/{name}",
-            get(get_command_flow_template)
-                .put(update_command_flow_template)
-                .delete(delete_command_flow_template),
+            get(get_interactive_template)
+                .put(update_interactive_template)
+                .delete(delete_interactive_template),
         )
         .route(
             "/api/tx-block-templates",

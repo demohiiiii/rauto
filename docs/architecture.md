@@ -4,6 +4,24 @@ The backend is a single Cargo package that produces the `rauto` binary. DDD
 boundaries are represented by Rust modules rather than separately published
 crates.
 
+## Database baseline
+
+`migrations/202609220001_initial.sql` is the consolidated initial schema. It
+creates the current tables, indexes, defaults, and foreign keys directly,
+including `interactive_templates`. Task and history operation values use
+`interactive`. Add subsequent schema changes as new timestamped migrations.
+
+This baseline replaces the 22 unpublished migrations through
+`202608260001_connection_output_encoding.sql`. An existing development database
+must be backed up and explicitly rebased before running this version: verify its
+applied migrations and final schema, rename the interactive template table, and
+replace its SQLx migration history with the new initial version and SHA-384
+checksum in one transaction. Preserve all business rows and validate foreign keys
+and database integrity. Databases containing old operation tags also need those
+tags converted in history, tasks, and structured task results. Application
+startup retains SQLx checksum validation; it never silently resets migration
+history or reruns the initial schema over an existing database.
+
 ## Module ownership
 
 | Layer | Path | Owns |
@@ -14,7 +32,7 @@ crates.
 | Domain | `src/domain/execution` | Transaction construction, command policy and history models |
 | Domain | `src/domain/orchestration` | Plans, stages, jobs, actions, events and structural validation |
 | Domain | `src/domain/task` | Task lifecycle, events, result envelopes and summaries |
-| Domain | `src/domain/template` | Jinja rendering, command-flow templates and content models |
+| Domain | `src/domain/template` | Jinja rendering, interactive templates and content models |
 | Infrastructure | `src/infrastructure/db` | SQLite, migrations, repositories, encryption and keyring integration |
 | Interfaces | `src/interfaces/api` | HTTP DTOs and generated manager/agent gRPC contracts |
 | Application | `src/cli`, `src/web`, `src/agent`, `src/orchestrator` | Use-case coordination and runtime adapters |

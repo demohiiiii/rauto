@@ -1,11 +1,11 @@
 use crate::cli::{GlobalOpts, RecordLevelOpt};
 use crate::config::autodetect_cache;
-use crate::config::command_flow_template::CommandFlowTemplate;
-use crate::config::command_flow_vars::{
-    ConnectionParamContext, resolve_command_flow_runtime_vars, resolve_runtime_var_aliases,
-};
 use crate::config::connection_store::{SavedConnection, load_connection, save_connection};
 use crate::config::history_store::{self, HistoryBinding};
+use crate::config::interactive_template::InteractiveTemplate;
+use crate::config::interactive_vars::{
+    ConnectionParamContext, resolve_interactive_runtime_vars, resolve_runtime_var_aliases,
+};
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::session_recording;
 use crate::config::ssh_security::{SshSecurityProfile, connection_security_options};
@@ -318,12 +318,12 @@ fn current_connection_param_context(conn: &EffectiveConnection) -> ConnectionPar
     )
 }
 
-pub(crate) fn resolve_flow_runtime_vars(
-    template: &CommandFlowTemplate,
+pub(crate) fn resolve_interactive_connection_vars(
+    template: &InteractiveTemplate,
     vars: Value,
     conn: &EffectiveConnection,
 ) -> Result<Value> {
-    resolve_command_flow_runtime_vars(template, vars, Some(current_connection_param_context(conn)))
+    resolve_interactive_runtime_vars(template, vars, Some(current_connection_param_context(conn)))
 }
 
 pub(crate) fn resolve_runtime_vars_for_connection(

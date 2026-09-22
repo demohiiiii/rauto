@@ -89,7 +89,7 @@ interface RecordToolDisplay {
 }
 
 const historyDrawerOperationValues =
-  "all|exec|show|command_flow|template_execute|config_fetch|sftp_upload|tx_block|tx_workflow|orchestrate_tx_workflow|orchestrate_compensation".split(
+  "all|exec|show|interactive|template_execute|config_fetch|sftp_upload|tx_block|tx_workflow|orchestrate_tx_workflow|orchestrate_compensation".split(
     "|",
   );
 
@@ -195,7 +195,7 @@ function historyDrawerFilteredItems(
 function historyOperationLabel(raw: unknown, t: OverlayTranslate = tr): string {
   const historyOperation = displayText(raw).toLowerCase();
   const labels: Record<string, [string, string]> = {
-    command_flow: ["historyOperationCommandFlow", "Command Flow"],
+    interactive: ["historyOperationInteractive", "Interactive"],
     config_fetch: ["historyOperationConfigFetch", "Config Fetch"],
     exec: ["historyOperationExec", "Execute"],
     orchestrate_compensation: [

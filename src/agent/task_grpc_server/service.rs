@@ -604,97 +604,100 @@ impl AgentTaskService for AgentTaskGrpcService {
         Ok(Response::new(json_response(response)?))
     }
 
-    async fn list_command_flow_templates(
+    async fn list_interactive_templates(
         &self,
-        request: Request<ListCommandFlowTemplatesRequest>,
-    ) -> Result<Response<ListCommandFlowTemplatesResponse>, Status> {
+        request: Request<ListInteractiveTemplatesRequest>,
+    ) -> Result<Response<ListInteractiveTemplatesResponse>, Status> {
         self.validate_auth(request.metadata())?;
         let _ = request.into_inner();
-        let Json(response) = list_command_flow_templates_handler(State(self.state.clone()))
+        let Json(response) = list_interactive_templates_handler(State(self.state.clone()))
             .await
             .map_err(api_error_to_status)?;
 
-        Ok(Response::new(ListCommandFlowTemplatesResponse {
+        Ok(Response::new(ListInteractiveTemplatesResponse {
             templates: response
                 .into_iter()
-                .map(map_command_flow_template_meta)
+                .map(map_interactive_template_meta)
                 .collect(),
         }))
     }
 
-    async fn list_builtin_command_flow_templates(
+    async fn list_builtin_interactive_templates(
         &self,
-        request: Request<ListBuiltinCommandFlowTemplatesRequest>,
-    ) -> Result<Response<ListCommandFlowTemplatesResponse>, Status> {
+        request: Request<ListBuiltinInteractiveTemplatesRequest>,
+    ) -> Result<Response<ListInteractiveTemplatesResponse>, Status> {
         self.validate_auth(request.metadata())?;
         let _ = request.into_inner();
-        let Json(response) = list_builtin_command_flow_templates(State(self.state.clone()))
+        let Json(response) = list_builtin_interactive_templates(State(self.state.clone()))
             .await
             .map_err(api_error_to_status)?;
 
-        Ok(Response::new(ListCommandFlowTemplatesResponse {
+        Ok(Response::new(ListInteractiveTemplatesResponse {
             templates: response
                 .into_iter()
-                .map(map_command_flow_template_meta)
+                .map(map_interactive_template_meta)
                 .collect(),
         }))
     }
 
-    async fn get_command_flow_template(
+    async fn get_interactive_template(
         &self,
-        request: Request<GetCommandFlowTemplateRequest>,
-    ) -> Result<Response<GrpcCommandFlowTemplateDetail>, Status> {
+        request: Request<GetInteractiveTemplateRequest>,
+    ) -> Result<Response<GrpcInteractiveTemplateDetail>, Status> {
         self.validate_auth(request.metadata())?;
         let req = request.into_inner();
-        let Json(response) = get_command_flow_template_handler(
+        let Json(response) = get_interactive_template_handler(
             State(self.state.clone()),
             axum::extract::Path(req.name),
         )
         .await
         .map_err(api_error_to_status)?;
 
-        Ok(Response::new(map_command_flow_template_detail(response)?))
+        Ok(Response::new(map_interactive_template_detail(response)?))
     }
 
-    async fn get_builtin_command_flow_template(
+    async fn get_builtin_interactive_template(
         &self,
-        request: Request<GetBuiltinCommandFlowTemplateRequest>,
-    ) -> Result<Response<GrpcCommandFlowTemplateDetail>, Status> {
+        request: Request<GetBuiltinInteractiveTemplateRequest>,
+    ) -> Result<Response<GrpcInteractiveTemplateDetail>, Status> {
         self.validate_auth(request.metadata())?;
         let req = request.into_inner();
         let Json(response) =
-            get_builtin_command_flow_template(State(self.state.clone()), Path(req.name))
+            get_builtin_interactive_template(State(self.state.clone()), Path(req.name))
                 .await
                 .map_err(api_error_to_status)?;
 
-        Ok(Response::new(map_command_flow_template_detail(response)?))
+        Ok(Response::new(map_interactive_template_detail(response)?))
     }
 
-    async fn upsert_command_flow_template(
+    async fn upsert_interactive_template(
         &self,
-        request: Request<UpsertCommandFlowTemplateRequest>,
-    ) -> Result<Response<GrpcCommandFlowTemplateDetail>, Status> {
+        request: Request<UpsertInteractiveTemplateRequest>,
+    ) -> Result<Response<GrpcInteractiveTemplateDetail>, Status> {
         self.validate_auth(request.metadata())?;
         let req = request.into_inner();
-        let exists = content_store::load_command_flow_template(req.name.trim())
+        let exists = content_store::load_interactive_template(req.name.trim())
             .map_err(|err| {
-                Status::internal(format!("failed to load command flow template: {}", err))
+                Status::internal(format!(
+                    "failed to load interactive command template: {}",
+                    err
+                ))
             })?
             .is_some();
 
         let Json(response) = if exists {
-            update_command_flow_template_handler(
+            update_interactive_template_handler(
                 State(self.state.clone()),
                 axum::extract::Path(req.name),
-                Json(UpdateCommandFlowTemplateRequest {
+                Json(UpdateInteractiveTemplateRequest {
                     content: req.content,
                 }),
             )
             .await
         } else {
-            create_command_flow_template_handler(
+            create_interactive_template_handler(
                 State(self.state.clone()),
-                Json(CreateCommandFlowTemplateRequest {
+                Json(CreateInteractiveTemplateRequest {
                     name: req.name,
                     content: req.content,
                 }),
@@ -703,23 +706,23 @@ impl AgentTaskService for AgentTaskGrpcService {
         }
         .map_err(api_error_to_status)?;
 
-        Ok(Response::new(map_command_flow_template_detail(response)?))
+        Ok(Response::new(map_interactive_template_detail(response)?))
     }
 
-    async fn delete_command_flow_template(
+    async fn delete_interactive_template(
         &self,
-        request: Request<DeleteCommandFlowTemplateRequest>,
-    ) -> Result<Response<DeleteCommandFlowTemplateResponse>, Status> {
+        request: Request<DeleteInteractiveTemplateRequest>,
+    ) -> Result<Response<DeleteInteractiveTemplateResponse>, Status> {
         self.validate_auth(request.metadata())?;
         let req = request.into_inner();
-        let Json(response) = delete_command_flow_template_handler(
+        let Json(response) = delete_interactive_template_handler(
             State(self.state.clone()),
             axum::extract::Path(req.name),
         )
         .await
         .map_err(api_error_to_status)?;
 
-        Ok(Response::new(DeleteCommandFlowTemplateResponse {
+        Ok(Response::new(DeleteInteractiveTemplateResponse {
             ok: response
                 .get("ok")
                 .and_then(|value| value.as_bool())
@@ -1250,6 +1253,8 @@ impl AgentTaskService for AgentTaskGrpcService {
             State(self.state.clone()),
             Json(WebExecBatchExecuteRequest {
                 command: req.command,
+                template_content: req.template_content,
+                vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
                 multiline_mode: parse_multiline_mode(&req.multiline_mode)?,
                 mode: optional_string(req.mode),
                 textfsm_template: optional_string(req.textfsm_template),
@@ -1276,15 +1281,15 @@ impl AgentTaskService for AgentTaskGrpcService {
         Ok(Response::new(map_execute_exec_batch_response(response)?))
     }
 
-    async fn execute_flow_batch(
+    async fn execute_interactive_batch(
         &self,
-        request: Request<ExecuteFlowBatchRequest>,
-    ) -> Result<Response<ExecuteFlowBatchResponse>, Status> {
+        request: Request<ExecuteInteractiveBatchRequest>,
+    ) -> Result<Response<ExecuteInteractiveBatchResponse>, Status> {
         self.validate_auth(request.metadata())?;
         let req = request.into_inner();
-        let Json(response) = execute_flow_batch(
+        let Json(response) = execute_interactive_batch(
             State(self.state.clone()),
-            Json(WebFlowBatchExecuteRequest {
+            Json(WebInteractiveBatchExecuteRequest {
                 template_name: optional_string(req.template_name),
                 builtin_template_name: optional_string(req.builtin_template_name),
                 content: optional_string(req.content),
@@ -1310,7 +1315,9 @@ impl AgentTaskService for AgentTaskGrpcService {
         .map_err(api_error_to_status)?;
         let response = execution_response_data(response)?;
 
-        Ok(Response::new(map_execute_flow_batch_response(response)?))
+        Ok(Response::new(map_execute_interactive_batch_response(
+            response,
+        )?))
     }
 
     async fn fetch_config_batch(
@@ -1499,15 +1506,15 @@ impl AgentTaskService for AgentTaskGrpcService {
         Ok(Response::new(map_async_response(response)))
     }
 
-    async fn execute_command_flow(
+    async fn execute_interactive(
         &self,
-        request: Request<GrpcExecuteCommandFlowRequest>,
-    ) -> Result<Response<ExecuteCommandFlowResponse>, Status> {
+        request: Request<GrpcExecuteInteractiveRequest>,
+    ) -> Result<Response<ExecuteInteractiveResponse>, Status> {
         self.validate_auth(request.metadata())?;
         let req = request.into_inner();
-        let Json(response) = execute_command_flow_handler(
+        let Json(response) = execute_interactive_handler(
             State(self.state.clone()),
-            Json(WebExecuteCommandFlowRequest {
+            Json(WebExecuteInteractiveRequest {
                 template_name: req.template_name.and_then(optional_string),
                 builtin_template_name: req.builtin_template_name.and_then(optional_string),
                 content: req.content.and_then(optional_string),
@@ -1531,7 +1538,7 @@ impl AgentTaskService for AgentTaskGrpcService {
             |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
         )?);
 
-        Ok(Response::new(ExecuteCommandFlowResponse {
+        Ok(Response::new(ExecuteInteractiveResponse {
             success: response.success,
             template_name: response.template_name,
             outputs: response

@@ -85,7 +85,7 @@ test("task presentation maps filter options to both select contracts", () => {
       "",
       "exec",
       "template_execute",
-      "command_flow",
+      "interactive",
       "upload",
       "tx_block",
       "tx_workflow",

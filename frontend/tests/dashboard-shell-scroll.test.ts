@@ -23,8 +23,8 @@ test("long page titles use compact sidebar labels", () => {
   const en = readFileSync("frontend/src/i18n/en.ts", "utf8");
 
   for (const labelKey of [
-    "navStandard",
-    "navBatch",
+    "navCommand",
+    "navInteractive",
     "navReplay",
     "navDiscovery",
     "navProfiles",

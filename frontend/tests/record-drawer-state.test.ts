@@ -161,6 +161,29 @@ test("session history includes temporary targets and keeps newest records first"
   );
 });
 
+test("interactive history uses the persisted operation value when filtering", () => {
+  const drawerState = {
+    historyItems: [
+      { ...historyItem("interactive"), operation: "interactive" },
+      historyItem("show"),
+    ],
+  };
+  const options = historyDrawerPresentation({ drawerState }).filtersDisplay
+    .operationOptionRows;
+  const option = options.find((item) => item.label === "Interactive");
+  assert.equal(option?.value, "interactive");
+
+  const presentation = historyDrawerPresentation({
+    drawerState,
+    filterState: { operation: option?.value },
+  });
+  assert.deepEqual(
+    presentation.filteredRows.map((row) => row.historyId),
+    ["interactive"],
+  );
+  assert.equal(presentation.filteredRows[0]?.operationLabel, "Interactive");
+});
+
 test("an older session history response cannot replace a newer limit request", async () => {
   const originalListHistory = connectionApi.listHistory;
   const originalListHistoryDevices = connectionApi.listHistoryDevices;

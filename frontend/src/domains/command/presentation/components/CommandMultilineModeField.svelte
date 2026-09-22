@@ -2,14 +2,14 @@
   import ListOrderedIcon from "@lucide/svelte/icons/list-ordered";
   import SquareTerminalIcon from "@lucide/svelte/icons/square-terminal";
   import * as ToggleGroup from "$lib/components/ui/toggle-group/index.js";
-  import type { CommandFlowMultilineMode } from "$domains/command/index.js";
+  import type { InteractiveMultilineMode } from "$domains/command/index.js";
   import { t } from "$lib/i18n.js";
 
   interface Props {
     disabled?: boolean;
     labelText?: string;
-    onValueChange?: (value: CommandFlowMultilineMode) => void;
-    value?: CommandFlowMultilineMode;
+    onValueChange?: (value: InteractiveMultilineMode) => void;
+    value?: InteractiveMultilineMode;
   }
 
   let {

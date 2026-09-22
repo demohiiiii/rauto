@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import type { CommandFlowMultilineMode } from "$domains/command/index.js";
+  import type { InteractiveMultilineMode } from "$domains/command/index.js";
   import { t } from "$lib/i18n.js";
   import CommandMultilineModeField from "./CommandMultilineModeField.svelte";
   import CommandTextAreaField from "./CommandTextAreaField.svelte";
@@ -10,9 +10,9 @@
     modeField?: Snippet;
     command?: string;
     commandLabel?: string;
-    multilineMode?: CommandFlowMultilineMode;
+    multilineMode?: InteractiveMultilineMode;
     onCommandChange?: (value: string) => void;
-    onMultilineModeChange?: (value: CommandFlowMultilineMode) => void;
+    onMultilineModeChange?: (value: InteractiveMultilineMode) => void;
     placeholderText?: string;
     readonly?: boolean;
   }

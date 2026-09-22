@@ -1,0 +1,265 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { get } from "svelte/store";
+
+import { createStandardInteractiveAuthoringState } from "../src/domains/standard/index.js";
+import type {
+  StandardInteractiveAuthoringState,
+  StandardCommandVariableField,
+  StandardInteractiveAuthoringOptions,
+  StandardInteractiveTemplateDetail,
+  StandardTemplateDetail,
+} from "../src/domains/standard/index.js";
+
+interface TemplateWriteCall {
+  content: string;
+  name: string;
+}
+
+interface AuthoringHarness {
+  calls: {
+    create: TemplateWriteCall[];
+    inspect: string[];
+    refresh: number;
+    update: TemplateWriteCall[];
+  };
+  details: {
+    builtin: StandardInteractiveTemplateDetail;
+    custom: StandardInteractiveTemplateDetail;
+  };
+  inspections: Array<StandardInteractiveTemplateDetail | null>;
+  state: StandardInteractiveAuthoringState;
+}
+
+function templateContent(name: string, command = "show version"): string {
+  return `name = "${name}"
+command = "${command}"
+`;
+}
+
+function variableField(name: string): StandardCommandVariableField {
+  return {
+    allow_empty: false,
+    default: null,
+    description: null,
+    label: name,
+    name,
+    options: [],
+    placeholder: null,
+    required: true,
+    type: "string",
+  };
+}
+
+function createHarness(
+  overrides: Partial<StandardInteractiveAuthoringOptions> = {},
+): AuthoringHarness {
+  const calls = {
+    create: [] as TemplateWriteCall[],
+    inspect: [] as string[],
+    refresh: 0,
+    update: [] as TemplateWriteCall[],
+  };
+  const details = {
+    custom: {
+      content: templateContent("custom"),
+      name: "custom",
+      vars_schema: [variableField("site")],
+    },
+    builtin: {
+      content: templateContent("builtin"),
+      name: "builtin",
+      vars_schema: [variableField("target")],
+    },
+  } satisfies AuthoringHarness["details"];
+  const inspections: Array<StandardInteractiveTemplateDetail | null> = [];
+  const state = createStandardInteractiveAuthoringState({
+    confirmDiscard: () => true,
+    createTemplate: async (name, content): Promise<StandardTemplateDetail> => {
+      calls.create.push({ content, name });
+      return { content, name };
+    },
+    getTemplate: async (name, { builtin }) =>
+      builtin ? details.builtin : { ...details.custom, name },
+    inspectTemplate: async (content) => {
+      calls.inspect.push(content);
+      return {
+        content,
+        name: "inspected",
+        vars_schema: [variableField("inspected")],
+      };
+    },
+    onInspection: (detail) => inspections.push(detail),
+    parseBuiltinSelection: (value) =>
+      value.startsWith("builtin:") ? value.slice(8) : null,
+    refreshTemplates: async () => {
+      calls.refresh += 1;
+    },
+    updateTemplate: async (name, content): Promise<StandardTemplateDetail> => {
+      calls.update.push({ content, name });
+      return { content, name };
+    },
+    ...overrides,
+  });
+  return { calls, details, inspections, state };
+}
+
+test("selected custom template loads into one clean visual and TOML draft", async () => {
+  const { inspections, state } = createHarness();
+
+  assert.equal(await state.selectTemplate("custom"), true);
+
+  assert.deepEqual(get(state.selectionStateStore), {
+    kind: "custom",
+    name: "custom",
+    value: "custom",
+  });
+  assert.equal(get(state.draft.modelStateStore).name, "custom");
+  assert.match(get(state.draft.tomlTextStateStore), /name = "custom"/);
+  assert.equal(state.draft.isDirty(), false);
+  assert.deepEqual(inspections.at(-1)?.vars_schema, [variableField("site")]);
+});
+
+test("built-in templates run current content but cannot overwrite", async () => {
+  const { state } = createHarness();
+
+  await state.selectTemplate("builtin:builtin");
+
+  const actions = get(state.actionStateStore);
+  assert.equal(actions.canSave, false);
+  assert.equal(actions.canSaveAs, true);
+  assert.deepEqual(state.executeSource(), {
+    content: get(state.draft.tomlTextStateStore),
+    kind: "temporary",
+  });
+});
+
+test("loaded templates reject legacy fields without replacing the current draft", async () => {
+  const { state } = createHarness({
+    getTemplate: async () => ({
+      content: `name = "builtin"
+description = "legacy server metadata"
+command = "show version"
+`,
+      name: "builtin",
+      vars_schema: [],
+    }),
+  });
+
+  const previous = get(state.draft.tomlTextStateStore);
+  assert.equal(await state.selectTemplate("builtin:builtin"), false);
+  assert.equal(get(state.draft.tomlTextStateStore), previous);
+});
+
+test("an unnamed draft must be named before it can be saved directly", async () => {
+  const { calls, state } = createHarness();
+
+  const initialActions = get(state.actionStateStore);
+  assert.equal(initialActions.canSave, false);
+  assert.equal(initialActions.canSaveAs, false);
+  assert.equal(initialActions.canRun, false);
+  assert.equal(await state.save(), false);
+  assert.equal(calls.create.length, 0);
+
+  state.createNewDraft("named-draft");
+  assert.equal(get(state.actionStateStore).canSave, true);
+});
+
+test("new named drafts create templates and become selected custom templates", async () => {
+  const { calls, state } = createHarness();
+
+  assert.equal(state.createNewDraft("new-interactive"), true);
+  assert.equal(get(state.selectionStateStore).kind, "new");
+  assert.equal(get(state.draft.modelStateStore).name, "new-interactive");
+  assert.equal(state.draft.isDirty(), true);
+
+  assert.equal(await state.save(), true);
+  assert.equal(calls.create[0].name, "new-interactive");
+  assert.equal(calls.refresh, 1);
+  assert.deepEqual(get(state.selectionStateStore), {
+    kind: "custom",
+    name: "new-interactive",
+    value: "new-interactive",
+  });
+  assert.equal(state.draft.isDirty(), false);
+});
+
+test("custom save overwrites selection while save-as creates a new template", async () => {
+  const { calls, state } = createHarness();
+  await state.selectTemplate("custom");
+  const model = get(state.draft.modelStateStore);
+  state.setModel({
+    ...model,
+    command: "show clock",
+  });
+  await state.inspectCurrent();
+
+  assert.equal(await state.save(), true);
+  assert.equal(calls.update[0].name, "custom");
+  assert.match(calls.update[0].content, /command = "show clock"/);
+
+  assert.equal(await state.saveAs("custom-copy"), true);
+  assert.equal(calls.create.at(-1)?.name, "custom-copy");
+  assert.equal(get(state.selectionStateStore).value, "custom-copy");
+  assert.equal(get(state.draft.modelStateStore).name, "custom-copy");
+});
+
+test("dirty confirmation cancellation preserves selection and draft", async () => {
+  const { state } = createHarness({ confirmDiscard: () => false });
+  await state.selectTemplate("custom");
+  const model = get(state.draft.modelStateStore);
+  state.setModel({ ...model, command: "show clock" });
+  const before = get(state.draft.tomlTextStateStore);
+
+  assert.equal(await state.selectTemplate("builtin:builtin"), false);
+  assert.equal(get(state.selectionStateStore).value, "custom");
+  assert.equal(get(state.draft.tomlTextStateStore), before);
+});
+
+test("stale template loads cannot replace the latest selection", async () => {
+  let releaseFirst!: (detail: StandardInteractiveTemplateDetail) => void;
+  const first = new Promise<StandardInteractiveTemplateDetail>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const { state } = createHarness({
+    getTemplate: async (name) => {
+      if (name === "first") return first;
+      return {
+        content: templateContent("second"),
+        name: "second",
+        vars_schema: [],
+      };
+    },
+  });
+
+  const firstLoad = state.selectTemplate("first");
+  const secondLoad = state.selectTemplate("second");
+  assert.equal(await secondLoad, true);
+  releaseFirst({
+    content: templateContent("first"),
+    name: "first",
+    vars_schema: [],
+  });
+  assert.equal(await firstLoad, false);
+
+  assert.equal(get(state.selectionStateStore).value, "second");
+  assert.equal(get(state.draft.modelStateStore).name, "second");
+});
+
+test("name dialog validates and dispatches new or save-as actions", async () => {
+  const { calls, state } = createHarness();
+
+  state.openNewDialog();
+  state.setNameDialogValue("  ");
+  assert.equal(await state.submitNameDialog(), false);
+  assert.notEqual(get(state.nameDialogStateStore).errorMessage, "");
+
+  state.setNameDialogValue("dialog-interactive");
+  assert.equal(await state.submitNameDialog(), true);
+  assert.equal(get(state.selectionStateStore).kind, "new");
+
+  state.openSaveAsDialog();
+  state.setNameDialogValue("dialog-copy");
+  assert.equal(await state.submitNameDialog(), true);
+  assert.equal(calls.create.at(-1)?.name, "dialog-copy");
+});

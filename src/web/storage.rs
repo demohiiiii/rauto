@@ -3,7 +3,7 @@ use crate::config::device_profile::DeviceProfile;
 use crate::config::template_loader;
 use crate::web::error::ApiError;
 use crate::web::models::{
-    BuiltinProfileDetail, BuiltinProfileMeta, CommandFlowTemplateMeta, CustomProfileMeta,
+    BuiltinProfileDetail, BuiltinProfileMeta, CustomProfileMeta, InteractiveTemplateMeta,
     TemplateMeta,
 };
 use rneter::templates::{TemplateCapability, by_name_config, template_catalog, template_metadata};
@@ -128,11 +128,11 @@ pub fn list_templates() -> Result<Vec<TemplateMeta>, ApiError> {
         .collect())
 }
 
-pub fn list_command_flow_templates() -> Result<Vec<CommandFlowTemplateMeta>, ApiError> {
-    Ok(content_store::list_command_flow_templates()
+pub fn list_interactive_templates() -> Result<Vec<InteractiveTemplateMeta>, ApiError> {
+    Ok(content_store::list_interactive_templates()
         .map_err(ApiError::from)?
         .into_iter()
-        .map(|item| command_flow_template_meta(item, "command_flow", "application/toml"))
+        .map(|item| interactive_template_meta(item, "interactive", "application/toml"))
         .collect())
 }
 
@@ -177,13 +177,13 @@ fn template_meta(
     }
 }
 
-fn command_flow_template_meta(
+fn interactive_template_meta(
     item: content_store::StoredContent,
     kind: &str,
     content_type: &str,
-) -> CommandFlowTemplateMeta {
+) -> InteractiveTemplateMeta {
     let size_bytes = item.content.len() as u64;
-    CommandFlowTemplateMeta {
+    InteractiveTemplateMeta {
         name: item.name,
         kind: kind.to_string(),
         source: "database".to_string(),
@@ -210,10 +210,12 @@ pub fn safe_template_name(raw: &str) -> Result<String, ApiError> {
     Ok(normalized.to_string())
 }
 
-pub fn safe_command_flow_template_name(raw: &str) -> Result<String, ApiError> {
+pub fn safe_interactive_template_name(raw: &str) -> Result<String, ApiError> {
     let normalized = raw.trim().trim_end_matches(".toml");
     if normalized.is_empty() || !is_safe_name(normalized) {
-        return Err(ApiError::bad_request("invalid command flow template name"));
+        return Err(ApiError::bad_request(
+            "invalid interactive command template name",
+        ));
     }
     Ok(normalized.to_string())
 }

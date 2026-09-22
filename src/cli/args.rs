@@ -13,7 +13,8 @@ pub enum RecordLevelOpt {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum TxRunKind {
     Commands,
-    CommandFlow,
+    #[value(name = "interactive", alias = "command-flow")]
+    Interactive,
 }
 
 #[derive(Args, Debug)]
@@ -56,8 +57,8 @@ pub struct TemplateArgs {
 }
 
 #[derive(Args, Debug)]
-pub struct CommandFlowArgs {
-    /// Saved command flow template name
+pub struct InteractiveArgs {
+    /// Saved interactive command template name
     #[arg(long, short = 't')]
     pub template: Option<String>,
 
@@ -73,11 +74,11 @@ pub struct CommandFlowArgs {
     #[arg(long = "label", visible_alias = "tag", value_name = "LABEL")]
     pub labels: Vec<String>,
 
-    /// Maximum concurrent device connections for multi-target flow (default 4)
+    /// Maximum concurrent device connections for multi-target interactive command execution (default 4)
     #[arg(long, value_name = "N")]
     pub max_parallel: Option<usize>,
 
-    /// Path to a TOML file containing an ad-hoc command flow template
+    /// Path to a TOML file containing an ad-hoc interactive command template
     #[arg(long, short = 'f')]
     pub file: Option<PathBuf>,
 
@@ -268,37 +269,37 @@ pub struct TxArgs {
     #[arg(long, short = 'v')]
     pub vars: Option<PathBuf>,
 
-    /// Saved command flow template name for --run-kind command-flow
+    /// Saved interactive command template name for --run-kind interactive
     #[arg(long)]
-    pub flow_template: Option<String>,
+    pub interactive_template: Option<String>,
 
-    /// Path to a TOML file containing an ad-hoc command flow template
+    /// Path to a TOML file containing an ad-hoc interactive command template
     #[arg(long)]
-    pub flow_file: Option<PathBuf>,
+    pub interactive_file: Option<PathBuf>,
 
-    /// Path to a JSON file containing variables for the main command flow
+    /// Path to a JSON file containing variables for the main interactive command
     #[arg(long)]
-    pub flow_vars: Option<PathBuf>,
+    pub interactive_vars: Option<PathBuf>,
 
-    /// Inline JSON variables for the main command flow
+    /// Inline JSON variables for the main interactive command
     #[arg(long)]
-    pub flow_vars_json: Option<String>,
+    pub interactive_vars_json: Option<String>,
 
-    /// Saved rollback command flow template name
+    /// Saved rollback interactive command template name
     #[arg(long)]
-    pub rollback_flow_template: Option<String>,
+    pub rollback_interactive_template: Option<String>,
 
-    /// Path to a TOML file containing an ad-hoc rollback command flow template
+    /// Path to a TOML file containing an ad-hoc rollback interactive command template
     #[arg(long)]
-    pub rollback_flow_file: Option<PathBuf>,
+    pub rollback_interactive_file: Option<PathBuf>,
 
-    /// Path to a JSON file containing variables for the rollback command flow
+    /// Path to a JSON file containing variables for the rollback interactive command
     #[arg(long)]
-    pub rollback_flow_vars: Option<PathBuf>,
+    pub rollback_interactive_vars: Option<PathBuf>,
 
-    /// Inline JSON variables for the rollback command flow
+    /// Inline JSON variables for the rollback interactive command
     #[arg(long)]
-    pub rollback_flow_vars_json: Option<String>,
+    pub rollback_interactive_vars_json: Option<String>,
 
     /// Direct command lines for transaction step(s), can be repeated
     #[arg(long = "command")]
@@ -324,7 +325,7 @@ pub struct TxArgs {
     #[arg(long)]
     pub rollback_trigger_step_index: Option<usize>,
 
-    /// Target mode for generated tx steps or command flow execution
+    /// Target mode for generated tx steps or interactive command execution
     #[arg(long, short = 'm')]
     pub mode: Option<String>,
 
@@ -509,7 +510,7 @@ pub struct GlobalOpts {
     #[arg(long, global = true, default_value_t = false)]
     pub force_autodetect: bool,
 
-    /// Retry transient connection failures for ordinary commands and command flows.
+    /// Retry transient connection failures for ordinary commands and interactive commands.
     /// Retries have at-least-once semantics; keep disabled for commands that are unsafe to repeat.
     #[arg(
         long,

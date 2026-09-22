@@ -1,10 +1,10 @@
 use super::{OrchestrationJob, OrchestrationTarget};
 use crate::EffectiveConnection;
 use crate::cli::GlobalOpts;
-use crate::config::command_flow_vars::{ConnectionParamContext, resolve_runtime_var_aliases};
 use crate::config::connection_store::{
     list_connections_by_groups_any, list_connections_by_labels_any, load_connection,
 };
+use crate::config::interactive_vars::{ConnectionParamContext, resolve_runtime_var_aliases};
 use crate::config::inventory_store;
 use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use anyhow::{Context, Result, anyhow};

@@ -2,8 +2,8 @@
 
 //! Template and profile domain crate.
 
-pub mod command_flow;
 pub mod content;
+pub mod interactive;
 pub mod renderer;
 mod variables;
 

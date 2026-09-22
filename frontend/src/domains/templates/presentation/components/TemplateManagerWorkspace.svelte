@@ -120,7 +120,7 @@
             >
               {#if section.key === TEMPLATE_MANAGER_KIND.command}
                 <FileCode2Icon aria-hidden="true" />
-              {:else if section.key === TEMPLATE_MANAGER_KIND.flow}
+              {:else if section.key === TEMPLATE_MANAGER_KIND.interactive}
                 <GitBranchIcon aria-hidden="true" />
               {:else if section.key === TEMPLATE_MANAGER_KIND.txBlock}
                 <BlocksIcon aria-hidden="true" />

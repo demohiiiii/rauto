@@ -67,7 +67,7 @@ pub struct TemplateDetail {
 }
 
 #[derive(Debug, Serialize)]
-pub struct CommandFlowTemplateMeta {
+pub struct InteractiveTemplateMeta {
     pub name: String,
     pub kind: String,
     pub source: String,
@@ -78,7 +78,7 @@ pub struct CommandFlowTemplateMeta {
 }
 
 #[derive(Debug, Serialize)]
-pub struct CommandFlowTemplateVarField {
+pub struct InteractiveTemplateVarField {
     pub name: String,
     pub label: String,
     pub description: Option<String>,
@@ -92,7 +92,7 @@ pub struct CommandFlowTemplateVarField {
     pub default_value: Option<Value>,
 }
 
-impl CommandFlowTemplateVarField {
+impl InteractiveTemplateVarField {
     pub fn inferred(name: String, allow_empty: bool) -> Self {
         let normalized_name = name.to_ascii_lowercase();
         let secret = ["password", "passwd", "secret", "token"]
@@ -119,18 +119,18 @@ pub struct InspectCommandTemplateRequest {
 
 #[derive(Debug, Serialize)]
 pub struct CommandTemplateInspection {
-    pub vars_schema: Vec<CommandFlowTemplateVarField>,
+    pub vars_schema: Vec<InteractiveTemplateVarField>,
 }
 
 #[derive(Debug, Serialize)]
-pub struct CommandFlowTemplateDetail {
+pub struct InteractiveTemplateDetail {
     pub name: String,
     pub content: String,
-    pub vars_schema: Vec<CommandFlowTemplateVarField>,
+    pub vars_schema: Vec<InteractiveTemplateVarField>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct InspectCommandFlowTemplateRequest {
+pub struct InspectInteractiveTemplateRequest {
     pub content: String,
 }
 
@@ -158,13 +158,13 @@ pub struct TxWorkflowTemplatePreviewResponse {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CreateCommandFlowTemplateRequest {
+pub struct CreateInteractiveTemplateRequest {
     pub name: String,
     pub content: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct UpdateCommandFlowTemplateRequest {
+pub struct UpdateInteractiveTemplateRequest {
     pub content: String,
 }
 
