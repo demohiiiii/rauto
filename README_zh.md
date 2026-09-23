@@ -18,6 +18,19 @@
 
 ## 快速开始
 
+推荐使用一键安装脚本。Linux / macOS：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/demohiiiii/rauto/main/install.sh | sh
+```
+
+Windows PowerShell：
+
+```powershell
+& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/demohiiiii/rauto/main/install.ps1')))
+```
+
+
 ```bash
 cargo install rauto
 
@@ -49,9 +62,10 @@ rauto web --bind 127.0.0.1 --port 3000
 
 - [功能特性](#功能特性)
 - [安装](#安装)
-  - [二进制文件安装推荐](#二进制文件安装推荐)
+  - [一键安装脚本（推荐）](#一键安装脚本推荐)
+  - [二进制文件安装](#二进制文件安装)
+  - [通过 Homebrew 安装（macOS）](#通过-homebrew-安装macos)
   - [通过-cratesio-安装](#通过-cratesio-安装)
-  - [源码安装](#源码安装)
 - [Skill](#skill)
 - [使用方法](#使用方法)
   - [命令选型指南](#命令选型指南)
@@ -111,33 +125,36 @@ rauto web --bind 127.0.0.1 --port 3000
 
 ## 安装
 
-### 二进制文件安装（推荐）
+### 一键安装脚本（推荐）
 
-从 [GitHub Releases](https://github.com/demohiiiii/rauto/releases) 下载适用于您平台的最新版本。
+Linux / macOS：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/demohiiiii/rauto/main/install.sh | sh
+```
+
+Windows PowerShell：
+
+```powershell
+& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/demohiiiii/rauto/main/install.ps1')))
+```
+
+### 二进制文件安装
+
+从 [GitHub Releases](https://github.com/demohiiiii/rauto/releases) 下载对应平台的文件。
+
+### 通过 Homebrew 安装（macOS）
+
+```bash
+brew tap demohiiiii/rauto https://github.com/demohiiiii/rauto.git
+brew install demohiiiii/rauto/rauto
+```
 
 ### 通过 Crates.io 安装
 
 ```bash
 cargo install rauto
 ```
-
-### 源码安装
-
-确保你已经安装了 Rust 1.94 或更新版本、Cargo、Node.js 和 npm。CI 使用 Node.js 26。
-
-前端通过 `svelte-check --tsgo` 使用 TypeScript 7 进行类型检查。
-`@typescript/native` 别名提供新版编译器；保留 TypeScript 6，为
-`svelte-check` 内部转换提供 JavaScript 编译器 API。
-
-```bash
-git clone https://github.com/demohiiiii/rauto.git
-cd rauto
-npm ci
-npm run web:build
-cargo build --release
-```
-
-编译后的二进制文件位于 `target/release/rauto`。
 
 ## Skill
 

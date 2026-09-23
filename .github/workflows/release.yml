@@ -17,7 +17,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
+            target: x86_64-unknown-linux-musl
             artifact_name: rauto
             asset_name: rauto-linux-amd64
           - os: macos-latest
@@ -52,7 +52,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libdbus-1-dev
+          sudo apt-get install -y musl-tools pkg-config cmake
+
+      - name: Setup MSVC tools
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install frontend dependencies
         run: npm ci
@@ -61,7 +65,49 @@ jobs:
         run: npm run web:build
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          # Use Rust's self-contained musl runtime without musl-gcc's loader path.
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: cc
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUSTFLAGS: -C target-feature=+crt-static
+          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run: cargo build --locked --release --target ${{ matrix.target }}
+
+      - name: Verify standalone Linux binary
+        if: runner.os == 'Linux'
+        run: python3 -B scripts/check_linux_release.py target/${{ matrix.target }}/release/rauto
+
+      - name: Verify macOS system-only dependencies
+        if: runner.os == 'macOS'
+        env:
+          RELEASE_BINARY: target/${{ matrix.target }}/release/rauto
+        run: |
+          python3 - <<'PY'
+          import os, subprocess
+          binary = os.environ["RELEASE_BINARY"]
+          output = subprocess.check_output(["otool", "-L", binary], text=True)
+          print(output)
+          for line in output.splitlines()[1:]:
+              dependency = line.strip().split(" (", 1)[0]
+              if not dependency.startswith(("/usr/lib/", "/System/Library/")):
+                  raise SystemExit(f"Non-system dependency: {dependency}")
+          subprocess.run([binary, "--version"], check=True)
+          PY
+
+      - name: Verify Windows static runtime
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $binary = "target/${{ matrix.target }}/release/rauto.exe"
+          $imports = & dumpbin /dependents $binary
+          if ($LASTEXITCODE -ne 0) { throw "Cannot inspect Windows dependencies" }
+          $imports | Write-Output
+          if ($imports -match '(?i)\b(vcruntime\w*|msvcp\w*|msvcr\d\w*|ucrtbase|api-ms-win-crt-[\w-]+)\.dll\b') {
+            throw "Release binary depends on an external Visual C++ runtime"
+          }
+          & $binary --version
+          if ($LASTEXITCODE -ne 0) { throw "Release binary cannot start" }
 
       - name: Package (Linux/macOS)
         if: runner.os != 'Windows'
@@ -69,6 +115,15 @@ jobs:
           cd target/${{ matrix.target }}/release
           tar -czf ../../../${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
           cd -
+
+      - name: Checksum (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.tar.gz.sha256
+          else
+            shasum -a 256 ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.tar.gz.sha256
+          fi
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -81,13 +136,25 @@ jobs:
         if: runner.os != 'Windows'
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ matrix.asset_name }}.tar.gz
+          files: |
+            ${{ matrix.asset_name }}.tar.gz
+            ${{ matrix.asset_name }}.tar.gz.sha256
+
+      - name: Checksum (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = '${{ matrix.asset_name }}.zip'
+          $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$digest  $archive" | Set-Content -LiteralPath "$archive.sha256" -Encoding ascii
 
       - name: Upload Release Asset (Windows)
         if: runner.os == 'Windows'
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ matrix.asset_name }}.zip
+          files: |
+            ${{ matrix.asset_name }}.zip
+            ${{ matrix.asset_name }}.zip.sha256
 
   publish-crates:
     name: Publish to crates.io
@@ -109,7 +176,7 @@ jobs:
       - name: Install Linux native dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libdbus-1-dev
+          sudo apt-get install -y pkg-config cmake
 
       - name: Install frontend dependencies
         run: npm ci

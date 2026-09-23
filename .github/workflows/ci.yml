@@ -11,6 +11,36 @@ permissions:
   contents: read
 
 jobs:
+  windows-installer:
+    name: Windows Installer (${{ matrix.shell }})
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test installer offline
+        shell: ${{ matrix.shell }}
+        run: ./scripts/test_install_windows.ps1
+
+  installer:
+    name: Installer Checks
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check shell syntax
+        run: sh -n install.sh
+
+      - name: Test installer offline
+        run: python3 -B -m unittest discover -s scripts -p 'test_*.py'
+
   rust:
     name: Rust Checks
     runs-on: ubuntu-latest
@@ -22,11 +52,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+          targets: x86_64-unknown-linux-musl
 
       - name: Install Linux native dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libdbus-1-dev
+          sudo apt-get install -y musl-tools pkg-config cmake
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -48,6 +79,17 @@ jobs:
 
       - name: Run tests
         run: cargo test --locked --all-targets
+
+      - name: Build standalone Linux release
+        env:
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          # Use Rust's self-contained musl runtime without musl-gcc's loader path.
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: cc
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUSTFLAGS: -C target-feature=+crt-static
+        run: cargo build --locked --release --target x86_64-unknown-linux-musl
+
+      - name: Verify standalone Linux binary
+        run: python3 -B scripts/check_linux_release.py target/x86_64-unknown-linux-musl/release/rauto
 
   frontend:
     name: Frontend Checks

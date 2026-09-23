@@ -18,6 +18,19 @@
 
 ## Quick Start
 
+Install with the recommended script. Linux / macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/demohiiiii/rauto/main/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/demohiiiii/rauto/main/install.ps1')))
+```
+
+
 ```bash
 cargo install rauto
 
@@ -49,9 +62,10 @@ rauto web --bind 127.0.0.1 --port 3000
 
 - [Features](#features)
 - [Installation](#installation)
-  - [From Binary (Recommended)](#from-binary-recommended)
+  - [Install Script (Recommended)](#install-script-recommended)
+  - [From Binary](#from-binary)
+  - [Homebrew (macOS)](#homebrew-macos)
   - [From Crates.io](#from-cratesio)
-  - [From Source](#from-source)
 - [Skill](#skill)
 - [Usage](#usage)
   - [Command Selection Guide](#command-selection-guide)
@@ -111,33 +125,36 @@ rauto web --bind 127.0.0.1 --port 3000
 
 ## Installation
 
-### From Binary (Recommended)
+### Install Script (Recommended)
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/demohiiiii/rauto/releases).
+Linux / macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/demohiiiii/rauto/main/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/demohiiiii/rauto/main/install.ps1')))
+```
+
+### From Binary
+
+Download the package for your platform from [GitHub Releases](https://github.com/demohiiiii/rauto/releases).
+
+### Homebrew (macOS)
+
+```bash
+brew tap demohiiiii/rauto https://github.com/demohiiiii/rauto.git
+brew install demohiiiii/rauto/rauto
+```
 
 ### From Crates.io
 
 ```bash
 cargo install rauto
 ```
-
-### From Source
-
-Ensure you have Rust 1.94 or newer, Cargo, Node.js, and npm installed. CI uses Node.js 26.
-
-Frontend type checking uses TypeScript 7 through `svelte-check --tsgo`.
-The `@typescript/native` alias provides the current compiler; TypeScript 6 is
-retained for the JavaScript compiler API used internally by `svelte-check`.
-
-```bash
-git clone https://github.com/demohiiiii/rauto.git
-cd rauto
-npm ci
-npm run web:build
-cargo build --release
-```
-
-The binary will be available at `target/release/rauto`.
 
 ## Skill
 
