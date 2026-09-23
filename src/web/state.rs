@@ -337,7 +337,18 @@ pub async fn resolve_autodetect_connection(
                     profile, conn.host, conn.port
                 );
                 conn.device_profile = profile;
-                return Ok(conn);
+                // The cache predates shell-flavor detection and only stores the
+                // device profile. Reprobe cached Linux targets when no explicit
+                // shell was supplied so fish hosts can be identified correctly.
+                if !conn.device_profile.eq_ignore_ascii_case("linux")
+                    || conn.linux_shell_flavor.is_some()
+                {
+                    return Ok(conn);
+                }
+                info!(
+                    "Cached Linux profile for {}:{} has no shell flavor; reprobing shell",
+                    conn.host, conn.port
+                );
             }
             Ok(None) => {}
             Err(err) => {
@@ -363,12 +374,12 @@ pub async fn resolve_autodetect_connection(
     );
     let policy = DetectConnectPolicy::default();
     let connected = MANAGER
-        .autodetect_and_connect_with_builtin_and_templates_and_context(
+        .autodetect_and_connect_with_templates_and_context(
             request,
             conn.enable_password.clone(),
             context,
             policy,
-            template_loader::custom_detect_template_definitions().map_err(ApiError::from)?,
+            template_loader::autodetect_template_definitions().map_err(ApiError::from)?,
         )
         .await
         .map_err(ApiError::from)?;
@@ -385,7 +396,20 @@ pub async fn resolve_autodetect_connection(
             conn.host, conn.port, best.template_name, err
         );
     }
-    conn.device_profile = best.template_name.clone();
+    let detected_profile = best.template_name.clone();
+    if detected_profile.eq_ignore_ascii_case("linux") && conn.linux_shell_flavor.is_none() {
+        conn.linux_shell_flavor =
+            Some(template_loader::infer_linux_shell_flavor(&connected.report));
+        info!(
+            "Detected Linux shell flavor '{}' for {}:{}",
+            conn.linux_shell_flavor
+                .map(|flavor| flavor.to_string())
+                .unwrap_or_else(|| "posix".to_string()),
+            conn.host,
+            conn.port
+        );
+    }
+    conn.device_profile = detected_profile;
     Ok(conn)
 }
 
@@ -516,13 +540,47 @@ mod tests {
     use crate::cli::GlobalOpts;
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
+    use crate::config::template_loader;
     use crate::domain::device::DeviceEncoding;
     use crate::web::error::ApiError;
     use crate::web::models::ConnectionRequest;
     use crate::web::models::SessionRetryOptions;
     use axum::http::StatusCode;
     use rneter::session::RetryPolicy;
+    use rneter::templates::{
+        DetectFactKind, DetectFactSource, TemplateDetectFact, TemplateDetectReport,
+    };
     use tokio::time::{Duration, sleep};
+
+    #[test]
+    fn infers_fish_from_linux_shell_probe_fact() {
+        let report = TemplateDetectReport::from_parts(
+            Vec::new(),
+            vec![TemplateDetectFact {
+                kind: DetectFactKind::PositiveMatch,
+                source: DetectFactSource::ProbeOutput,
+                command: "echo $status".to_string(),
+                pattern: "(?m)^\\s*0\\s*$".to_string(),
+                sample: "0".to_string(),
+                weight: 25,
+            }],
+        );
+
+        assert_eq!(
+            template_loader::infer_linux_shell_flavor(&report),
+            crate::domain::device::LinuxShellFlavor::Fish
+        );
+    }
+
+    #[test]
+    fn defaults_linux_shell_probe_without_fish_to_posix() {
+        let report = TemplateDetectReport::from_parts(Vec::new(), Vec::new());
+
+        assert_eq!(
+            template_loader::infer_linux_shell_flavor(&report),
+            crate::domain::device::LinuxShellFlavor::Posix
+        );
+    }
 
     #[test]
     fn session_retry_options_preserve_server_policy_when_absent() {

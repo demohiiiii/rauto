@@ -13,7 +13,7 @@ use anyhow::{Context, Result, anyhow};
 use rneter::session::DetectRequest;
 use rneter::templates::{
     DetectConnectPolicy, DetectFactKind, TemplateDetectCandidate, TemplateDetectFact,
-    TemplateDetectReport, autodetect_with_builtin_and_templates_and_context,
+    TemplateDetectReport, autodetect_with_templates_and_context,
 };
 use serde::Serialize;
 use std::fs;
@@ -147,10 +147,10 @@ pub(crate) async fn run_profile_command(
                 conn.ssh_security,
                 conn.connect_timeout_secs,
             );
-            let report = autodetect_with_builtin_and_templates_and_context(
+            let report = autodetect_with_templates_and_context(
                 request,
                 context,
-                template_loader::custom_detect_template_definitions()?,
+                template_loader::autodetect_template_definitions()?,
             )
             .await?;
             let policy = DetectConnectPolicy::default();
@@ -302,7 +302,10 @@ pub(crate) async fn run_device_command(
                 &conn.device_profile,
                 conn.linux_shell_flavor,
             )?;
-            let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+            let default_mode = template_loader::default_profile_mode_for_connection(
+                &conn.device_profile,
+                &conn.username,
+            )?;
             let _client = DeviceClient::connect_with_retry(
                 conn.host.clone(),
                 conn.port,

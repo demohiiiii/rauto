@@ -446,9 +446,13 @@ async fn fetch_config_over_connection(
         &conn.device_profile,
         conn.linux_shell_flavor,
     )?;
-    let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
-    let effective_mode =
-        template_loader::resolve_profile_mode(&conn.device_profile, fetch_command.mode.as_deref())?;
+    let default_mode =
+        template_loader::default_profile_mode_for_connection(&conn.device_profile, &conn.username)?;
+    let effective_mode = template_loader::resolve_profile_mode_for_connection(
+        &conn.device_profile,
+        &conn.username,
+        fetch_command.mode.as_deref(),
+    )?;
     let client = DeviceClient::connect_with_recording_and_retry(
         conn.host.clone(),
         conn.port,

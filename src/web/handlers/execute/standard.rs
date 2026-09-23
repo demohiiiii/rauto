@@ -132,7 +132,8 @@ pub async fn exec_command(
                 &conn.device_profile,
                 conn.linux_shell_flavor,
             )?;
-            let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
+            let effective_mode =
+                resolve_effective_mode(req.mode.as_deref(), &conn.device_profile, &conn.username)?;
             let command = Command {
                 mode: effective_mode.clone(),
                 command: req.command.clone(),
@@ -159,7 +160,10 @@ pub async fn exec_command(
                     conn.enable_password.clone(),
                     handler,
                     conn.output_encoding,
-                    template_loader::default_profile_mode(&conn.device_profile)?,
+                    template_loader::default_profile_mode_for_connection(
+                        &conn.device_profile,
+                        &conn.username,
+                    )?,
                     level,
                     conn.ssh_security,
                     conn.connect_timeout_secs,
@@ -175,7 +179,10 @@ pub async fn exec_command(
                     conn.enable_password.clone(),
                     handler,
                     conn.output_encoding,
-                    template_loader::default_profile_mode(&conn.device_profile)?,
+                    template_loader::default_profile_mode_for_connection(
+                        &conn.device_profile,
+                        &conn.username,
+                    )?,
                     conn.ssh_security,
                     conn.connect_timeout_secs,
                     conn.retry_policy,
@@ -439,7 +446,8 @@ pub async fn execute_show(
                 conn.linux_shell_flavor,
             )?;
             let requested_mode = req.mode.as_deref().or(show.mode.as_deref());
-            let effective_mode = resolve_effective_mode(requested_mode, &conn.device_profile)?;
+            let effective_mode =
+                resolve_effective_mode(requested_mode, &conn.device_profile, &conn.username)?;
             let client = if let Some(level) = to_record_level(record_level) {
                 DeviceClient::connect_with_recording_and_retry(
                     conn.host.clone(),
@@ -449,7 +457,10 @@ pub async fn execute_show(
                     conn.enable_password.clone(),
                     handler,
                     conn.output_encoding,
-                    template_loader::default_profile_mode(&conn.device_profile)?,
+                    template_loader::default_profile_mode_for_connection(
+                        &conn.device_profile,
+                        &conn.username,
+                    )?,
                     level,
                     conn.ssh_security,
                     conn.connect_timeout_secs,
@@ -465,7 +476,10 @@ pub async fn execute_show(
                     conn.enable_password.clone(),
                     handler,
                     conn.output_encoding,
-                    template_loader::default_profile_mode(&conn.device_profile)?,
+                    template_loader::default_profile_mode_for_connection(
+                        &conn.device_profile,
+                        &conn.username,
+                    )?,
                     conn.ssh_security,
                     conn.connect_timeout_secs,
                     conn.retry_policy,
@@ -849,7 +863,8 @@ async fn resolve_batch_show_target(
     command_blacklist::ensure_command_allowed(&show.command, "batch show execution")
         .map_err(|err| ApiError::bad_request(err.to_string()))?;
     let requested_mode = req.mode.as_deref().or(show.mode.as_deref());
-    let effective_mode = resolve_effective_mode(requested_mode, &conn.device_profile)?;
+    let effective_mode =
+        resolve_effective_mode(requested_mode, &conn.device_profile, &conn.username)?;
     Ok(ResolvedBatchShowTarget {
         name: name.to_string(),
         conn,
@@ -909,7 +924,10 @@ async fn execute_batch_show_target_inner(
             target.conn.enable_password.clone(),
             handler,
             target.conn.output_encoding,
-            template_loader::default_profile_mode(&target.conn.device_profile)?,
+            template_loader::default_profile_mode_for_connection(
+                &target.conn.device_profile,
+                &target.conn.username,
+            )?,
             level,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
@@ -925,7 +943,10 @@ async fn execute_batch_show_target_inner(
             target.conn.enable_password.clone(),
             handler,
             target.conn.output_encoding,
-            template_loader::default_profile_mode(&target.conn.device_profile)?,
+            template_loader::default_profile_mode_for_connection(
+                &target.conn.device_profile,
+                &target.conn.username,
+            )?,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
             target.conn.retry_policy,
@@ -1210,7 +1231,8 @@ async fn resolve_batch_exec_target(
         req.retry.as_ref(),
     )?)
     .await?;
-    let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
+    let effective_mode =
+        resolve_effective_mode(req.mode.as_deref(), &conn.device_profile, &conn.username)?;
     let (rendered, masked_command) = if let Some(content) = req.template_content.as_deref() {
         render_commands_with_runtime_context(None, Some(content), req.vars.clone(), Some(&conn))?
     } else {
@@ -1292,7 +1314,10 @@ async fn execute_batch_exec_target_inner(
             target.conn.enable_password.clone(),
             handler,
             target.conn.output_encoding,
-            template_loader::default_profile_mode(&target.conn.device_profile)?,
+            template_loader::default_profile_mode_for_connection(
+                &target.conn.device_profile,
+                &target.conn.username,
+            )?,
             level,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
@@ -1308,7 +1333,10 @@ async fn execute_batch_exec_target_inner(
             target.conn.enable_password.clone(),
             handler,
             target.conn.output_encoding,
-            template_loader::default_profile_mode(&target.conn.device_profile)?,
+            template_loader::default_profile_mode_for_connection(
+                &target.conn.device_profile,
+                &target.conn.username,
+            )?,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
             target.conn.retry_policy,
@@ -1510,7 +1538,8 @@ pub async fn execute_template(
                 &conn.device_profile,
                 conn.linux_shell_flavor,
             )?;
-            let effective_mode = resolve_effective_mode(req.mode.as_deref(), &conn.device_profile)?;
+            let effective_mode =
+                resolve_effective_mode(req.mode.as_deref(), &conn.device_profile, &conn.username)?;
             let client = if let Some(level) = to_record_level(record_level) {
                 DeviceClient::connect_with_recording_and_retry(
                     conn.host.clone(),
@@ -1520,7 +1549,10 @@ pub async fn execute_template(
                     conn.enable_password.clone(),
                     handler,
                     conn.output_encoding,
-                    template_loader::default_profile_mode(&conn.device_profile)?,
+                    template_loader::default_profile_mode_for_connection(
+                        &conn.device_profile,
+                        &conn.username,
+                    )?,
                     level,
                     conn.ssh_security,
                     conn.connect_timeout_secs,
@@ -1536,7 +1568,10 @@ pub async fn execute_template(
                     conn.enable_password.clone(),
                     handler,
                     conn.output_encoding,
-                    template_loader::default_profile_mode(&conn.device_profile)?,
+                    template_loader::default_profile_mode_for_connection(
+                        &conn.device_profile,
+                        &conn.username,
+                    )?,
                     conn.ssh_security,
                     conn.connect_timeout_secs,
                     conn.retry_policy,

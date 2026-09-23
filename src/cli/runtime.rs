@@ -213,7 +213,20 @@ pub(crate) async fn resolve_autodetect_connection(
                     profile, conn.host, conn.port
                 );
                 conn.device_profile = profile;
-                return Ok(conn);
+                // Older autodetect cache entries only contain the profile. A
+                // cached Linux target still needs a shell probe when the
+                // caller did not explicitly provide one, otherwise fish is
+                // handled with POSIX exit-status syntax and command waits can
+                // time out.
+                if !conn.device_profile.eq_ignore_ascii_case("linux")
+                    || conn.linux_shell_flavor.is_some()
+                {
+                    return Ok(conn);
+                }
+                info!(
+                    "Cached Linux profile for {}:{} has no shell flavor; reprobing shell",
+                    conn.host, conn.port
+                );
             }
             Ok(None) => {}
             Err(err) => {
@@ -236,12 +249,12 @@ pub(crate) async fn resolve_autodetect_connection(
         manager_execution_context_with_security(None, conn.ssh_security, conn.connect_timeout_secs);
     let policy = DetectConnectPolicy::default();
     let connected = MANAGER
-        .autodetect_and_connect_with_builtin_and_templates_and_context(
+        .autodetect_and_connect_with_templates_and_context(
             request,
             conn.enable_password.clone(),
             context,
             policy,
-            template_loader::custom_detect_template_definitions()?,
+            template_loader::autodetect_template_definitions()?,
         )
         .await?;
     let best = connected
@@ -262,6 +275,18 @@ pub(crate) async fn resolve_autodetect_connection(
         );
     }
     conn.device_profile = best.template_name.clone();
+    if conn.device_profile.eq_ignore_ascii_case("linux") && conn.linux_shell_flavor.is_none() {
+        conn.linux_shell_flavor =
+            Some(template_loader::infer_linux_shell_flavor(&connected.report));
+        info!(
+            "Detected Linux shell flavor '{}' for {}:{}",
+            conn.linux_shell_flavor
+                .map(|flavor| flavor.to_string())
+                .unwrap_or_else(|| "posix".to_string()),
+            conn.host,
+            conn.port
+        );
+    }
     Ok(conn)
 }
 

@@ -18,7 +18,8 @@ pub async fn execute_interactive(
         &conn.device_profile,
         conn.linux_shell_flavor,
     )?;
-    let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let profile_default_mode =
+        template_loader::default_profile_mode_for_connection(&conn.device_profile, &conn.username)?;
 
     let template = load_interactive_template_from_input(
         req.template_name.as_deref(),
@@ -411,7 +412,8 @@ async fn resolve_batch_interactive_target(
         retry,
     )?)
     .await?;
-    let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let profile_default_mode =
+        template_loader::default_profile_mode_for_connection(&conn.device_profile, &conn.username)?;
     let runtime_vars = resolve_interactive_connection_vars(template, vars.clone(), &conn)?;
     let runtime_default_mode = resolve_interactive_runtime_default_mode(
         None,

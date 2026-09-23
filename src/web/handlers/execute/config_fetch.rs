@@ -351,8 +351,11 @@ async fn resolve_config_fetch_connection_target(
         .map_err(|err| ApiError::bad_request(err.to_string()))?;
     command_blacklist::ensure_command_allowed(&fetch_command.command, "config fetch")
         .map_err(|err| ApiError::bad_request(err.to_string()))?;
-    let effective_mode =
-        resolve_effective_mode(fetch_command.mode.as_deref(), &conn.device_profile)?;
+    let effective_mode = resolve_effective_mode(
+        fetch_command.mode.as_deref(),
+        &conn.device_profile,
+        &conn.username,
+    )?;
     let name = conn
         .connection_name
         .clone()
@@ -406,7 +409,10 @@ async fn fetch_config_target_inner(
             target.conn.enable_password.clone(),
             handler,
             target.conn.output_encoding,
-            template_loader::default_profile_mode(&target.conn.device_profile)?,
+            template_loader::default_profile_mode_for_connection(
+                &target.conn.device_profile,
+                &target.conn.username,
+            )?,
             level,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
@@ -422,7 +428,10 @@ async fn fetch_config_target_inner(
             target.conn.enable_password.clone(),
             handler,
             target.conn.output_encoding,
-            template_loader::default_profile_mode(&target.conn.device_profile)?,
+            template_loader::default_profile_mode_for_connection(
+                &target.conn.device_profile,
+                &target.conn.username,
+            )?,
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
             target.conn.retry_policy,

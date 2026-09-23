@@ -32,8 +32,6 @@ Windows PowerShell:
 
 
 ```bash
-cargo install rauto
-
 # Create a reusable credential; securely prompts for login and optional Enable values
 rauto credential add network-admin
 
@@ -670,6 +668,7 @@ rauto profile autodetect -vv --host 192.168.1.1 --credential network-admin
 
 When normal execution uses autodetect, the detected profile controls mode validation and default-mode fallback. Autodetect does not infer command mode from the command text; use `exec --mode <mode>` when a command must run in a specific state such as `Enable`, `Config`, or `Shell`. You can also pass comma- or pipe-separated candidates, for example `--mode Root,User`, when a command is valid in more than one state.
 Successful autodetect results are cached locally by `host:port` in the runtime database, so later connections to the same target can reuse the detected profile instead of probing again unless you explicitly override the profile.
+For Linux targets without an explicit `--linux-shell-flavor`, autodetect probes the shell's exit-status syntax and selects fish-compatible handling when needed. Cached Linux profiles are reprobed when their shell flavor is not known.
 For TextFSM parsing, `rauto` will infer a matching NTC platform from the resolved device profile when `--parse-textfsm` is enabled.
 
 **Using a Specific Profile:**
@@ -839,7 +838,7 @@ Each credential contains:
 - A required SSH username and one authentication method: password, encrypted inline private key, private-key file path, or SSH agent.
 - An optional Enable stage with a password; when enabled without a password, rauto submits Enter at the prompt.
 
-Passwords, inline private keys, and private-key passphrases are encrypted before being stored in `~/.rauto/rauto.db`; the encryption master key is kept in the operating system keyring. Private-key file credentials store the path and load the key when connecting, while SSH-agent credentials use the agent available to the rauto process. Web, Agent, and CLI query output expose only credential metadata and secret-presence flags, never plaintext authentication data or encryption references. Full session recordings redact configured authentication and Enable secrets before storing or broadcasting events. A credential referenced by one or more connections cannot be deleted until those references are removed.
+Passwords, inline private keys, and private-key passphrases are encrypted before being stored in `~/.rauto/rauto.db`; the encryption master key is kept in the operating system keyring. On headless Linux without a Secret Service session, rauto falls back to `~/.rauto/keys/master.key` with user-only file permissions. Private-key file credentials store the path and load the key when connecting, while SSH-agent credentials use the agent available to the rauto process. Web, Agent, and CLI query output expose only credential metadata and secret-presence flags, never plaintext authentication data or encryption references. Full session recordings redact configured authentication and Enable secrets before storing or broadcasting events. A credential referenced by one or more connections cannot be deleted until those references are removed.
 
 Manage credentials from the CLI:
 

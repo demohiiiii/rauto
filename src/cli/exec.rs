@@ -165,8 +165,11 @@ async fn resolve_exec_target(
     let conn =
         crate::resolve_autodetect_connection(crate::resolve_effective_connection(&target_opts)?)
             .await?;
-    let effective_mode =
-        template_loader::resolve_profile_mode(&conn.device_profile, args.mode.as_deref())?;
+    let effective_mode = template_loader::resolve_profile_mode_for_connection(
+        &conn.device_profile,
+        &conn.username,
+        args.mode.as_deref(),
+    )?;
     Ok(ResolvedExecTarget {
         name: name.to_string(),
         conn,
@@ -197,7 +200,10 @@ async fn execute_resolved_exec_target_buffered(
         &target.conn.device_profile,
         target.conn.linux_shell_flavor,
     )?;
-    let default_mode = template_loader::default_profile_mode(&target.conn.device_profile)?;
+    let default_mode = template_loader::default_profile_mode_for_connection(
+        &target.conn.device_profile,
+        &target.conn.username,
+    )?;
     let client = DeviceClient::connect_with_recording_and_retry(
         target.conn.host.clone(),
         target.conn.port,
@@ -308,7 +314,8 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
         &conn.device_profile,
         conn.linux_shell_flavor,
     )?;
-    let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let default_mode =
+        template_loader::default_profile_mode_for_connection(&conn.device_profile, &conn.username)?;
 
     info!("Connecting to device...");
     let client = DeviceClient::connect_with_recording_and_retry(
@@ -412,9 +419,13 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
         &conn.device_profile,
         conn.linux_shell_flavor,
     )?;
-    let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
-    let effective_mode =
-        template_loader::resolve_profile_mode(&conn.device_profile, args.mode.as_deref())?;
+    let default_mode =
+        template_loader::default_profile_mode_for_connection(&conn.device_profile, &conn.username)?;
+    let effective_mode = template_loader::resolve_profile_mode_for_connection(
+        &conn.device_profile,
+        &conn.username,
+        args.mode.as_deref(),
+    )?;
 
     let client = DeviceClient::connect_with_recording_and_retry(
         conn.host.clone(),
@@ -550,10 +561,14 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
         &conn.device_profile,
         conn.linux_shell_flavor,
     )?;
-    let default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let default_mode =
+        template_loader::default_profile_mode_for_connection(&conn.device_profile, &conn.username)?;
     let requested_mode = args.mode.as_deref().or(show.mode.as_deref());
-    let effective_mode =
-        template_loader::resolve_profile_mode(&conn.device_profile, requested_mode)?;
+    let effective_mode = template_loader::resolve_profile_mode_for_connection(
+        &conn.device_profile,
+        &conn.username,
+        requested_mode,
+    )?;
 
     let client = DeviceClient::connect_with_recording_and_retry(
         conn.host.clone(),
@@ -758,8 +773,11 @@ async fn resolve_show_target(
         show_catalog::resolve_show_command(object, platform.as_deref(), &conn.device_profile)?;
     command_blacklist::ensure_command_allowed(&show.command, "multi-target show execution")?;
     let requested_mode = args.mode.as_deref().or(show.mode.as_deref());
-    let effective_mode =
-        template_loader::resolve_profile_mode(&conn.device_profile, requested_mode)?;
+    let effective_mode = template_loader::resolve_profile_mode_for_connection(
+        &conn.device_profile,
+        &conn.username,
+        requested_mode,
+    )?;
     Ok(ResolvedShowTarget {
         name: name.to_string(),
         conn,
@@ -805,7 +823,10 @@ async fn execute_resolved_show_target_buffered(
         &target.conn.device_profile,
         target.conn.linux_shell_flavor,
     )?;
-    let default_mode = template_loader::default_profile_mode(&target.conn.device_profile)?;
+    let default_mode = template_loader::default_profile_mode_for_connection(
+        &target.conn.device_profile,
+        &target.conn.username,
+    )?;
     let client = DeviceClient::connect_with_recording_and_retry(
         target.conn.host.clone(),
         target.conn.port,

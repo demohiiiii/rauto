@@ -4,7 +4,9 @@ use crate::config::linux_shell::LinuxShellFlavor;
 use anyhow::{Context, Result, anyhow};
 use rneter::{
     device::DeviceHandler,
-    templates::{self, DetectTemplateDefinition},
+    templates::{
+        self, DetectTemplateDefinition, TemplateDetectReport, TemplateProbe, TemplateProbeRule,
+    },
 };
 use std::collections::BTreeSet;
 
@@ -70,6 +72,26 @@ pub fn default_profile_mode(name: &str) -> Result<String> {
     }
 
     Ok(load_device_profile_form(name)?.default_mode())
+}
+
+pub fn default_profile_mode_for_connection(name: &str, username: &str) -> Result<String> {
+    if canonical_builtin_profile_name(name) == Some("linux")
+        && username.trim().eq_ignore_ascii_case("root")
+    {
+        return Ok("Root".to_string());
+    }
+    default_profile_mode(name)
+}
+
+pub fn resolve_profile_mode_for_connection(
+    name: &str,
+    username: &str,
+    requested_mode: Option<&str>,
+) -> Result<String> {
+    if requested_mode.map(str::trim).is_none_or(str::is_empty) {
+        return default_profile_mode_for_connection(name, username);
+    }
+    resolve_profile_mode(name, requested_mode)
 }
 
 fn canonicalize_profile_mode<'a>(
@@ -156,9 +178,57 @@ pub fn custom_detect_template_definitions() -> Result<Vec<DetectTemplateDefiniti
     Ok(templates)
 }
 
+/// Build autodetect definitions with the additional Linux shell probe needed
+/// to distinguish fish from POSIX shells when `$SHELL` is not authoritative.
+pub fn autodetect_template_definitions() -> Result<Vec<DetectTemplateDefinition>> {
+    let mut definitions =
+        templates::merge_with_builtin_detect_templates(custom_detect_template_definitions()?);
+    for definition in &mut definitions {
+        if definition.template_name.eq_ignore_ascii_case("linux")
+            && !definition
+                .detect_profile
+                .probes
+                .iter()
+                .any(|probe| probe.command.trim_start().starts_with("echo $status"))
+        {
+            definition.detect_profile.probes.push(TemplateProbe {
+                command: "echo $status".to_string(),
+                rules: vec![TemplateProbeRule {
+                    pattern: r"(?m)^\s*0\s*$".to_string(),
+                    weight: 25,
+                }],
+                error_patterns: Vec::new(),
+            });
+        }
+    }
+    Ok(definitions)
+}
+
+/// Infer the shell flavor from Linux autodetect facts.
+pub fn infer_linux_shell_flavor(report: &TemplateDetectReport) -> LinuxShellFlavor {
+    let fish_status_probe = report
+        .raw_facts
+        .iter()
+        .any(|fact| fact.command.trim().eq_ignore_ascii_case("echo $status"));
+    let shell_probe = report
+        .raw_facts
+        .iter()
+        .find(|fact| fact.command.trim().eq_ignore_ascii_case("echo $SHELL"));
+    if fish_status_probe
+        || shell_probe.is_some_and(|fact| fact.sample.to_ascii_lowercase().contains("fish"))
+    {
+        LinuxShellFlavor::Fish
+    } else {
+        LinuxShellFlavor::Posix
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{canonicalize_profile_mode, resolve_profile_mode, split_profile_mode_candidates};
+    use super::{
+        canonicalize_profile_mode, default_profile_mode_for_connection, resolve_profile_mode,
+        resolve_profile_mode_for_connection, split_profile_mode_candidates,
+    };
 
     #[test]
     fn canonicalizes_mode_case_insensitively() {
@@ -207,5 +277,21 @@ mod tests {
 
         assert!(err.to_string().contains("root,missing"));
         assert!(err.to_string().contains("available_modes="));
+    }
+
+    #[test]
+    fn root_linux_connections_default_to_root_mode() {
+        assert_eq!(
+            default_profile_mode_for_connection("linux", "ROOT").expect("root mode"),
+            "Root"
+        );
+        assert_eq!(
+            resolve_profile_mode_for_connection("linux", "root", None).expect("root mode"),
+            "Root"
+        );
+        assert_eq!(
+            default_profile_mode_for_connection("linux", "operator").expect("user mode"),
+            "User"
+        );
     }
 }

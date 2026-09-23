@@ -6,7 +6,12 @@ use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use rand::Rng;
 use rand::rand_core::UnwrapErr;
 use rand::rngs::SysRng;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+
+use crate::config::paths::rauto_home_dir;
 
 #[cfg(not(test))]
 const SERVICE_NAME: &str = "rauto";
@@ -90,14 +95,133 @@ fn load_or_create_master_key_cached() -> Result<[u8; KEY_LEN]> {
 }
 
 fn load_or_create_master_key() -> Result<[u8; KEY_LEN]> {
+    // keyring 4 requires a session Secret Service on Linux. Headless servers often
+    // have no D-Bus session, so keep the encrypted database usable with a private
+    // per-user key file when the OS store is unavailable.
+    if !system_keyring_available() {
+        tracing::warn!(
+            "system credential store is unavailable; using the private local master-key file"
+        );
+        return load_or_create_file_master_key(&master_key_file_path());
+    }
+
     if let Some(stored) = get_secret_by_ref(MASTER_KEY_REF)? {
         return decode_master_key(&stored);
     }
+
+    // Migrate a key created during a headless run into the OS store when a
+    // Secret Service session becomes available later. Keep this filesystem
+    // lookup out of tests so they never inspect the user's real rauto home.
+    #[cfg(not(test))]
+    {
+        let fallback_path = master_key_file_path();
+        if fallback_path.is_file() {
+            let key = load_file_master_key(&fallback_path)?;
+            let encoded = BASE64_STANDARD.encode(key);
+            set_secret_by_ref(MASTER_KEY_REF, &encoded)?;
+            return Ok(key);
+        }
+    }
+
     let mut key = [0_u8; KEY_LEN];
     UnwrapErr(SysRng).fill_bytes(&mut key);
     let encoded = BASE64_STANDARD.encode(key);
     set_secret_by_ref(MASTER_KEY_REF, &encoded)?;
     Ok(key)
+}
+
+#[cfg(not(test))]
+fn system_keyring_available() -> bool {
+    keyring::Entry::store_status().is_ok()
+}
+
+#[cfg(test)]
+fn system_keyring_available() -> bool {
+    true
+}
+
+fn master_key_file_path() -> PathBuf {
+    rauto_home_dir().join("keys").join("master.key")
+}
+
+fn load_or_create_file_master_key(path: &Path) -> Result<[u8; KEY_LEN]> {
+    if path.exists() {
+        return load_file_master_key(path);
+    }
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| anyhow!("failed to create local key directory: {}", err))?;
+        set_private_dir_permissions(parent)?;
+    }
+
+    let mut key = [0_u8; KEY_LEN];
+    UnwrapErr(SysRng).fill_bytes(&mut key);
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    match options.open(path) {
+        Ok(mut file) => {
+            file.write_all(&key)
+                .and_then(|_| file.sync_all())
+                .map_err(|err| anyhow!("failed to write local master key: {}", err))?;
+            set_private_file_permissions(path)?;
+            Ok(key)
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => load_file_master_key(path),
+        Err(err) => Err(anyhow!("failed to create local master key: {}", err)),
+    }
+}
+
+fn load_file_master_key(path: &Path) -> Result<[u8; KEY_LEN]> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|err| anyhow!("failed to inspect local master key: {}", err))?;
+    if !metadata.file_type().is_file() {
+        return Err(anyhow!("local master key path is not a regular file"));
+    }
+    let mut bytes = Vec::with_capacity(KEY_LEN);
+    File::open(path)
+        .and_then(|mut file| file.read_to_end(&mut bytes))
+        .map_err(|err| anyhow!("failed to read local master key: {}", err))?;
+    if bytes.len() != KEY_LEN {
+        return Err(anyhow!(
+            "invalid local master key length: expected {}, got {}",
+            KEY_LEN,
+            bytes.len()
+        ));
+    }
+    set_private_file_permissions(path)?;
+    let mut key = [0_u8; KEY_LEN];
+    key.copy_from_slice(&bytes);
+    Ok(key)
+}
+
+#[cfg(unix)]
+fn set_private_dir_permissions(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700))
+        .map_err(|err| anyhow!("failed to secure local key directory: {}", err))
+}
+
+#[cfg(not(unix))]
+fn set_private_dir_permissions(_path: &Path) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(unix)]
+fn set_private_file_permissions(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .map_err(|err| anyhow!("failed to secure local master key: {}", err))
+}
+
+#[cfg(not(unix))]
+fn set_private_file_permissions(_path: &Path) -> Result<()> {
+    Ok(())
 }
 
 fn decode_master_key(raw: &str) -> Result<[u8; KEY_LEN]> {
@@ -195,6 +319,35 @@ mod tests {
             load_secret(Some(&second)).unwrap().as_deref(),
             Some("test-secret")
         );
+    }
+
+    #[test]
+    fn local_master_key_round_trips_with_private_permissions() {
+        #[cfg(unix)]
+        use std::os::unix::fs::PermissionsExt;
+        let root = std::env::temp_dir().join(format!("rauto-keyring-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let path = root.join("keys").join("master.key");
+        let first = load_or_create_file_master_key(&path).unwrap();
+        assert_eq!(first, load_or_create_file_master_key(&path).unwrap());
+        #[cfg(unix)]
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn local_master_key_rejects_invalid_files() {
+        let root =
+            std::env::temp_dir().join(format!("rauto-keyring-invalid-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("master.key");
+        fs::write(&path, [0_u8; KEY_LEN - 1]).unwrap();
+        assert!(load_file_master_key(&path).is_err());
+        fs::remove_dir_all(root).unwrap();
     }
 }
 

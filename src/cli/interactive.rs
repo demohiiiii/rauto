@@ -103,7 +103,8 @@ pub(crate) async fn run_interactive(
         &conn.device_profile,
         conn.linux_shell_flavor,
     )?;
-    let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let profile_default_mode =
+        template_loader::default_profile_mode_for_connection(&conn.device_profile, &conn.username)?;
     let runtime_vars = crate::resolve_interactive_connection_vars(&template, vars, &conn)?;
     let runtime_default_mode = resolve_interactive_runtime_default_mode(
         None,
@@ -335,7 +336,8 @@ async fn resolve_interactive_target(
     let conn =
         crate::resolve_autodetect_connection(crate::resolve_effective_connection(&target_opts)?)
             .await?;
-    let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+    let profile_default_mode =
+        template_loader::default_profile_mode_for_connection(&conn.device_profile, &conn.username)?;
     let runtime_vars = crate::resolve_interactive_connection_vars(template, vars.clone(), &conn)?;
     let runtime_default_mode = resolve_interactive_runtime_default_mode(
         None,

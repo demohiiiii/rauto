@@ -102,7 +102,8 @@ pub(crate) fn persist_history_if_recorded(
 pub(crate) fn resolve_effective_mode(
     requested_mode: Option<&str>,
     device_profile: &str,
+    username: &str,
 ) -> Result<String, ApiError> {
-    template_loader::resolve_profile_mode(device_profile, requested_mode)
+    template_loader::resolve_profile_mode_for_connection(device_profile, username, requested_mode)
         .map_err(|e| ApiError::bad_request(e.to_string()))
 }

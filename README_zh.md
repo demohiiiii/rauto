@@ -30,10 +30,7 @@ Windows PowerShell：
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/demohiiiii/rauto/main/install.ps1')))
 ```
 
-
 ```bash
-cargo install rauto
-
 # 新增可复用凭证；命令会安全地询问登录信息和可选的 Enable 信息
 rauto credential add network-admin
 
@@ -172,17 +169,17 @@ npx skills add demohiiiii/rauto --skill rauto-usage
 
 ### 命令选型指南
 
-| 如果你想要...                        | 推荐命令            | 说明                                                      |
-| ------------------------------------ | ------------------- | --------------------------------------------------------- |
-| 立即执行一条命令                     | `rauto exec`        | 适合临时直连执行；可配合 `--mode` 限定目标模式。          |
-| 按 profile 执行 NTC 支持的 show 对象 | `rauto show`        | 将 `interfaces`、`route` 等对象映射为设备实际命令。       |
-| 用变量渲染一个可复用命令模板         | `rauto template`    | 适合命令文本来自已保存 Jinja 模板的场景。                 |
-| 驱动交互式问答/确认流程              | `rauto interactive`        | 适合复制向导、安装向导和多轮 prompt/response 场景。       |
-| 通过远端 SFTP 直接上传本地文件       | `rauto upload`      | 要求目标 SSH 服务暴露 `sftp` 子系统。                     |
+| 如果你想要...                        | 推荐命令                | 说明                                                            |
+| ------------------------------------ | ----------------------- | --------------------------------------------------------------- |
+| 立即执行一条命令                     | `rauto exec`            | 适合临时直连执行；可配合 `--mode` 限定目标模式。                |
+| 按 profile 执行 NTC 支持的 show 对象 | `rauto show`            | 将 `interfaces`、`route` 等对象映射为设备实际命令。             |
+| 用变量渲染一个可复用命令模板         | `rauto template`        | 适合命令文本来自已保存 Jinja 模板的场景。                       |
+| 驱动交互式问答/确认流程              | `rauto interactive`     | 适合复制向导、安装向导和多轮 prompt/response 场景。             |
+| 通过远端 SFTP 直接上传本地文件       | `rauto upload`          | 要求目标 SSH 服务暴露 `sftp` 子系统。                           |
 | 自动发现网段内的 SSH 设备            | `rauto device discover` | 验证 SSH identification、探测设备 profile，并保存最新扫描结果。 |
-| 执行一个带回滚能力的事务块           | `rauto tx`          | 适合单目标、单事务单元、需要步骤级或资源级回滚的场景。    |
-| 从 JSON 执行多步骤事务工作流         | `rauto tx-workflow` | 适合把事务拆成命名 block/stage 并保存在 workflow 文件中。 |
-| 执行多设备分阶段计划                 | `rauto orchestrate` | 适合面向多台已保存连接做串行/并发编排发布。               |
+| 执行一个带回滚能力的事务块           | `rauto tx`              | 适合单目标、单事务单元、需要步骤级或资源级回滚的场景。          |
+| 从 JSON 执行多步骤事务工作流         | `rauto tx-workflow`     | 适合把事务拆成命名 block/stage 并保存在 workflow 文件中。       |
+| 执行多设备分阶段计划                 | `rauto orchestrate`     | 适合面向多台已保存连接做串行/并发编排发布。                     |
 
 ### 模板模式
 
@@ -276,14 +273,14 @@ rauto show interfaces --no-parse
 
 Linux profile 还在 CLI 和 Web 中提供以下常用巡检对象：
 
-| 巡检内容 | Show 对象 |
-| --- | --- |
-| 系统与负载 | `hostname`、`kernel`、`uptime`、`clock`、`cpu` |
-| 内存 | `memory`、`memory-info`、`vm-statistics` |
-| 存储 | `disk`、`disk-inodes`、`block-devices`、`mounts` |
-| 进程与会话 | `top`、`processes`、`processes-cpu`、`processes-memory`、`users` |
-| 网络 | `interfaces`、`interface-brief`、`interface-statistics`、`route`、`route-ipv6`、`arp`、`ports`、`socket-summary`、`dns` |
-| 服务与日志 | `services`、`services-failed`、`timers`、`time-sync`、`kernel-log`、`logs` |
+| 巡检内容   | Show 对象                                                                                                               |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 系统与负载 | `hostname`、`kernel`、`uptime`、`clock`、`cpu`                                                                          |
+| 内存       | `memory`、`memory-info`、`vm-statistics`                                                                                |
+| 存储       | `disk`、`disk-inodes`、`block-devices`、`mounts`                                                                        |
+| 进程与会话 | `top`、`processes`、`processes-cpu`、`processes-memory`、`users`                                                        |
+| 网络       | `interfaces`、`interface-brief`、`interface-statistics`、`route`、`route-ipv6`、`arp`、`ports`、`socket-summary`、`dns` |
+| 服务与日志 | `services`、`services-failed`、`timers`、`time-sync`、`kernel-log`、`logs`                                              |
 
 `top` 以批处理模式采集一次后退出；`vm-statistics` 间隔一秒采样两次（首次显示启动以来的平均值）。进程查询显示可执行程序名称，不包含命令行参数。服务、定时器、时间同步和日志查询需要 systemd。日志查询使用 `Root` mode，最多返回 100 条；`logs` 仅查询 warning 及更严重级别的日志。其他新增对象沿用 `Root|User` mode，目标机需安装对应工具。没有内置 TextFSM 模板的对象仍会返回原始输出，并提示解析失败；此类查询可使用 `--no-parse`（Web 中关闭解析），需要结构化结果时可绑定自定义模板。
 
@@ -670,6 +667,7 @@ rauto profile autodetect -vv --host 192.168.1.1 --credential network-admin
 
 当普通执行路径使用 autodetect 时，探测出的 profile 会决定后续的 mode 校验和默认 mode 回退逻辑。autodetect 不会根据命令文本自动推断执行模式；如果某条命令必须在 `Enable`、`Config`、`Shell` 等特定状态下运行，请显式使用 `exec --mode <mode>`。如果某条命令可在多个状态下运行，也可以传逗号或竖线分隔的候选，例如 `--mode Root,User`。
 成功的 autodetect 结果会按 `host:port` 缓存在本地运行数据库里，因此后续连接同一目标时可以直接复用已识别出的 profile，而不必重复探测；如果你显式指定了 profile，则仍然以显式指定为准。
+对于没有显式设置 `--linux-shell-flavor` 的 Linux 目标，autodetect 会探测 shell 的退出码语法；识别到 fish 时会自动使用 fish 兼容的退出码处理。缓存中没有 shell 类型的 Linux profile 会重新探测 shell。
 当启用 `--parse-textfsm` 时，`rauto` 会根据当前连接的 device profile 自动推断对应的 NTC platform，用于 TextFSM 解析。
 
 **使用特定配置：**
@@ -838,7 +836,7 @@ rauto templates delete show_version.j2
 - 必填的 SSH 用户名，以及一种认证方式：密码、加密保存的内联私钥、私钥文件路径或 SSH agent。
 - 可选的 Enable/Secret 密码，或在 Enable 提示出现时直接提交空 Enter。
 
-密码、内联私钥和私钥口令会加密后保存到 `~/.rauto/rauto.db`，加密主密钥保存在操作系统 keyring 中。私钥文件认证只保存路径并在连接时读取文件，SSH agent 认证使用 rauto 进程可访问的 agent。Web、Agent 和 CLI 查询输出只返回凭证元数据及密钥是否存在的状态，不会返回明文认证数据或加密引用。完整会话录制会在事件存储和广播前脱敏认证密钥及 Enable 密钥。被一个或多个连接引用的凭证，在解除所有引用前不能删除。
+密码、内联私钥和私钥口令会加密后保存到 `~/.rauto/rauto.db`，加密主密钥保存在操作系统 keyring 中。无 Secret Service 会话的 Linux 服务器会回退到 `~/.rauto/keys/master.key`，并设置为仅当前用户可读写。私钥文件认证只保存路径并在连接时读取文件，SSH agent 认证使用 rauto 进程可访问的 agent。Web、Agent 和 CLI 查询输出只返回凭证元数据及密钥是否存在的状态，不会返回明文认证数据或加密引用。完整会话录制会在事件存储和广播前脱敏认证密钥及 Enable 密钥。被一个或多个连接引用的凭证，在解除所有引用前不能删除。
 
 CLI 凭证管理示例：
 
@@ -1015,16 +1013,16 @@ rauto device discover save 192.168.60.98:22 \
 
 在交互式终端中，CLI 会在扫描期间显示实时进度条，并在完成后进入 TUI。新识别到的设备默认被勾选；已有连接、已导入设备和失败结果不可勾选。可通过以下按键审核和保存结果：
 
-| 按键 | 操作 |
-| ---- | ---- |
-| `Up` / `Down` 或 `j` / `k` | 在结果间移动 |
-| `Space` | 勾选或取消当前设备 |
-| `a` | 勾选或取消当前筛选结果中的全部可导入设备 |
-| `f` / `Shift+f` 或 `Right` / `Left` | 切换状态筛选 |
-| `/` | 搜索主机、端口、profile、型号、版本和错误信息 |
-| `e` | 编辑当前设备的连接名称 |
-| `s` | 将已勾选设备保存为连接 |
-| `q` 或 `Ctrl+C` | 退出 TUI |
+| 按键                                | 操作                                          |
+| ----------------------------------- | --------------------------------------------- |
+| `Up` / `Down` 或 `j` / `k`          | 在结果间移动                                  |
+| `Space`                             | 勾选或取消当前设备                            |
+| `a`                                 | 勾选或取消当前筛选结果中的全部可导入设备      |
+| `f` / `Shift+f` 或 `Right` / `Left` | 切换状态筛选                                  |
+| `/`                                 | 搜索主机、端口、profile、型号、版本和错误信息 |
+| `e`                                 | 编辑当前设备的连接名称                        |
+| `s`                                 | 将已勾选设备保存为连接                        |
+| `q` 或 `Ctrl+C`                     | 退出 TUI                                      |
 
 使用 `--no-tui` 可保留进度条，但在完成后直接打印经过筛选的表格结果。`--json` 会同时关闭进度条和 TUI，确保标准输出保持机器可读，可安全用于重定向或管道。JSON 结果的 `status` 与筛选和 TUI 使用相同的派生状态，因此已导入和已有连接会分别显示为 `imported` 和 `existing`；stdin/stdout 不是交互终端时也会自动回退到普通文本输出。
 
@@ -1461,21 +1459,21 @@ Rust 后端是单一 Cargo package。`src/domain/` 负责领域模型和规则�
 
 ## 配置选项
 
-| 参数                   | 环境变量 | 描述                                                                                     |
-| ---------------------- | -------- | ---------------------------------------------------------------------------------------- |
-| `--host`               | -        | 设备主机名或 IP（`-H`）                                                                  |
-| `--credential`         | -        | 可复用设备凭证的名称或 ID                                                                |
-| `--ssh-port`           | -        | SSH 端口 (默认: 22)                                                                      |
-| `--ssh-security`       | -        | SSH 安全档位（默认：`legacy-compatible`）：`secure`、`balanced`、`legacy-compatible`     |
-| `--linux-shell-flavor` | -        | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                              |
-| `--device-profile`     | -        | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`、`cisco_ios`） |
-| `--force-autodetect`   | -        | 忽略已缓存的 autodetect 结果并重新探测目标设备                                           |
-| `--session-retries`    | `RAUTO_SESSION_RETRIES` | 普通命令/交互式命令发生瞬时故障时的重试次数（默认：`0`）                         |
-| `--retry-initial-backoff-ms` | `RAUTO_RETRY_INITIAL_BACKOFF_MS` | 首次重试等待毫秒数（默认：`200`）                     |
-| `--retry-max-backoff-ms` | `RAUTO_RETRY_MAX_BACKOFF_MS` | 指数退避最大毫秒数（默认：`2000`）                         |
-| `--retry-authentication-errors` | `RAUTO_RETRY_AUTHENTICATION_ERRORS` | 同时重试认证拒绝（默认关闭）                  |
-| `--connection`         | -        | 按名称加载已保存连接配置（`-c`）                                                         |
-| `--save-connection`    | -        | 成功连接后保存当前有效连接配置和凭证引用（`-S`）                                         |
+| 参数                            | 环境变量                            | 描述                                                                                     |
+| ------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------- |
+| `--host`                        | -                                   | 设备主机名或 IP（`-H`）                                                                  |
+| `--credential`                  | -                                   | 可复用设备凭证的名称或 ID                                                                |
+| `--ssh-port`                    | -                                   | SSH 端口 (默认: 22)                                                                      |
+| `--ssh-security`                | -                                   | SSH 安全档位（默认：`legacy-compatible`）：`secure`、`balanced`、`legacy-compatible`     |
+| `--linux-shell-flavor`          | -                                   | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                              |
+| `--device-profile`              | -                                   | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`、`cisco_ios`） |
+| `--force-autodetect`            | -                                   | 忽略已缓存的 autodetect 结果并重新探测目标设备                                           |
+| `--session-retries`             | `RAUTO_SESSION_RETRIES`             | 普通命令/交互式命令发生瞬时故障时的重试次数（默认：`0`）                                 |
+| `--retry-initial-backoff-ms`    | `RAUTO_RETRY_INITIAL_BACKOFF_MS`    | 首次重试等待毫秒数（默认：`200`）                                                        |
+| `--retry-max-backoff-ms`        | `RAUTO_RETRY_MAX_BACKOFF_MS`        | 指数退避最大毫秒数（默认：`2000`）                                                       |
+| `--retry-authentication-errors` | `RAUTO_RETRY_AUTHENTICATION_ERRORS` | 同时重试认证拒绝（默认关闭）                                                             |
+| `--connection`                  | -                                   | 按名称加载已保存连接配置（`-c`）                                                         |
+| `--save-connection`             | -                                   | 成功连接后保存当前有效连接配置和凭证引用（`-S`）                                         |
 
 常用短选项速查：
 

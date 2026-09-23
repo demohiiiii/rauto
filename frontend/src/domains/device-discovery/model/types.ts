@@ -180,7 +180,7 @@ export interface DeviceDiscoveryApi {
 }
 
 export interface DeviceDiscoveryRuntime {
-  notifyConnectionsRefreshed(): void;
+  notifyConnectionsRefreshed(): void | Promise<void>;
 }
 
 export interface DeviceDiscoveryWorkspaceOptions {

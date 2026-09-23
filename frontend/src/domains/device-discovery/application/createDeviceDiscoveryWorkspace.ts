@@ -278,7 +278,7 @@ export function createDeviceDiscoveryWorkspace(
           .replace("{updated}", String(summary.updated))
           .replace("{failed}", String(summary.failed));
       });
-      runtime.notifyConnectionsRefreshed();
+      await runtime.notifyConnectionsRefreshed();
       await loadRun(runId);
       mutate((state) => {
         state.selectedResultKeys = retainImportableDiscoveryResultKeys(

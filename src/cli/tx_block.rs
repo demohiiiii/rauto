@@ -140,9 +140,18 @@ pub(crate) async fn run_tx_block(args: TxArgs, opts: &crate::cli::GlobalOpts) ->
                 .as_deref()
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
-                .map(|mode| template_loader::resolve_profile_mode(&conn.device_profile, Some(mode)))
+                .map(|mode| {
+                    template_loader::resolve_profile_mode_for_connection(
+                        &conn.device_profile,
+                        &conn.username,
+                        Some(mode),
+                    )
+                })
                 .transpose()?;
-            let profile_default_mode = template_loader::default_profile_mode(&conn.device_profile)?;
+            let profile_default_mode = template_loader::default_profile_mode_for_connection(
+                &conn.device_profile,
+                &conn.username,
+            )?;
 
             let interactive_template =
                 crate::cli::interactive::resolve_interactive_template_from_sources(

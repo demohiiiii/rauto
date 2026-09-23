@@ -46,7 +46,7 @@ pub async fn test_connection(
         conn.enable_password,
         handler,
         conn.output_encoding,
-        template_loader::default_profile_mode(&conn.device_profile)?,
+        template_loader::default_profile_mode_for_connection(&conn.device_profile, &conn.username)?,
         conn.ssh_security,
         conn.connect_timeout_secs,
         conn.retry_policy,
@@ -121,7 +121,7 @@ pub async fn detect_connection_facts(
         conn.enable_password.clone(),
         handler,
         conn.output_encoding,
-        template_loader::default_profile_mode(&conn.device_profile)?,
+        template_loader::default_profile_mode_for_connection(&conn.device_profile, &conn.username)?,
         conn.ssh_security,
         conn.connect_timeout_secs,
         conn.retry_policy,
@@ -143,7 +143,8 @@ pub async fn detect_connection_facts(
             )));
         }
     };
-    let effective_mode = resolve_effective_mode(show.mode.as_deref(), &conn.device_profile)?;
+    let effective_mode =
+        resolve_effective_mode(show.mode.as_deref(), &conn.device_profile, &conn.username)?;
     let output = client
         .execute_output(&show.command, Some(effective_mode.as_str()))
         .await?;
