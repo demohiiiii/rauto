@@ -174,9 +174,9 @@ pub async fn upsert_result(result: &DiscoveryResultRecord) -> Result<()> {
         r#"
         INSERT INTO device_discovery_results (
             run_id, host, port, status, latency_ms, credential_id, device_profile,
-            device_model, software_version, existing_connection_name,
+            device_model, software_version, linux_shell_flavor, existing_connection_name,
             imported_connection_name, error, updated_at_ms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(run_id, host, port) DO UPDATE SET
             status = excluded.status,
             latency_ms = COALESCE(excluded.latency_ms, device_discovery_results.latency_ms),
@@ -184,6 +184,7 @@ pub async fn upsert_result(result: &DiscoveryResultRecord) -> Result<()> {
             device_profile = COALESCE(excluded.device_profile, device_discovery_results.device_profile),
             device_model = COALESCE(excluded.device_model, device_discovery_results.device_model),
             software_version = COALESCE(excluded.software_version, device_discovery_results.software_version),
+            linux_shell_flavor = COALESCE(excluded.linux_shell_flavor, device_discovery_results.linux_shell_flavor),
             existing_connection_name = COALESCE(excluded.existing_connection_name, device_discovery_results.existing_connection_name),
             imported_connection_name = COALESCE(excluded.imported_connection_name, device_discovery_results.imported_connection_name),
             error = excluded.error,
@@ -199,6 +200,7 @@ pub async fn upsert_result(result: &DiscoveryResultRecord) -> Result<()> {
     .bind(&result.device_profile)
     .bind(&result.device_model)
     .bind(&result.software_version)
+    .bind(result.linux_shell_flavor.map(|value| value.to_string()))
     .bind(&result.existing_connection_name)
     .bind(&result.imported_connection_name)
     .bind(&result.error)
@@ -230,7 +232,7 @@ pub async fn list_results(run_id: &str) -> Result<Vec<DiscoveryResultRecord>> {
         r#"
         SELECT result.run_id, result.host, result.port, result.status, result.latency_ms,
                result.credential_id, result.device_profile, result.device_model,
-               result.software_version,
+               result.software_version, result.linux_shell_flavor,
                (
                    SELECT connection.name
                    FROM connections AS connection
@@ -306,6 +308,9 @@ fn row_to_result(row: sqlx::sqlite::SqliteRow) -> DiscoveryResultRecord {
         device_profile: row.get("device_profile"),
         device_model: row.get("device_model"),
         software_version: row.get("software_version"),
+        linux_shell_flavor: row
+            .get::<Option<String>, _>("linux_shell_flavor")
+            .and_then(|value| value.parse().ok()),
         existing_connection_name: row.get("existing_connection_name"),
         imported_connection_name: row.get("imported_connection_name"),
         error: row.get("error"),
@@ -347,6 +352,7 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::device::LinuxShellFlavor;
     use crate::infrastructure::db;
 
     fn run(id: &str, status: &str, created_at_ms: u64) -> DiscoveryRunRecord {
@@ -396,6 +402,7 @@ mod tests {
             device_profile: Some("linux".to_string()),
             device_model: None,
             software_version: None,
+            linux_shell_flavor: Some(LinuxShellFlavor::Fish),
             existing_connection_name: None,
             imported_connection_name: None,
             error: None,
@@ -403,6 +410,23 @@ mod tests {
         })
         .await
         .expect("save first result");
+        assert_eq!(
+            get_result(&first.id, "192.0.2.1", 22)
+                .await
+                .expect("load first result")
+                .expect("first result exists")
+                .linux_shell_flavor,
+            Some(LinuxShellFlavor::Fish)
+        );
+        assert_eq!(
+            list_results(&first.id)
+                .await
+                .expect("list first results")
+                .first()
+                .expect("first result exists")
+                .linux_shell_flavor,
+            Some(LinuxShellFlavor::Fish)
+        );
         sqlx::query(
             r#"
             INSERT INTO task_runs (

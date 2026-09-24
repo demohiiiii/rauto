@@ -67,6 +67,7 @@ pub async fn test_connection(
 
 pub(super) fn connection_facts_response(
     device_profile: &str,
+    linux_shell_flavor: Option<crate::domain::device::LinuxShellFlavor>,
     parsed_output: Option<&Value>,
     warning: Option<String>,
 ) -> ConnectionFactsDetectResponse {
@@ -97,6 +98,7 @@ pub(super) fn connection_facts_response(
         ok: true,
         device_profile: device_profile.to_string(),
         device_model: facts.device_model,
+        linux_shell_flavor,
         software_version: facts.software_version,
         warning,
     }
@@ -138,6 +140,7 @@ pub async fn detect_connection_facts(
         Err(error) => {
             return Ok(Json(connection_facts_response(
                 &conn.device_profile,
+                conn.linux_shell_flavor,
                 None,
                 Some(error.to_string()),
             )));
@@ -151,6 +154,7 @@ pub async fn detect_connection_facts(
     if output.exit_code.is_some_and(|code| code != 0) {
         return Ok(Json(connection_facts_response(
             &conn.device_profile,
+            conn.linux_shell_flavor,
             None,
             Some(format!(
                 "version command exited with code {:?}",
@@ -183,6 +187,7 @@ pub async fn detect_connection_facts(
     );
     Ok(Json(connection_facts_response(
         &conn.device_profile,
+        conn.linux_shell_flavor,
         parsed_output.as_ref(),
         parse_error,
     )))

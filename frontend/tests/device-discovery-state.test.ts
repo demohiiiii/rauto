@@ -57,6 +57,7 @@ function discoveryResult(
     error: null,
     existing_connection_name: null,
     imported_connection_name: null,
+    linux_shell_flavor: null,
     latency_ms: null,
     port: 22,
     run_id: "run-1",

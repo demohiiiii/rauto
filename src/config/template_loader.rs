@@ -4,9 +4,7 @@ use crate::config::linux_shell::LinuxShellFlavor;
 use anyhow::{Context, Result, anyhow};
 use rneter::{
     device::DeviceHandler,
-    templates::{
-        self, DetectTemplateDefinition, TemplateDetectReport, TemplateProbe, TemplateProbeRule,
-    },
+    templates::{self, DetectTemplateDefinition, TemplateProbe, TemplateProbeRule},
 };
 use std::collections::BTreeSet;
 
@@ -202,25 +200,6 @@ pub fn autodetect_template_definitions() -> Result<Vec<DetectTemplateDefinition>
         }
     }
     Ok(definitions)
-}
-
-/// Infer the shell flavor from Linux autodetect facts.
-pub fn infer_linux_shell_flavor(report: &TemplateDetectReport) -> LinuxShellFlavor {
-    let fish_status_probe = report
-        .raw_facts
-        .iter()
-        .any(|fact| fact.command.trim().eq_ignore_ascii_case("echo $status"));
-    let shell_probe = report
-        .raw_facts
-        .iter()
-        .find(|fact| fact.command.trim().eq_ignore_ascii_case("echo $SHELL"));
-    if fish_status_probe
-        || shell_probe.is_some_and(|fact| fact.sample.to_ascii_lowercase().contains("fish"))
-    {
-        LinuxShellFlavor::Fish
-    } else {
-        LinuxShellFlavor::Posix
-    }
 }
 
 #[cfg(test)]

@@ -306,6 +306,10 @@ impl AgentTaskService for AgentTaskGrpcService {
             device_model: response.device_model.unwrap_or_default(),
             software_version: response.software_version.unwrap_or_default(),
             warning: response.warning.unwrap_or_default(),
+            linux_shell_flavor: response
+                .linux_shell_flavor
+                .map(|value| value.to_string())
+                .unwrap_or_default(),
         }))
     }
 

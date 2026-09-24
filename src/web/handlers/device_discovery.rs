@@ -440,6 +440,7 @@ async fn execute_discovery_run(
             device_profile: None,
             device_model: None,
             software_version: None,
+            linux_shell_flavor: None,
             existing_connection_name,
             imported_connection_name: None,
             error: probe.error(),
@@ -664,6 +665,7 @@ async fn probe_reachable_target(
                     device_profile: Some(facts.device_profile),
                     device_model: facts.device_model,
                     software_version: facts.software_version,
+                    linux_shell_flavor: facts.linux_shell_flavor,
                     existing_connection_name,
                     imported_connection_name: None,
                     error: facts.warning,
@@ -695,6 +697,7 @@ async fn probe_reachable_target(
         device_profile: None,
         device_model: None,
         software_version: None,
+        linux_shell_flavor: None,
         existing_connection_name,
         imported_connection_name: None,
         error: last_error,
@@ -793,9 +796,11 @@ async fn import_discovery_result(
         ssh_security: existing
             .as_ref()
             .and_then(|connection| connection.ssh_security),
-        linux_shell_flavor: existing
-            .as_ref()
-            .and_then(|connection| connection.linux_shell_flavor),
+        linux_shell_flavor: result.linux_shell_flavor.or_else(|| {
+            existing
+                .as_ref()
+                .and_then(|connection| connection.linux_shell_flavor)
+        }),
         output_encoding: existing
             .as_ref()
             .map(|connection| connection.output_encoding)

@@ -661,6 +661,7 @@ mod tests {
             device_profile: None,
             device_model: None,
             software_version: None,
+            linux_shell_flavor: None,
             existing_connection_name: None,
             imported_connection_name: None,
             error: None,

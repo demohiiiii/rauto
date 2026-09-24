@@ -21,6 +21,13 @@ impl LinuxShellFlavor {
             Self::Fish => DeviceShellFlavor::Fish,
         }
     }
+
+    pub fn from_device_shell_flavor(value: DeviceShellFlavor) -> Self {
+        match value {
+            DeviceShellFlavor::Posix => Self::Posix,
+            DeviceShellFlavor::Fish => Self::Fish,
+        }
+    }
 }
 
 impl Display for LinuxShellFlavor {

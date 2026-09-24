@@ -94,6 +94,7 @@ pub struct ConnectionFactsDetectResponse {
     pub ok: bool,
     pub device_profile: String,
     pub device_model: Option<String>,
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub software_version: Option<String>,
     pub warning: Option<String>,
 }

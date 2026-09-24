@@ -77,8 +77,9 @@ async fn initial_migration_reopens_without_changing_templates_or_authentication(
     let applied = sqlx::query("SELECT version, checksum, success FROM _sqlx_migrations")
         .fetch_all(&pool)
         .await?;
-    assert_eq!(applied.len(), 1);
+    assert_eq!(applied.len(), 2);
     assert_eq!(applied[0].get::<i64, _>("version"), 202609220001);
+    assert_eq!(applied[1].get::<i64, _>("version"), 202609231900);
     assert!(applied[0].get::<bool, _>("success"));
     assert_eq!(
         applied[0].get::<Vec<u8>, _>("checksum"),

@@ -54,6 +54,7 @@ export interface DiscoveryResult {
   existing_connection_name: string | null;
   host: string;
   imported_connection_name: string | null;
+  linux_shell_flavor: string | null;
   latency_ms: number | null;
   port: number;
   run_id: string;

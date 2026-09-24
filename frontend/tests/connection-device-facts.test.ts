@@ -60,6 +60,16 @@ test("detected facts only replace draft fields when values are non-empty", () =>
   );
 });
 
+test("detected Linux facts preserve the shell flavor", () => {
+  assert.deepEqual(
+    detectedConnectionFactsPatch({
+      device_profile: "linux",
+      linux_shell_flavor: "fish",
+    }),
+    { deviceProfile: "linux", linuxShellFlavor: "fish" },
+  );
+});
+
 test("saved connection payload includes model and software version", () => {
   const source = readFileSync(
     "frontend/src/domains/connections/application/connectionEditorState.ts",

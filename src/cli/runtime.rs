@@ -276,8 +276,10 @@ pub(crate) async fn resolve_autodetect_connection(
     }
     conn.device_profile = best.template_name.clone();
     if conn.device_profile.eq_ignore_ascii_case("linux") && conn.linux_shell_flavor.is_none() {
-        conn.linux_shell_flavor =
-            Some(template_loader::infer_linux_shell_flavor(&connected.report));
+        conn.linux_shell_flavor = connected
+            .report
+            .linux_shell_flavor
+            .map(LinuxShellFlavor::from_device_shell_flavor);
         info!(
             "Detected Linux shell flavor '{}' for {}:{}",
             conn.linux_shell_flavor

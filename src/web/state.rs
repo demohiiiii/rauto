@@ -398,8 +398,10 @@ pub async fn resolve_autodetect_connection(
     }
     let detected_profile = best.template_name.clone();
     if detected_profile.eq_ignore_ascii_case("linux") && conn.linux_shell_flavor.is_none() {
-        conn.linux_shell_flavor =
-            Some(template_loader::infer_linux_shell_flavor(&connected.report));
+        conn.linux_shell_flavor = connected
+            .report
+            .linux_shell_flavor
+            .map(LinuxShellFlavor::from_device_shell_flavor);
         info!(
             "Detected Linux shell flavor '{}' for {}:{}",
             conn.linux_shell_flavor
@@ -540,7 +542,6 @@ mod tests {
     use crate::cli::GlobalOpts;
     use crate::config::connection_store::SavedConnection;
     use crate::config::ssh_security::SshSecurityProfile;
-    use crate::config::template_loader;
     use crate::domain::device::DeviceEncoding;
     use crate::web::error::ApiError;
     use crate::web::models::ConnectionRequest;
@@ -567,19 +568,16 @@ mod tests {
         );
 
         assert_eq!(
-            template_loader::infer_linux_shell_flavor(&report),
-            crate::domain::device::LinuxShellFlavor::Fish
+            report.linux_shell_flavor,
+            Some(rneter::device::DeviceShellFlavor::Fish)
         );
     }
 
     #[test]
-    fn defaults_linux_shell_probe_without_fish_to_posix() {
+    fn leaves_linux_shell_flavor_unknown_without_probe_fact() {
         let report = TemplateDetectReport::from_parts(Vec::new(), Vec::new());
 
-        assert_eq!(
-            template_loader::infer_linux_shell_flavor(&report),
-            crate::domain::device::LinuxShellFlavor::Posix
-        );
+        assert_eq!(report.linux_shell_flavor, None);
     }
 
     #[test]

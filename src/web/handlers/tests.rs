@@ -126,6 +126,7 @@ fn persisted_connection_timeout_rejects_zero_and_values_above_database_range() {
 fn connection_facts_response_keeps_profile_and_partial_warning() {
     let response = connection_facts_response(
         "juniper_junos",
+        None,
         Some(&serde_json::json!([{
             "MODEL": "MX204",
             "JUNOS_VERSION": "23.4R1-S2.1"
@@ -146,6 +147,7 @@ fn connection_facts_response_keeps_profile_and_partial_warning() {
 fn connection_facts_response_warns_when_one_fact_is_missing() {
     let response = connection_facts_response(
         "cisco_ios",
+        None,
         Some(&serde_json::json!([{"HARDWARE": ["C9300-48P"]}])),
         None,
     );

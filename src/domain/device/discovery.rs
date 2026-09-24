@@ -1,3 +1,4 @@
+use crate::domain::device::LinuxShellFlavor;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,6 +37,7 @@ pub struct DiscoveryResultRecord {
     pub device_profile: Option<String>,
     pub device_model: Option<String>,
     pub software_version: Option<String>,
+    pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub existing_connection_name: Option<String>,
     pub imported_connection_name: Option<String>,
     pub error: Option<String>,

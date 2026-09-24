@@ -757,6 +757,9 @@ export async function detectTemporaryConnectionFacts(): Promise<ConnectionFactsR
   setTemporaryConnectionFormValues({
     ...(patch.deviceProfile ? { device_profile: patch.deviceProfile } : {}),
     ...(patch.deviceModel ? { device_model: patch.deviceModel } : {}),
+    ...(patch.linuxShellFlavor
+      ? { linux_shell_flavor: patch.linuxShellFlavor }
+      : {}),
     ...(patch.softwareVersion
       ? { software_version: patch.softwareVersion }
       : {}),

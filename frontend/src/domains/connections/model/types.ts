@@ -233,6 +233,7 @@ export interface ConnectionTestResponse {
 export interface ConnectionFactsResponse {
   device_model: string | null;
   device_profile: string;
+  linux_shell_flavor: string | null;
   ok: boolean;
   software_version: string | null;
   warning: string | null;

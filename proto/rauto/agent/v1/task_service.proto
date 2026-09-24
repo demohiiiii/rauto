@@ -257,6 +257,7 @@ message ConnectionFactsDetectResponse {
   string device_model     = 3;
   string software_version = 4;
   string warning          = 5;
+  string linux_shell_flavor = 6;
 }
 
 message GetConnectionHistoryRequest {

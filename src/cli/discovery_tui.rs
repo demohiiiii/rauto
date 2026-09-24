@@ -926,6 +926,7 @@ mod tests {
             device_profile: Some("cisco_ios".to_string()),
             device_model: Some("C9300".to_string()),
             software_version: Some("17.9".to_string()),
+            linux_shell_flavor: None,
             existing_connection_name: None,
             imported_connection_name: None,
             error: None,

@@ -255,9 +255,11 @@ export function detectedConnectionFactsPatch(
   const patch: ConnectionDraftPatch = {};
   const deviceProfile = safeString(result.device_profile || "").trim();
   const deviceModel = safeString(result.device_model || "").trim();
+  const linuxShellFlavor = safeString(result.linux_shell_flavor || "").trim();
   const softwareVersion = safeString(result.software_version || "").trim();
   if (deviceProfile) patch.deviceProfile = deviceProfile;
   if (deviceModel) patch.deviceModel = deviceModel;
+  if (linuxShellFlavor) patch.linuxShellFlavor = linuxShellFlavor;
   if (softwareVersion) patch.softwareVersion = softwareVersion;
   return patch;
 }
@@ -470,6 +472,9 @@ export async function detectSavedConnectionProfile(draft: ConnectionDraft) {
         : {}),
       ...(detectedPatch.deviceModel
         ? { device_model: detectedPatch.deviceModel }
+        : {}),
+      ...(detectedPatch.linuxShellFlavor
+        ? { linux_shell_flavor: detectedPatch.linuxShellFlavor }
         : {}),
       ...(detectedPatch.softwareVersion
         ? { software_version: detectedPatch.softwareVersion }
