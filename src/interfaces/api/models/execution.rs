@@ -460,32 +460,6 @@ pub struct ExecuteUploadResponse {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ExecuteTxBlockRequest {
-    #[serde(default)]
-    pub tx_block_template_name: Option<String>,
-    #[serde(default)]
-    pub tx_block_template_content: Option<String>,
-    #[serde(default)]
-    pub tx_block_template_vars: Value,
-    #[serde(default)]
-    pub tx_block: Value,
-    #[serde(flatten)]
-    pub run: DryRunOptions,
-    #[serde(flatten)]
-    pub target: ExecutionTargetOptions,
-    #[serde(flatten)]
-    pub task: ManagedTaskOptions,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ExecuteTxBlockResponse {
-    pub tx_block: Value,
-    pub tx_result: Option<Value>,
-    pub recording_jsonl: Option<String>,
-    pub result_summary: TaskResultSummary,
-}
-
-#[derive(Debug, Deserialize)]
 pub struct ExecuteTxWorkflowRequest {
     #[serde(default)]
     pub workflow_template_name: Option<String>,

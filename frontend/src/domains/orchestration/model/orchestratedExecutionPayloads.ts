@@ -30,16 +30,6 @@ export interface OrchestrationInlineExecutionInput {
   recordLevel?: RecordLevel;
 }
 
-export interface TxBlockExecutionRequest {
-  connection?: ConnectionRequestPayload;
-  dry_run?: boolean;
-  record_level?: RecordLevel;
-  tx_block: OrchestrationJsonObject;
-  tx_block_template_content: null;
-  tx_block_template_name: null;
-  tx_block_template_vars: OrchestrationJsonObject;
-}
-
 export interface TxWorkflowExecutionRequest {
   connection?: ConnectionRequestPayload;
   dry_run?: boolean;
@@ -59,13 +49,6 @@ export interface OrchestrationExecutionRequest {
   plan_template_name: null;
   plan_vars: OrchestrationJsonObject;
   record_level?: RecordLevel;
-}
-
-export interface TxBlockExecutionResponse {
-  recording_jsonl: string | null;
-  result_summary: OrchestrationJsonObject;
-  tx_block: OrchestrationJsonValue;
-  tx_result: OrchestrationJsonValue | null;
 }
 
 export interface TxWorkflowExecutionResponse {
@@ -152,15 +135,19 @@ export function txBlockInlineExecutionPayload({
   recordLevel,
   txBlock = {},
   txBlockVars = {},
-}: TxBlockInlineExecutionInput = {}): TxBlockExecutionRequest {
+}: TxBlockInlineExecutionInput = {}): TxWorkflowExecutionRequest {
   return {
     connection,
     dry_run: dryRun,
     record_level: recordLevel,
-    tx_block: txBlock,
-    tx_block_template_content: null,
-    tx_block_template_name: null,
-    tx_block_template_vars: txBlockVars,
+    workflow: {
+      name: typeof txBlock.name === "string" ? txBlock.name : "tx-workflow",
+      blocks: [txBlock],
+      fail_fast: true,
+    },
+    workflow_template_content: null,
+    workflow_template_name: null,
+    workflow_vars: txBlockVars,
   };
 }
 

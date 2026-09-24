@@ -24,6 +24,7 @@
     JsonTemplateActionContext,
     TransactionTemplateResource,
     TxWorkflowFormModel,
+    JsonObject,
   } from "$domains/transactions/index.js";
   import Layers3Icon from "@lucide/svelte/icons/layers-3";
 
@@ -56,6 +57,7 @@
       actionContext?: JsonTemplateActionContext | null,
     ) => Promise<TransactionTemplateResource | null>;
     onSaveJsonTemplate?: TemplateAction;
+    onSaveBlockTemplate?: (block: JsonObject) => void | Promise<void>;
   }
 
   let {
@@ -67,6 +69,7 @@
     onImportFile,
     onLoadJsonTemplate,
     onSaveJsonTemplate,
+    onSaveBlockTemplate,
   }: Props = $props();
 
   const directVarsKey = TX_VARS.txWorkflowDirect;
@@ -283,6 +286,7 @@
             model={txWorkflowFormModel}
             onChange={changeFormModel}
             onOpenView={openCanvasViewDialog}
+            {onSaveBlockTemplate}
           />
         {/snippet}
         {#snippet readonlyContent()}

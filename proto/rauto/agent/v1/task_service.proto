@@ -78,8 +78,6 @@ service AgentTaskService {
   rpc ExecuteTemplateAsync(ExecuteTemplateRequest) returns (AcceptedTaskResponse);
   rpc ExecuteInteractive(ExecuteInteractiveRequest) returns (ExecuteInteractiveResponse);
   rpc ExecuteUpload(ExecuteUploadRequest) returns (ExecuteUploadResponse);
-  rpc ExecuteTxBlock(ExecuteTxBlockRequest) returns (ExecuteTxBlockResponse);
-  rpc ExecuteTxBlockAsync(ExecuteTxBlockRequest) returns (AcceptedTaskResponse);
   rpc ExecuteTxWorkflow(ExecuteTxWorkflowRequest) returns (ExecuteTxWorkflowResponse);
   rpc ExecuteTxWorkflowAsync(ExecuteTxWorkflowRequest) returns (AcceptedTaskResponse);
   rpc ExecuteOrchestration(ExecuteOrchestrationRequest) returns (ExecuteOrchestrationResponse);
@@ -635,17 +633,6 @@ message ExecuteTemplateRequest {
   string        multiline_mode         = 13;
 }
 
-message ExecuteTxBlockRequest {
-  string        task_id                     = 1;
-  string        tx_block_json               = 2;
-  string        tx_block_template_name      = 3;
-  string        tx_block_template_content   = 4;
-  string        tx_block_template_vars_json = 5;
-  bool          dry_run                     = 6;
-  ConnectionRef connection                  = 7;
-  string        record_level                = 8;
-}
-
 message ExecuteTxWorkflowRequest {
   string        task_id       = 1;
   string        workflow_json = 2;
@@ -740,13 +727,6 @@ message ExecuteUploadResponse {
   string          remote_path         = 3;
   optional string recording_jsonl     = 4;
   optional string result_summary_json = 5;
-}
-
-message ExecuteTxBlockResponse {
-  string          tx_block_json       = 1;
-  optional string tx_result_json      = 2;
-  optional string recording_jsonl     = 3;
-  optional string result_summary_json = 4;
 }
 
 message ExecuteTxWorkflowResponse {

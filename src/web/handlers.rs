@@ -33,13 +33,12 @@ use crate::web::models::{
     ConnectionRequest, ExecBatchExecuteRequest, ExecBatchExecuteResponse, ExecBatchTargetResponse,
     ExecRequest, ExecResponse, ExecuteInteractiveRequest, ExecuteInteractiveResponse,
     ExecuteOrchestrationRequest, ExecuteOrchestrationResponse, ExecuteTemplateRequest,
-    ExecuteTemplateResponse, ExecuteTxBlockRequest, ExecuteTxBlockResponse,
-    ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse, ExecuteUploadRequest,
-    ExecuteUploadResponse, InteractiveBatchExecuteRequest, InteractiveBatchExecuteResponse,
-    InteractiveBatchTargetResponse, RecordLevel, RenderRequest, RenderResponse,
-    SavedConnectionDetail, SessionRetryOptions, ShowBatchExecuteRequest, ShowBatchExecuteResponse,
-    ShowBatchTargetResponse, ShowExecuteRequest, ShowExecuteResponse, ShowObjectEntry,
-    ShowObjectsResponse, TaskEvent,
+    ExecuteTemplateResponse, ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse,
+    ExecuteUploadRequest, ExecuteUploadResponse, InteractiveBatchExecuteRequest,
+    InteractiveBatchExecuteResponse, InteractiveBatchTargetResponse, RecordLevel, RenderRequest,
+    RenderResponse, SavedConnectionDetail, SessionRetryOptions, ShowBatchExecuteRequest,
+    ShowBatchExecuteResponse, ShowBatchTargetResponse, ShowExecuteRequest, ShowExecuteResponse,
+    ShowObjectEntry, ShowObjectsResponse, TaskEvent,
 };
 use crate::web::state::{
     AppState, ResolvedConnection, apply_session_retry_options, merge_connection_options,
@@ -55,7 +54,7 @@ use axum::{
 use chrono::Utc;
 use rneter::session::{
     Command, CommandDynamicParams, CommandInteraction, MANAGER, MultilineMode, SessionEvent,
-    SessionRecordEntry, SessionRecordLevel, SessionRecorder, TxBlock,
+    SessionRecordEntry, SessionRecordLevel, SessionRecorder,
 };
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -88,9 +87,7 @@ mod task_events;
 mod textfsm_custom;
 mod textfsm_exports;
 use async_tasks::*;
-pub(crate) use async_tasks::{
-    queue_orchestration_async_task, queue_tx_block_async_task, queue_tx_workflow_async_task,
-};
+pub(crate) use async_tasks::{queue_orchestration_async_task, queue_tx_workflow_async_task};
 pub use command_templates::{
     create_template, delete_template, get_template, inspect_command_template, list_templates,
     update_template,
@@ -127,9 +124,9 @@ pub(crate) use device_discovery::{
 pub use execute::{
     ShowObjectsQuery, exec_command, exec_command_async, execute_exec_batch, execute_interactive,
     execute_interactive_batch, execute_orchestration, execute_orchestration_async, execute_show,
-    execute_show_batch, execute_template, execute_template_async, execute_tx_block,
-    execute_tx_block_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
-    fetch_config, fetch_config_batch, list_show_objects, render_template,
+    execute_show_batch, execute_template, execute_template_async, execute_tx_workflow,
+    execute_tx_workflow_async, execute_upload, fetch_config, fetch_config_batch, list_show_objects,
+    render_template,
 };
 pub(crate) use execute::{
     execute_scheduled_config_batch, execute_scheduled_orchestration, execute_scheduled_tx_workflow,

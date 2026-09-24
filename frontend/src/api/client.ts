@@ -73,8 +73,6 @@ import type {
 } from "$domains/orchestration/model/types.js";
 import type {
   OrchestrationExecutionRequest,
-  TxBlockExecutionRequest,
-  TxBlockExecutionResponse,
   TxWorkflowExecutionRequest,
   TxWorkflowExecutionResponse,
 } from "$domains/orchestration/model/orchestratedExecutionPayloads.js";
@@ -802,16 +800,6 @@ export function executeUpload(
   payload: TransferUploadPayload,
 ): Promise<TransferUploadResult> {
   return apiExecutionRequest("POST", "/api/upload", payload);
-}
-
-export function executeTxBlock(
-  payload: TxBlockExecutionRequest,
-): Promise<TxBlockExecutionResponse> {
-  return apiExecutionRequest<TxBlockExecutionResponse>(
-    "POST",
-    "/api/tx/block",
-    payload,
-  );
 }
 
 export function executeTxWorkflow(

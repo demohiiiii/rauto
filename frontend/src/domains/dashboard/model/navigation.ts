@@ -53,15 +53,6 @@ const navigationDefinitions: NavigationDefinition[] = [
     group: "operations",
   },
   {
-    id: "tx-block",
-    path: "/app/tx-block",
-    tab: "orchestrated",
-    txStage: "block",
-    labelKey: "txStageBlock",
-    label: "Tx Block",
-    group: "operations",
-  },
-  {
     id: "tx-workflow",
     path: "/app/tx-workflow",
     tab: "orchestrated",
@@ -303,9 +294,11 @@ export const defaultDashboardRoute = dashboardRoutes[0];
 
 export function routeByPath(pathname: string): DashboardRoute {
   const path =
-    pathname === "/app/standard" || pathname === "/app/batch"
-      ? "/app/command"
-      : pathname;
+    pathname === "/app/tx-block"
+      ? "/app/tx-workflow"
+      : pathname === "/app/standard" || pathname === "/app/batch"
+        ? "/app/command"
+        : pathname;
   return (
     dashboardRoutes.find((route) => route.path === path) ||
     defaultDashboardRoute

@@ -2,8 +2,9 @@
   import * as Card from "$lib/components/ui/card";
   import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
-  import { t } from "$lib/i18n.js";
   import { createTxWorkflowBlockEditorWorkspace } from "$domains/transactions/index.js";
+  import SaveIcon from "@lucide/svelte/icons/save";
+  import { t } from "$lib/i18n.js";
 
   import TxBlockVisualEditor from "$domains/transactions/presentation/components/block/TxBlockVisualEditor.svelte";
   import TxWorkflowTemplateRefEditor from "$domains/transactions/presentation/components/workflow/TxWorkflowTemplateRefEditor.svelte";
@@ -19,6 +20,7 @@
     editorDisplay: TxWorkflowVisualEditorDisplay;
     embedded?: boolean;
     showRemoveAction?: boolean;
+    onSaveAsTemplate?: () => void | Promise<void>;
   }
 
   let {
@@ -27,6 +29,7 @@
     blockActionHandlers,
     showRemoveAction = true,
     embedded = false,
+    onSaveAsTemplate,
   }: Props = $props();
 
   const txWorkflowBlockEditorWorkspace = createTxWorkflowBlockEditorWorkspace();
@@ -51,6 +54,19 @@
           onclick={blockActionHandlers.remove}
         >
           {t("deleteBtn")}
+        </Button>
+      </Card.Action>
+    {/if}
+    {#if onSaveAsTemplate}
+      <Card.Action>
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          onclick={onSaveAsTemplate}
+        >
+          <SaveIcon data-icon="inline-start" />
+          {t("txWorkflowSaveBlockTemplate")}
         </Button>
       </Card.Action>
     {/if}

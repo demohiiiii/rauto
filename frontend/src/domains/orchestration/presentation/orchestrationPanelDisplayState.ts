@@ -15,19 +15,17 @@ export interface OrchestrationStageDisplay {
 export function orchestrationStagePresentation(
   stage = "",
 ): OrchestrationStageDisplay {
-  const normalized =
-    stage === "workflow" || stage === "orchestrate" ? stage : "block";
+  const normalized = stage === "orchestrate" ? stage : "workflow";
   return {
-    blockActive: normalized === "block",
-    newButtonLabelKey:
-      normalized === "workflow" ? "txWorkflowAddBlockBtn" : "newBtn",
+    blockActive: false,
+    newButtonLabelKey: "txWorkflowAddBlockBtn",
     orchestrationActive: normalized === "orchestrate",
     titleText: t(
       normalized === "workflow"
         ? "txStageWorkflow"
         : normalized === "orchestrate"
           ? "txStageOrchestrate"
-          : "txStageBlock",
+          : "txStageOrchestrate",
     ),
     workflowActive: normalized === "workflow",
   };
@@ -35,7 +33,7 @@ export function orchestrationStagePresentation(
 
 export function orchestratedPagePresentation(
   shellState: OrchestratedShellState = {
-    currentTxStage: "block",
+    currentTxStage: "workflow",
   },
 ): OrchestrationStageDisplay {
   return orchestrationStagePresentation(shellState.currentTxStage);
@@ -46,7 +44,6 @@ export function orchestratedActiveStageDefinition<TDefinition>(
   stageDefinitions: readonly TDefinition[] = [],
 ): TDefinition | null {
   if (stageDefinitions.length === 0) return null;
-  if (stageDisplay.blockActive) return stageDefinitions[0] || null;
-  if (stageDisplay.workflowActive) return stageDefinitions[1] || null;
-  return stageDefinitions[2] || stageDefinitions[0] || null;
+  if (stageDisplay.workflowActive) return stageDefinitions[0] || null;
+  return stageDefinitions[1] || stageDefinitions[0] || null;
 }

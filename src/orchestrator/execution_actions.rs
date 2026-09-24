@@ -10,7 +10,7 @@ use crate::{
     normalize_recording_jsonl_for_cli_level, persist_auto_recording_history_jsonl, to_record_level,
 };
 use anyhow::Result;
-use rneter::session::{MANAGER, RollbackPolicy, SessionOperation, TxBlock, TxStep};
+use rneter::session::{MANAGER, RollbackPolicy, SessionOperation, TxBlock, TxStep, TxWorkflow};
 use std::path::Path;
 use std::time::Instant;
 
@@ -103,10 +103,14 @@ pub(super) async fn execute_compensation_action(
         conn.enable_password.as_deref(),
     );
     let rollback_name = rollback_block.name.clone();
-    let tx_result = MANAGER
-        .execute_tx_block_with_recorder_and_context(
+    let workflow_result = MANAGER
+        .execute_tx_workflow_with_recorder_and_context(
             request,
-            rollback_block,
+            TxWorkflow {
+                name: rollback_block.name.clone(),
+                blocks: vec![rollback_block],
+                fail_fast: true,
+            },
             manager_execution_context_with_security(
                 None,
                 conn.ssh_security,
@@ -115,6 +119,9 @@ pub(super) async fn execute_compensation_action(
             recorder.clone(),
         )
         .await?;
+    let tx_result = workflow_result.block_results.first().ok_or_else(|| {
+        anyhow::anyhow!("single-block compensation workflow returned no block result")
+    })?;
     let jsonl = normalize_recording_jsonl_for_cli_level(&recorder.to_jsonl()?, record_level);
     persist_auto_recording_history_jsonl(
         &jsonl,
@@ -140,7 +147,7 @@ pub(super) async fn execute_compensation_action(
                 rollback_name
             ))
         },
-        tx_result: Some(serde_json::to_value(&tx_result)?),
+        tx_result: Some(serde_json::to_value(tx_result)?),
         recording_jsonl: Some(jsonl),
     })
 }

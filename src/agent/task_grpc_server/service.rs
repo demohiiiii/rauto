@@ -1588,51 +1588,6 @@ impl AgentTaskService for AgentTaskGrpcService {
         }))
     }
 
-    async fn execute_tx_block(
-        &self,
-        request: Request<GrpcExecuteTxBlockRequest>,
-    ) -> Result<Response<ExecuteTxBlockResponse>, Status> {
-        self.validate_auth(request.metadata())?;
-        let Json(response) = execute_tx_block_handler(
-            State(self.state.clone()),
-            Json(map_execute_tx_block_request(request.into_inner())?),
-        )
-        .await
-        .map_err(api_error_to_status)?;
-        let response = execution_response_data(response)?;
-        let result_summary_json = Some(serde_json::to_string(&response.result_summary).map_err(
-            |err| Status::internal(format!("failed to serialize result_summary: {}", err)),
-        )?);
-
-        Ok(Response::new(ExecuteTxBlockResponse {
-            tx_block_json: serde_json::to_string(&response.tx_block).map_err(|err| {
-                Status::internal(format!("failed to serialize tx_block: {}", err))
-            })?,
-            tx_result_json: response
-                .tx_result
-                .map(|value| serde_json::to_string(&value))
-                .transpose()
-                .map_err(|err| {
-                    Status::internal(format!("failed to serialize tx_result: {}", err))
-                })?,
-            recording_jsonl: response.recording_jsonl,
-            result_summary_json,
-        }))
-    }
-
-    async fn execute_tx_block_async(
-        &self,
-        request: Request<GrpcExecuteTxBlockRequest>,
-    ) -> Result<Response<AcceptedTaskResponse>, Status> {
-        self.validate_auth(request.metadata())?;
-        let response = queue_tx_block_async_task(
-            self.state.clone(),
-            map_execute_tx_block_request(request.into_inner())?,
-        )
-        .map_err(api_error_to_status)?;
-        Ok(Response::new(map_async_response(response)))
-    }
-
     async fn execute_tx_workflow(
         &self,
         request: Request<GrpcExecuteTxWorkflowRequest>,

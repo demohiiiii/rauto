@@ -10,7 +10,6 @@ import {
 
 test("orchestration stage presentation selects the active page", () => {
   const definitions = [
-    { id: "block", load: async () => ({}) },
     { id: "workflow", load: async () => ({}) },
     { id: "orchestrate", load: async () => ({}) },
   ] as const;
@@ -23,10 +22,10 @@ test("orchestration stage presentation selects the active page", () => {
   );
 
   const fallbackDisplay = orchestrationStagePresentation("unsupported");
-  assert.equal(fallbackDisplay.blockActive, true);
+  assert.equal(fallbackDisplay.blockActive, false);
   assert.equal(
     orchestratedActiveStageDefinition(fallbackDisplay, definitions)?.id,
-    "block",
+    "workflow",
   );
 });
 

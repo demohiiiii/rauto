@@ -37,8 +37,6 @@ fn is_execution_endpoint(path: &str) -> bool {
             | "/api/config/fetch"
             | "/api/config/batch-fetch"
             | "/api/upload"
-            | "/api/tx/block"
-            | "/api/tx/block/async"
             | "/api/tx/workflow"
             | "/api/tx/workflow/async"
             | "/api/orchestrate"
@@ -1734,5 +1732,157 @@ fn http_interactive_retry_exhaustion_stops_before_later_steps() {
             &["show clock", "show inventory", "show inventory"],
         );
         assert_eq!(command_attempts(&device.handle, "show interfaces"), 0);
+    });
+}
+
+#[test]
+fn http_single_block_workflow_preserves_results_rollback_and_recording() {
+    run_route_test(|context| async move {
+        let device = context
+            .spawn_cisco("workflow-target", FaultInjection::new())
+            .await;
+        let command = |text: &str| {
+            json!({
+                "kind": "command", "mode": "Enable", "command": text, "timeout": 10
+            })
+        };
+        let mut cursor = 0;
+        for fail in [false, true] {
+            let second_command = if fail { "make-error" } else { "show inventory" };
+            let response = context.post_json("/api/tx/workflow", json!({
+                "connection": { "connection_name": device.connection_name },
+                "record_level": "full",
+                "workflow": {
+                    "name": "single-block",
+                    "fail_fast": true,
+                    "blocks": [{
+                        "name": "precheck",
+                        "rollback_policy": "per_step",
+                        "fail_fast": true,
+                        "steps": [
+                            { "run": command("show clock"), "rollback": command("show version") },
+                            { "run": command(second_command), "rollback": null }
+                        ]
+                    }]
+                }
+            })).await;
+            let body = response.assert_ok();
+            assert_eq!(body["result_summary"]["operation"], json!("tx_workflow"));
+            assert_eq!(body["result_summary"]["success"], json!(!fail));
+            let result = &body["tx_workflow_result"];
+            assert_eq!(result["committed"], json!(!fail));
+            assert_eq!(result["block_results"].as_array().unwrap().len(), 1);
+            let block = &result["block_results"][0];
+            assert_eq!(block["block_name"], json!("precheck"));
+            assert_eq!(block["committed"], json!(!fail));
+            assert_eq!(block["rollback_attempted"], json!(fail));
+            assert_eq!(block["step_results"].as_array().unwrap().len(), 2);
+            if fail {
+                assert_eq!(block["failed_step"], json!(1));
+                assert_eq!(block["rollback_succeeded"], json!(true));
+                assert_eq!(
+                    block["step_results"][0]["rollback_state"],
+                    json!("succeeded")
+                );
+                assert_next_commands(
+                    &device.handle,
+                    &mut cursor,
+                    &["show clock", "make-error", "show version"],
+                );
+            } else {
+                assert_next_commands(
+                    &device.handle,
+                    &mut cursor,
+                    &["show clock", "show inventory"],
+                );
+            }
+            let recording = body["recording_jsonl"]
+                .as_str()
+                .expect("workflow recording");
+            assert!(recording.contains("tx_workflow_started"));
+            assert!(recording.contains("tx_workflow_finished"));
+        }
+        let history = context.get_json("/api/session-history?limit=10").await;
+        let rows = history.assert_ok().as_array().unwrap();
+        assert_eq!(rows.len(), 2);
+        assert!(
+            rows.iter()
+                .all(|row| row["operation"] == json!("tx_workflow"))
+        );
+    });
+}
+
+#[test]
+fn http_workflow_resolves_saved_block_templates_and_previews_without_execution() {
+    run_route_test(|context| async move {
+        let device = context
+            .spawn_cisco("workflow-template-target", FaultInjection::new())
+            .await;
+        context.post_json("/api/tx-block-templates", json!({
+            "name": "precheck",
+            "content": json!({
+                "name": "template-block", "rollback_policy": "none", "fail_fast": true,
+                "steps": [{"run": {
+                    "kind": "command", "mode": "Enable", "command": "show {{ object }}", "timeout": 10
+                }, "rollback": null}]
+            }).to_string()
+        })).await.assert_ok();
+        let response = context
+            .post_json(
+                "/api/tx/workflow",
+                json!({
+                    "connection": { "connection_name": device.connection_name },
+                    "dry_run": true,
+                    "workflow": {
+                        "name": "preview", "fail_fast": true,
+                        "blocks": [{
+                            "name": "resolved-block",
+                            "tx_block_template_name": "precheck",
+                            "tx_block_template_vars": {"object": "version"}
+                        }]
+                    }
+                }),
+            )
+            .await;
+        let body = response.assert_ok();
+        assert_eq!(
+            body["workflow"]["blocks"][0]["name"],
+            json!("resolved-block")
+        );
+        assert_eq!(
+            body["workflow"]["blocks"][0]["steps"][0]["run"]["command"],
+            json!("show version")
+        );
+        assert_eq!(body["result_summary"]["outcome"], json!("dry_run"));
+        assert!(body["tx_workflow_result"].is_null());
+        assert!(device.handle.received_commands().is_empty());
+    });
+}
+
+#[test]
+fn http_workflow_dry_run_rejects_empty_workflows_and_invalid_blocks() {
+    run_route_test(|context| async move {
+        for blocks in [
+            json!([]),
+            json!([{
+                "name": "empty-block", "rollback_policy": "none", "fail_fast": true, "steps": []
+            }]),
+        ] {
+            let response = context
+                .post_json(
+                    "/api/tx/workflow",
+                    json!({
+                        "dry_run": true,
+                        "workflow": {"name": "invalid", "fail_fast": true, "blocks": blocks}
+                    }),
+                )
+                .await;
+            assert_eq!(
+                response.status,
+                StatusCode::BAD_REQUEST,
+                "{}",
+                response.body
+            );
+        }
     });
 }

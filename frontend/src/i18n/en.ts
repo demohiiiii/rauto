@@ -623,6 +623,7 @@ export const i18nEn = {
   txWorkflowMoveBlockRight: "Move block right",
   txWorkflowDuplicateBlock: "Duplicate block",
   txWorkflowDeleteBlock: "Delete block",
+  txWorkflowSaveBlockTemplate: "Save as block template",
   txWorkflowRunTitle: "Run workflow",
   txWorkflowRunHint:
     "Execute the current workflow and runtime variables on the target connection.",

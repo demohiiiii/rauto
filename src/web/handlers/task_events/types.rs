@@ -76,9 +76,6 @@ impl TaskEventInput {
 
 #[derive(Debug, Clone)]
 pub(crate) enum RecordingEventPlan {
-    TxBlock {
-        total_steps: usize,
-    },
     TxWorkflow {
         total_blocks: usize,
         total_steps: usize,

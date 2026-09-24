@@ -35,7 +35,7 @@ const dashboardStateDefaults: DashboardState = {
   currentTheme: "light",
   currentThemePreference: "system",
   currentThemeSettings: { ...defaultThemeSettings },
-  currentTxStage: "block",
+  currentTxStage: "workflow",
   managedAgentMode: false,
   tasksVisible: false,
 };
@@ -131,7 +131,8 @@ export function setDashboardManagedAgentMode(managed: boolean): void {
 }
 
 export function setDashboardTxStage(stage: string): void {
-  const currentTxStage = String(stage || "block").trim() || "block";
+  const normalized = String(stage || "workflow").trim();
+  const currentTxStage = normalized === "orchestrate" ? normalized : "workflow";
   dashboardState.update((currentDashboard) => ({
     ...currentDashboard,
     currentTxStage,

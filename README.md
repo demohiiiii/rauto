@@ -178,7 +178,6 @@ Add `--global` for a user-level installation or `--agent <agent>` to select a sp
 | Drive interactive prompt/response flows      | `rauto interactive`     | Best for wizard-like CLI exchanges, copy dialogs, and confirmation-heavy steps.      |
 | Upload a local file over remote SFTP         | `rauto upload`          | Requires the SSH server to expose an `sftp` subsystem.                               |
 | Discover SSH devices on a network            | `rauto device discover` | Verifies SSH identification, probes device profiles, and persists the latest result. |
-| Execute one rollback-aware transaction block | `rauto tx`              | Best for one target with step rollback or resource rollback semantics.               |
 | Execute a multi-step workflow from JSON      | `rauto tx-workflow`     | Best when a transaction is modeled as named blocks/stages in a workflow file.        |
 | Execute a multi-device staged plan           | `rauto orchestrate`     | Best for serial/parallel rollout plans across many saved connections.                |
 
@@ -638,7 +637,7 @@ When you create or customize a device profile, prefer reusing established mode n
 
 Benefits of following these names:
 
-- Keeps `exec --mode`, `tx --mode`, and interactive command `mode` values consistent across vendors.
+- Keeps `exec --mode`, workflow step `run.mode`, and interactive command `mode` values consistent across vendors.
 - Makes examples, templates, and operator habits easier to reuse without remembering profile-specific naming differences.
 - Makes default-mode fallback and mode validation behavior easier to understand when switching between built-in and custom profiles.
 - Reduces surprise when reading recordings, tx results, orchestration plans, or troubleshooting mode-related failures.
@@ -1083,41 +1082,10 @@ Notes:
 
 ### Transaction Block
 
-`rauto tx` executes a single rollback-aware transaction block on one target.
-Use it when you need a compact unit of work with explicit rollback behavior, but do not need the extra structure of a full `tx-workflow` JSON file.
-
-Common usage patterns:
-
-```bash
-# Command list mode with per-step rollback commands
-rauto tx \
-    --name vlan-change \
-    --command "vlan 120" \
-    --command "name campus-users" \
-    --rollback-command "no vlan 120" \
-    --rollback-command "default name" \
-    --rollback-on-failure \
-    --mode Config \
-    --host 192.168.1.1 \
-    --credential network-admin
-
-# Interactive mode with reusable interactive command templates
-rauto tx \
-    --run-kind interactive \
-    --interactive-template cisco_like_copy \
-    --interactive-vars ./interactive-vars.json \
-    --rollback-interactive-file ./rollback-interactive.toml \
-    --host 192.168.1.1 \
-    --credential network-admin
-```
-
-Notes:
-
-- `--run-kind commands` uses repeated `--command` entries and optional per-step rollback commands.
-- `--run-kind interactive` uses saved/ad-hoc interactive command templates for both forward and rollback paths.
-- `--dry-run` prints the normalized tx block without executing it.
-- `--json` prints tx execution results as JSON.
-- `--record-file` and `--record-level` work the same way as other execution commands.
+A transaction block defines ordered steps and their rollback policy inside a
+transaction workflow. Execute a single block by placing it in the workflow's
+`blocks` array and running `rauto tx-workflow`. The Web block editor uses the same
+workflow execution path. Saved block templates remain reusable within workflows.
 
 ### Transaction Workflow
 
@@ -1352,10 +1320,6 @@ and rendering template variables before execution:
 
 Execution APIs support template-based inputs (inline JSON / saved template name / template content):
 
-- `POST /api/tx/block`:
-  - `tx_block_template_name`
-  - `tx_block_template_content`
-  - `tx_block_template_vars`
 - `POST /api/tx/workflow`:
   - `workflow_template_name`
   - `workflow_template_content`
@@ -1364,6 +1328,9 @@ Execution APIs support template-based inputs (inline JSON / saved template name 
   - `plan_template_name`
   - `plan_template_content`
   - `plan_vars`
+
+Within `workflow.blocks`, use `tx_block_template_name` or `tx_block_template_content`
+with `tx_block_template_vars` to reference a reusable block template.
 
 CLI template management lives under the execution command:
 
@@ -1514,13 +1481,13 @@ Common command-specific options:
 - `interactive --file <path>` / `interactive -f <path>`: Run an ad-hoc interactive command template from a TOML file.
 - `interactive --vars <file>` / `interactive -v <file>` / `interactive --vars-json <json>`: Provide file-based or inline JSON vars to an interactive command template.
 - `template --dry-run`: Render the command template without executing it on the target.
-- `tx --mode <mode>` / `tx -m <mode>`: Force tx commands or interactive commands to run in a specific mode.
-- `tx --dry-run`: Print the planned tx block without executing it.
+- Workflow step `run.mode`: Set the execution mode for each operation.
+- `tx-workflow --dry-run`: Print the planned workflow without executing it.
 
 Recording-related options (command-specific):
 
-- `exec/template/interactive/tx --record-file <path>` / `-r <path>`: Save recording JSONL after execution.
-- `exec/template/interactive/tx --record-level <key-events-only|full>` / `-l <level>`: Recording granularity.
+- `exec/template/interactive/tx-workflow --record-file <path>` / `-r <path>`: Save recording JSONL after execution.
+- `exec/template/interactive/tx-workflow --record-level <key-events-only|full>` / `-l <level>`: Recording granularity.
 - `session`: Show the most recent saved session record.
 - `session list [connection] [--limit N] [--json]`: List saved records, newest first.
 - `session show [record_id] [--connection <name>] [--json|--raw]`: Show a record; when the ID is omitted, show the most recent matching record.

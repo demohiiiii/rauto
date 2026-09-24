@@ -16,7 +16,7 @@ Use this file when creating or debugging interactive templates (`rauto interacti
 
 - Use `interactive` for reusable prompt/response interactions, device-side copy wizards, installers, and a single command with multiple prompt/response exchanges.
 - Do not use `interactive` as the first choice for simple state retrieval; prefer `show`.
-- Do not use `interactive` as the first choice for config changes that need rollback; compose command operations in `tx`/`tx-workflow` when rollback-aware execution is needed.
+- Do not use `interactive` as the first choice for config changes that need rollback; compose command operations in `tx-workflow` when rollback-aware execution is needed.
 
 ## Built-In Cisco-Like Copy Command
 

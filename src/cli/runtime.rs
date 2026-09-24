@@ -3,9 +3,7 @@ use crate::config::autodetect_cache;
 use crate::config::connection_store::{SavedConnection, load_connection, save_connection};
 use crate::config::history_store::{self, HistoryBinding};
 use crate::config::interactive_template::InteractiveTemplate;
-use crate::config::interactive_vars::{
-    ConnectionParamContext, resolve_interactive_runtime_vars, resolve_runtime_var_aliases,
-};
+use crate::config::interactive_vars::{ConnectionParamContext, resolve_interactive_runtime_vars};
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::session_recording;
 use crate::config::ssh_security::{SshSecurityProfile, connection_security_options};
@@ -351,13 +349,6 @@ pub(crate) fn resolve_interactive_connection_vars(
     conn: &EffectiveConnection,
 ) -> Result<Value> {
     resolve_interactive_runtime_vars(template, vars, Some(current_connection_param_context(conn)))
-}
-
-pub(crate) fn resolve_runtime_vars_for_connection(
-    vars: Value,
-    conn: &EffectiveConnection,
-) -> Result<Value> {
-    resolve_runtime_var_aliases(vars, Some(current_connection_param_context(conn)))
 }
 
 pub(crate) fn read_required_text_input(

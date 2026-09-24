@@ -229,32 +229,6 @@ pub(super) fn queue_template_async_task(
     ))
 }
 
-pub(crate) fn queue_tx_block_async_task(
-    state: Arc<AppState>,
-    req: ExecuteTxBlockRequest,
-) -> Result<AsyncTaskAcceptedResponse, ApiError> {
-    let task_id = require_managed_async_task(
-        TaskOperation::TxBlock,
-        req.task.task_id.clone(),
-        state.is_managed(),
-    )?;
-    let background_state = state.clone();
-    spawn_supervised_async_task(
-        background_state.clone(),
-        task_id.clone(),
-        "tx_block",
-        async move {
-            execute_tx_block(State(background_state), Json(req))
-                .await
-                .map(|_| ())
-        },
-    );
-    Ok(build_async_task_accepted_response(
-        task_id,
-        TaskOperation::TxBlock,
-    ))
-}
-
 pub(crate) fn queue_tx_workflow_async_task(
     state: Arc<AppState>,
     req: ExecuteTxWorkflowRequest,

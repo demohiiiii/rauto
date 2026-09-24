@@ -28,6 +28,9 @@
     ) => Promise<TransactionTemplateResource | null>;
     onPreview?: () => void;
     onSaveJsonTemplate?: () => void;
+    onSaveBlockTemplate?: (
+      block: Record<string, unknown>,
+    ) => void | Promise<void>;
   }
 
   let {
@@ -39,6 +42,7 @@
     onEditorInput,
     onLoadJsonTemplate,
     onSaveJsonTemplate,
+    onSaveBlockTemplate,
   }: Props = $props();
   const txWorkflowStageWorkspace = createTxWorkflowStageWorkspace();
   const {
@@ -89,6 +93,7 @@
       onImportFile={importWorkflowFile}
       {onLoadJsonTemplate}
       {onSaveJsonTemplate}
+      {onSaveBlockTemplate}
     />
     <TxWorkflowRunPanel
       panelDisplay={workflowOutputPanelDisplay}

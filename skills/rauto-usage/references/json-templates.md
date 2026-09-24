@@ -25,7 +25,7 @@ Tx block JSON is a single `TxBlock` object, not a wrapper.
 Notes:
 
 - This shape is used for tx-block template rendering and as an inline unit in larger JSON plans.
-- Current CLI `rauto tx` is still parameter-driven, not `rauto tx <file>`.
+- Execute blocks through `rauto tx-workflow`, including a workflow containing just one block.
 - The bundled validator checks tx-block JSON by wrapping it into a temporary one-block workflow and delegating validation to `rauto tx-workflow --dry-run`.
 - Use only operation kinds `command` and `flow`; do not create a `kind: "template"` operation.
 - Write `multiline_mode` explicitly for commands, rollback commands, and flow steps. Use `split_lines` unless the complete text must be submitted once.

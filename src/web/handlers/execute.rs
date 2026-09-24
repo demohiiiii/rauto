@@ -7,7 +7,6 @@ mod config_fetch;
 mod interactive_upload;
 mod orchestration;
 mod standard;
-mod tx;
 mod tx_workflow;
 
 pub(crate) use config_fetch::execute_scheduled_config_batch;
@@ -20,7 +19,6 @@ pub use standard::{
     execute_show_batch, execute_template, execute_template_async, list_show_objects,
     render_template,
 };
-pub use tx::{execute_tx_block, execute_tx_block_async};
 pub(crate) use tx_workflow::execute_scheduled_tx_workflow;
 pub use tx_workflow::{execute_tx_workflow, execute_tx_workflow_async};
 

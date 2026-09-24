@@ -177,7 +177,6 @@ npx skills add demohiiiii/rauto --skill rauto-usage
 | 驱动交互式问答/确认流程              | `rauto interactive`     | 适合复制向导、安装向导和多轮 prompt/response 场景。             |
 | 通过远端 SFTP 直接上传本地文件       | `rauto upload`          | 要求目标 SSH 服务暴露 `sftp` 子系统。                           |
 | 自动发现网段内的 SSH 设备            | `rauto device discover` | 验证 SSH identification、探测设备 profile，并保存最新扫描结果。 |
-| 执行一个带回滚能力的事务块           | `rauto tx`              | 适合单目标、单事务单元、需要步骤级或资源级回滚的场景。          |
 | 从 JSON 执行多步骤事务工作流         | `rauto tx-workflow`     | 适合把事务拆成命名 block/stage 并保存在 workflow 文件中。       |
 | 执行多设备分阶段计划                 | `rauto orchestrate`     | 适合面向多台已保存连接做串行/并发编排发布。                     |
 
@@ -637,7 +636,7 @@ rauto schedule delete "夜间核心配置采集"
 
 这样做的好处：
 
-- 让 `exec --mode`、`tx --mode` 和交互式命令中的 `mode` 在不同厂商 profile 之间保持一致。
+- 让 `exec --mode`、工作流步骤的 `run.mode` 和交互式命令中的 `mode` 在不同厂商 profile 之间保持一致。
 - 便于复用示例、模板和日常操作习惯，不必为不同 profile 反复记忆一套新的模式命名。
 - 在内置 profile 和自定义 profile 之间切换时，更容易理解默认 mode 回退和 mode 校验行为。
 - 阅读录制结果、tx 输出、编排计划，或排查 mode 相关问题时，整体会更直观、更少歧义。
@@ -1081,39 +1080,9 @@ rauto blacklist delete "reload*"
 
 ### 事务块
 
-`rauto tx` 用于在单个目标上执行一个带回滚能力的事务块。
-当你需要一个紧凑的执行单元，并希望显式控制回滚，但又不想引入完整 `tx-workflow` JSON 结构时，优先使用它。
-
-常见用法：
-
-```bash
-rauto tx \
-    --name vlan-change \
-    --command "vlan 120" \
-    --command "name campus-users" \
-    --rollback-command "no vlan 120" \
-    --rollback-command "default name" \
-    --rollback-on-failure \
-    --mode Config \
-    --host 192.168.1.1 \
-    --credential network-admin
-
-rauto tx \
-    --run-kind interactive \
-    --interactive-template cisco_like_copy \
-    --interactive-vars ./interactive-vars.json \
-    --rollback-interactive-file ./rollback-interactive.toml \
-    --host 192.168.1.1 \
-    --credential network-admin
-```
-
-说明：
-
-- `--run-kind commands` 使用重复的 `--command` 与可选的步骤级 `--rollback-command`。
-- `--run-kind interactive` 使用已保存或临时提供的交互式命令模板来执行正向和回滚路径。
-- `--dry-run` 会打印标准化后的 tx block，而不真正执行。
-- `--json` 会以 JSON 形式输出执行结果。
-- `--record-file` 与 `--record-level` 的行为和其他执行命令一致。
+事务块定义事务工作流中的有序步骤和回滚策略。执行单个事务块时，将它放入工作流的
+`blocks` 数组，再使用 `rauto tx-workflow` 执行。Web 事务块编辑器也通过工作流执行，
+已保存的事务块模板仍可在工作流中复用。
 
 ### 事务工作流
 
@@ -1345,10 +1314,6 @@ stage 中其它已经成功的目标执行补偿回滚。`rollback_completed_sta
 
 执行接口新增模板输入（三选一模式：内联 JSON / 已保存模板名 / 模板内容）：
 
-- `POST /api/tx/block`：
-  - `tx_block_template_name`
-  - `tx_block_template_content`
-  - `tx_block_template_vars`
 - `POST /api/tx/workflow`：
   - `workflow_template_name`
   - `workflow_template_content`
@@ -1357,6 +1322,9 @@ stage 中其它已经成功的目标执行补偿回滚。`rollback_completed_sta
   - `plan_template_name`
   - `plan_template_content`
   - `plan_vars`
+
+在 `workflow.blocks` 中，通过 `tx_block_template_name` 或 `tx_block_template_content`
+配合 `tx_block_template_vars` 引用可复用的事务块模板。
 
 CLI 模板管理入口放在对应执行命令下面：
 
@@ -1506,13 +1474,13 @@ Rust 后端是单一 Cargo package。`src/domain/` 负责领域模型和规则�
 - `interactive --file <path>` / `interactive -f <path>`：从 TOML 文件运行临时交互式命令模板。
 - `interactive --vars <file>` / `interactive -v <file>` / `interactive --vars-json <json>`：为交互式命令模板提供文件变量或内联 JSON 变量。
 - `template --dry-run`：只渲染模板，不在目标上执行。
-- `tx --mode <mode>` / `tx -m <mode>`：强制 tx 命令或交互式命令在指定模式下运行。
-- `tx --dry-run`：只打印计划中的 tx block，而不真正执行。
+- 工作流步骤的 `run.mode`：指定每个操作的执行模式。
+- `tx-workflow --dry-run`：只打印计划中的工作流，而不真正执行。
 
 录制/回放相关参数（命令级参数）：
 
-- `exec/template/interactive/tx --record-file <path>` / `-r <path>`：执行后保存录制 JSONL。
-- `exec/template/interactive/tx --record-level <key-events-only|full>` / `-l <level>`：录制粒度。
+- `exec/template/interactive/tx-workflow --record-file <path>` / `-r <path>`：执行后保存录制 JSONL。
+- `exec/template/interactive/tx-workflow --record-level <key-events-only|full>` / `-l <level>`：录制粒度。
 - `session`：展示最近一条已保存的会话记录。
 - `session list [connection] [--limit N] [--json]`：按时间倒序列出会话记录。
 - `session show [record_id] [--connection <name>] [--json|--raw]`：展示记录详情；不传 ID 时展示符合条件的最近一条。

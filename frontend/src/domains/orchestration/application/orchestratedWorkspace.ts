@@ -33,6 +33,7 @@ import {
   TX_OUTPUT,
   TX_TEMPLATE_KIND,
 } from "$domains/transactions/index.js";
+import type { JsonObject } from "$domains/transactions/index.js";
 import {
   createOrchestratedExecutionDependencies,
   jsonTemplateConfigFor,
@@ -485,8 +486,9 @@ export function createOrchestratedWorkspace(
 
   function jsonTemplateStageBindings(kind: string) {
     return {
-      onCreateJsonTemplateDraft: (actionContext: JsonTemplateActionContext) =>
-        jsonTemplateLibrary.createTemplateDraft(kind, actionContext),
+      onCreateJsonTemplateDraft: (
+        actionContext: JsonTemplateActionContext | null = null,
+      ) => jsonTemplateLibrary.createTemplateDraft(kind, actionContext),
       onDeleteJsonTemplate: () =>
         jsonTemplateLibrary.deleteTemplateFromExecution(kind),
       onLoadJsonTemplate: (
@@ -529,6 +531,14 @@ export function createOrchestratedWorkspace(
       dependencies: txExecutionDependencies,
       txJsonEditorsHost,
     }).previewTxWorkflow();
+
+  async function saveTxBlockTemplateFromWorkflow(
+    block: JsonObject,
+  ): Promise<void> {
+    await ensureEditors();
+    txJsonEditors?.setTxBlockEditorJson(block);
+    await txBlockJsonTemplateStageProps.onCreateJsonTemplateDraft?.();
+  }
 
   return {
     applyEditorTheme: applyTxEditorTheme,
@@ -573,6 +583,7 @@ export function createOrchestratedWorkspace(
     saveTxBlockJsonTemplate: txBlockJsonTemplateStageProps.onSaveJsonTemplate,
     saveTxWorkflowJsonTemplate:
       txWorkflowJsonTemplateStageProps.onSaveJsonTemplate,
+    saveTxBlockTemplateFromWorkflow,
     setMode: setTxMode,
     updateOrchestrationEditorInput: updateOrchestrationPreviewFromCurrentEditor,
     updateTxBlockEditorInput: (text: string | null) => {

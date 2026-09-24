@@ -24,10 +24,6 @@ pub(crate) fn parse_task_event_level(raw: &str) -> TaskEventLevel {
     TaskEventLevel::parse(raw).unwrap_or(TaskEventLevel::Info)
 }
 
-fn tx_block_step_progress(step_index: usize, total_steps: usize) -> Option<u8> {
-    task_event_progress_in_range(step_index + 1, total_steps, 60, 95)
-}
-
 fn tx_workflow_step_progress(
     step_offsets: &HashMap<String, usize>,
     block_name: &str,
@@ -115,14 +111,6 @@ pub(crate) fn map_recording_entry_to_task_event(
                 }))),
         ),
         SessionEvent::TxBlockStarted { block_name } => match plan {
-            RecordingEventPlan::TxBlock { .. } => Some(
-                TaskEventInput::new("step_started", format!("Tx block {} started", block_name))
-                    .with_stage("tx_block")
-                    .with_progress(Some(60))
-                    .with_details(Some(json!({
-                        "block_name": block_name
-                    }))),
-            ),
             RecordingEventPlan::TxWorkflow {
                 total_blocks,
                 block_indices,
@@ -151,22 +139,6 @@ pub(crate) fn map_recording_entry_to_task_event(
             operation_summary,
             operation_steps,
         } => match plan {
-            RecordingEventPlan::TxBlock { total_steps } => Some(
-                TaskEventInput::new(
-                    "step_completed",
-                    format!("Step {} completed", step_index + 1),
-                )
-                .with_stage("command")
-                .with_level("success")
-                .with_progress(tx_block_step_progress(*step_index, *total_steps))
-                .with_details(Some(json!({
-                    "block_name": block_name,
-                    "step_index": step_index,
-                    "mode": mode,
-                    "operation_summary": operation_summary,
-                    "operation_steps": operation_steps
-                }))),
-            ),
             RecordingEventPlan::TxWorkflow {
                 total_steps,
                 step_offsets,
@@ -205,20 +177,6 @@ pub(crate) fn map_recording_entry_to_task_event(
             operation_steps,
             reason,
         } => match plan {
-            RecordingEventPlan::TxBlock { total_steps } => Some(
-                TaskEventInput::new("failed", format!("Step {} failed", step_index + 1))
-                    .with_stage("command")
-                    .with_level("error")
-                    .with_progress(tx_block_step_progress(*step_index, *total_steps))
-                    .with_details(Some(json!({
-                        "block_name": block_name,
-                        "step_index": step_index,
-                        "mode": mode,
-                        "operation_summary": operation_summary,
-                        "operation_steps": operation_steps,
-                        "reason": reason
-                    }))),
-            ),
             RecordingEventPlan::TxWorkflow {
                 total_steps,
                 step_offsets,
@@ -301,7 +259,6 @@ pub(crate) fn map_recording_entry_to_task_event(
             rollback_attempted,
             rollback_succeeded,
         } => match plan {
-            RecordingEventPlan::TxBlock { .. } => None,
             RecordingEventPlan::TxWorkflow {
                 total_blocks,
                 block_indices,

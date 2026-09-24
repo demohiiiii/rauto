@@ -75,6 +75,9 @@ async fn execute_tx_workflow_request(
             )?;
             let workflow: rneter::session::TxWorkflow =
                 serde_json::from_value(workflow_value.clone()).map_err(ApiError::from)?;
+            workflow
+                .validate()
+                .map_err(|error| ApiError::bad_request(error.to_string()))?;
             let workflow_response_value =
                 serde_json::to_value(&workflow).map_err(ApiError::from)?;
             emit_task_event(

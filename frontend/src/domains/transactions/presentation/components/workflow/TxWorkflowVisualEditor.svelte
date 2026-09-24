@@ -29,6 +29,7 @@
   import { currentLanguageState, t } from "$lib/i18n.js";
   import { classNames } from "$lib/ui.js";
   import { txBlockTimelineDisplay } from "$domains/transactions/index.js";
+  import { txBlockFormModelToJsonText } from "$domains/transactions/index.js";
   import { createTxWorkflowVisualEditorWorkspace } from "$domains/transactions/index.js";
   import TxWorkflowBlockEditor from "$domains/transactions/presentation/components/workflow/TxWorkflowBlockEditor.svelte";
   import TxWorkflowFlowNode from "$domains/transactions/presentation/components/workflow/TxWorkflowFlowNode.svelte";
@@ -38,6 +39,7 @@
     TxWorkflowBlockRow,
     TxWorkflowFlowNodeData,
     TxWorkflowFormModel,
+    JsonObject,
   } from "$domains/transactions/index.js";
 
   type TxWorkflowEditorView = "json" | "readonly";
@@ -52,6 +54,7 @@
     onChange?: ((model: TxWorkflowFormModel) => void) | null;
     onOpenView?: (view: TxWorkflowEditorView) => void;
     settingsOnly?: boolean;
+    onSaveBlockTemplate?: (block: JsonObject) => void | Promise<void>;
   }
 
   let {
@@ -60,6 +63,7 @@
     onOpenView,
     embedded = false,
     settingsOnly = false,
+    onSaveBlockTemplate,
   }: Props = $props();
 
   const txWorkflowVisualEditorWorkspace =
@@ -526,6 +530,17 @@
               selectedBlockRow.blockIndex,
             )}
             showRemoveAction={false}
+            onSaveAsTemplate={selectedBlockRow.showInlineBlock &&
+            onSaveBlockTemplate
+              ? () =>
+                  onSaveBlockTemplate(
+                    JSON.parse(
+                      txBlockFormModelToJsonText(
+                        selectedBlockRow.block.inlineBlock,
+                      ),
+                    ) as JsonObject,
+                  )
+              : undefined}
           />
         {/if}
       {/key}
@@ -812,6 +827,17 @@
                   selectedBlockRow.blockIndex,
                 )}
                 showRemoveAction={false}
+                onSaveAsTemplate={selectedBlockRow.showInlineBlock &&
+                onSaveBlockTemplate
+                  ? () =>
+                      onSaveBlockTemplate(
+                        JSON.parse(
+                          txBlockFormModelToJsonText(
+                            selectedBlockRow.block.inlineBlock,
+                          ),
+                        ) as JsonObject,
+                      )
+                  : undefined}
               />
             {:else}
               <div class="grid gap-3">

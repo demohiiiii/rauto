@@ -4083,7 +4083,7 @@ checksum = "3582f63211428f83597b51b2ddb88e2a91a9d52d12831f9d08f5e624e8977422"
 [[package]]
 name = "rneter"
 version = "0.5.2"
-source = "git+https://github.com/demohiiiii/rneter.git?rev=523b58ff96d93541e18139ebcd43a262749f61cf#523b58ff96d93541e18139ebcd43a262749f61cf"
+source = "git+https://github.com/demohiiiii/rneter.git?rev=7ab03b23c1177f3acbdcb5c0d9c8ea196925a4ad#7ab03b23c1177f3acbdcb5c0d9c8ea196925a4ad"
 dependencies = [
  "anyhow",
  "async-ssh2-tokio",

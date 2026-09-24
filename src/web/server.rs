@@ -24,10 +24,9 @@ use crate::web::handlers::{
     download_credential_import_template, enable_schedule, exec_command, exec_command_async,
     execute_exec_batch, execute_interactive, execute_interactive_batch, execute_orchestration,
     execute_orchestration_async, execute_show, execute_show_batch, execute_template,
-    execute_template_async, execute_tx_block, execute_tx_block_async, execute_tx_workflow,
-    execute_tx_workflow_async, execute_upload, export_textfsm_excel, fetch_config,
-    fetch_config_batch, get_builtin_interactive_template, get_builtin_profile_detail,
-    get_builtin_profile_form, get_connection, get_connection_history,
+    execute_template_async, execute_tx_workflow, execute_tx_workflow_async, execute_upload,
+    export_textfsm_excel, fetch_config, fetch_config_batch, get_builtin_interactive_template,
+    get_builtin_profile_detail, get_builtin_profile_form, get_connection, get_connection_history,
     get_connection_history_detail, get_credential, get_custom_profile, get_custom_profile_form,
     get_device_config_snapshot, get_device_discovery_run, get_interactive_template,
     get_inventory_group, get_inventory_label, get_orchestration_template, get_profile_modes,
@@ -192,7 +191,6 @@ fn build_managed_app(state: Arc<AppState>) -> Router {
         .route("/api/devices/probe", post(probe_devices))
         .route("/api/exec/async", post(exec_command_async))
         .route("/api/template/execute/async", post(execute_template_async))
-        .route("/api/tx/block/async", post(execute_tx_block_async))
         .route("/api/tx/workflow/async", post(execute_tx_workflow_async))
         .route("/api/orchestrate/async", post(execute_orchestration_async))
         .merge(local_api_routes())
@@ -401,7 +399,6 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         )
         .route("/api/template/execute", post(execute_template))
         .route("/api/upload", post(execute_upload))
-        .route("/api/tx/block", post(execute_tx_block))
         .route("/api/tx/workflow", post(execute_tx_workflow))
         .route("/api/orchestrate", post(execute_orchestration))
         .route("/api/replay", post(replay_session))

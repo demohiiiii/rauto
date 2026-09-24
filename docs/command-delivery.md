@@ -42,8 +42,8 @@ workflows, whose commands already support interaction rules.
 ## CLI and transport names
 
 Use `rauto interactive` to execute templates and
-`rauto interactive-template` to manage them. `tx --run-kind
-interactive` supports the same format for forward and rollback paths.
+`rauto interactive-template` to manage them. Transaction workflow operations
+support interaction rules for both forward and rollback commands.
 The old CLI names remain hidden aliases; they accept only the new template format.
 
 The Web uses `/api/interactive/execute`,

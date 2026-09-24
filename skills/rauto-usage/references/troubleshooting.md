@@ -44,7 +44,7 @@ rauto device test --connection <name> --force-autodetect
 
 ## 5) Config Change Safety
 
-- If the user is about to push config with raw `exec` or `template`, prefer `tx`, `tx-workflow`, or `orchestrate`.
+- If the user is about to push config with raw `exec` or `template`, prefer `tx-workflow` or `orchestrate`.
 - Add precheck/read commands with `show` when useful.
 - Use dry-run/view validation where available before real tx/workflow/orchestrate execution.
 - Confirm rollback commands or rollback policy before irreversible changes.

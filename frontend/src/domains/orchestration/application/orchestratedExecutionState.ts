@@ -2,7 +2,6 @@ import { get } from "svelte/store";
 
 import {
   executeOrchestration,
-  executeTxBlock,
   executeTxWorkflow,
 } from "../infrastructure/orchestrationExecutionApi.js";
 import {
@@ -420,18 +419,21 @@ async function runTxBlockWithDependencies(
   if (!dependencies.ensureConnectionTargetSelected()) return;
   setTxExecutionModes({ txBlock: "direct" });
   const payload = txBlockExecutionPayload({ dependencies, dryRun });
-  if (
-    !payload.tx_block ||
-    typeof payload.tx_block !== "object" ||
-    Array.isArray(payload.tx_block)
-  ) {
-    throw new Error(tr("txBlockJsonInvalidShape"));
-  }
   setRunningStatus(output);
-  const txBlockPayload = await executeTxBlock(payload);
+  const response = await executeTxWorkflow(payload);
+  const workflow = response.workflow;
+  const result = response.tx_workflow_result;
+  const blocks =
+    workflow && typeof workflow === "object" && !Array.isArray(workflow)
+      ? workflow.blocks
+      : null;
+  const blockResults =
+    result && typeof result === "object" && !Array.isArray(result)
+      ? result.block_results
+      : null;
   dependencies.setTxBlockVisual?.(
-    txBlockPayload.tx_block,
-    dryRun ? null : txBlockPayload.tx_result,
+    Array.isArray(blocks) ? blocks[0] : null,
+    dryRun || !Array.isArray(blockResults) ? null : blockResults[0],
   );
   if (dryRun) {
     setStatus(output, tr("txBlockPreviewDone"), "success");

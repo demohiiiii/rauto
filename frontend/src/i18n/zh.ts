@@ -588,6 +588,7 @@ export const i18nZh = {
   txWorkflowMoveBlockRight: "向右移动事务块",
   txWorkflowDuplicateBlock: "复制事务块",
   txWorkflowDeleteBlock: "删除事务块",
+  txWorkflowSaveBlockTemplate: "保存为事务块模板",
   txWorkflowRunTitle: "运行工作流",
   txWorkflowRunHint: "使用当前工作流和运行时变量在目标连接上执行。",
   txWorkflowBlockRollbackNone: "none",

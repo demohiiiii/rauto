@@ -33,6 +33,7 @@ test("delivery routes are organized by command kind and retain existing entry UR
   assert.equal(routeById("interactive")?.path, "/app/interactive");
   assert.equal(routeByPath("/app/command").tab, "command");
   assert.equal(routeByPath("/app/interactive").tab, "interactive");
+  assert.equal(routeByPath("/app/tx-block").path, "/app/tx-workflow");
   assert.equal(routeByPath("/app/standard").tab, "command");
   assert.equal(routeByPath("/app/batch").tab, "command");
   assert.equal(routeById("standard"), null);

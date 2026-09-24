@@ -1,6 +1,6 @@
 use super::args::{
     AgentArgs, ExecArgs, GlobalOpts, InteractiveArgs, OrchestrateArgs, RecordLevelOpt, ShowArgs,
-    TemplateArgs, TxArgs, TxWorkflowArgs, UploadArgs, WebArgs,
+    TemplateArgs, TxWorkflowArgs, UploadArgs, WebArgs,
 };
 use crate::config::device_credential_store::DeviceAuthType;
 use clap::{Args, Parser, Subcommand, ValueEnum};
@@ -86,9 +86,6 @@ pub enum Commands {
     /// Manage custom TextFSM templates and profile command mappings
     #[command(subcommand)]
     Textfsm(TextfsmCommands),
-
-    /// Execute commands as a transaction-like block with rollback support
-    Tx(TxArgs),
 
     /// Execute transaction workflows and manage workflow templates
     #[command(name = "tx-workflow")]

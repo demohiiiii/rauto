@@ -12,11 +12,6 @@
   let { active }: { active: boolean } = $props();
   const stageDefinitions: readonly OrchestratedStageDefinition[] = [
     {
-      id: "block",
-      load: () =>
-        import("$domains/transactions/presentation/components/block/TxBlockStage.svelte"),
-    },
-    {
       id: "workflow",
       load: () =>
         import("$domains/transactions/presentation/components/workflow/TxWorkflowStage.svelte"),
@@ -30,24 +25,19 @@
 
   const {
     activeStageComponentStateStore,
-    createTxBlockJsonTemplateDraft,
     createTxWorkflowJsonTemplateDraft,
     destroy: destroyOrchestratedWorkspace,
     executeOrchestration,
     executeTxWorkflow,
     importOrchestrationFile,
-    importTxBlockFile,
     importTxWorkflowFile,
-    loadTxBlockJsonTemplate,
     loadTxWorkflowJsonTemplate,
     previewTxWorkflow,
-    runTxBlockExecute,
-    saveTxBlockJsonTemplate,
     saveTxWorkflowJsonTemplate,
+    saveTxBlockTemplateFromWorkflow,
     setPageContext,
     stageDisplayStateStore,
     updateOrchestrationEditorInput,
-    updateTxBlockEditorInput,
     updateTxWorkflowEditorInput,
   } = createOrchestratedPageWorkspace({
     afterDomUpdate,
@@ -55,16 +45,6 @@
   });
   let stageDisplay = $derived($stageDisplayStateStore);
   let activeStageComponent = $derived($activeStageComponentStateStore);
-  let txBlockStageProps = $derived({
-    active: true,
-    newButtonLabelKey: stageDisplay.newButtonLabelKey,
-    onCreateJsonTemplateDraft: createTxBlockJsonTemplateDraft,
-    onExecute: runTxBlockExecute,
-    onEditorInput: updateTxBlockEditorInput,
-    onImportFile: importTxBlockFile,
-    onLoadJsonTemplate: loadTxBlockJsonTemplate,
-    onSaveJsonTemplate: saveTxBlockJsonTemplate,
-  });
   let txWorkflowStageProps = $derived({
     active: true,
     onCreateJsonTemplateDraft: createTxWorkflowJsonTemplateDraft,
@@ -74,6 +54,7 @@
     onLoadJsonTemplate: loadTxWorkflowJsonTemplate,
     onPreview: previewTxWorkflow,
     onSaveJsonTemplate: saveTxWorkflowJsonTemplate,
+    onSaveBlockTemplate: saveTxBlockTemplateFromWorkflow,
   });
   let orchestrationStageProps = $derived({
     active: true,
@@ -81,7 +62,6 @@
     onExecute: executeOrchestration,
     onImportFile: importOrchestrationFile,
   });
-  let blockStageActive = $derived(active && stageDisplay.blockActive);
   let workflowStageActive = $derived(active && stageDisplay.workflowActive);
   let orchestrationStageActive = $derived(
     active && stageDisplay.orchestrationActive,
@@ -118,13 +98,7 @@
 
 <DashboardTabPanel {active}>
   <div class="grid gap-3">
-    {#if blockStageActive}
-      {#if activeStageComponent}
-        {@render renderActiveStage(activeStageComponent, txBlockStageProps)}
-      {:else}
-        {@render stageLoadingSkeleton()}
-      {/if}
-    {:else if workflowStageActive}
+    {#if workflowStageActive}
       {#if activeStageComponent}
         {@render renderActiveStage(activeStageComponent, txWorkflowStageProps)}
       {:else}

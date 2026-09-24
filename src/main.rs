@@ -38,9 +38,8 @@ pub(crate) use cli::runtime::{
     manager_retry_policy, maybe_save_connection_profile, normalize_recording_jsonl_for_cli_level,
     persist_auto_recording_history, persist_auto_recording_history_jsonl, read_required_text_input,
     resolve_autodetect_connection, resolve_effective_connection,
-    resolve_interactive_connection_vars, resolve_runtime_vars_for_connection,
-    save_named_connection, to_record_level, write_recording_if_requested,
-    write_recording_text_if_requested,
+    resolve_interactive_connection_vars, save_named_connection, to_record_level,
+    write_recording_if_requested, write_recording_text_if_requested,
 };
 
 #[tokio::main]
@@ -112,9 +111,6 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::Config(cmd) => {
             cli::config_fetch::run_config_command(cmd, &cli.global_opts).await?;
-        }
-        Commands::Tx(args) => {
-            cli::tx_block::run_tx_block(args, &cli.global_opts).await?;
         }
         Commands::TxWorkflow(cmd) => match cmd.command {
             Some(TxWorkflowSubcommand::Template { command }) => {

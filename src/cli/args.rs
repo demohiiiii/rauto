@@ -10,13 +10,6 @@ pub enum RecordLevelOpt {
     Full,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum TxRunKind {
-    Commands,
-    #[value(name = "interactive", alias = "command-flow")]
-    Interactive,
-}
-
 #[derive(Args, Debug)]
 pub struct TemplateArgs {
     /// Name of the stored command template
@@ -241,109 +234,6 @@ pub struct ShowArgs {
     /// Keep TextFSM Error rules such as `^. -> Error` instead of filtering them
     #[arg(long)]
     pub textfsm_strict_errors: bool,
-
-    /// Save SSH session recording to this JSONL file
-    #[arg(long, short = 'r')]
-    pub record_file: Option<PathBuf>,
-
-    /// Session recording level
-    #[arg(long, short = 'l', value_enum, default_value_t = RecordLevelOpt::KeyEventsOnly)]
-    pub record_level: RecordLevelOpt,
-}
-
-#[derive(Args, Debug)]
-pub struct TxArgs {
-    /// Transaction block name used in logs/recording
-    #[arg(long, default_value = "tx-block")]
-    pub name: String,
-
-    /// Transaction block input mode
-    #[arg(long, value_enum, default_value_t = TxRunKind::Commands)]
-    pub run_kind: TxRunKind,
-
-    /// Template file to render commands from (optional)
-    #[arg(long, short = 't')]
-    pub template: Option<String>,
-
-    /// Path to a JSON file containing variables for --template
-    #[arg(long, short = 'v')]
-    pub vars: Option<PathBuf>,
-
-    /// Saved interactive command template name for --run-kind interactive
-    #[arg(long)]
-    pub interactive_template: Option<String>,
-
-    /// Path to a TOML file containing an ad-hoc interactive command template
-    #[arg(long)]
-    pub interactive_file: Option<PathBuf>,
-
-    /// Path to a JSON file containing variables for the main interactive command
-    #[arg(long)]
-    pub interactive_vars: Option<PathBuf>,
-
-    /// Inline JSON variables for the main interactive command
-    #[arg(long)]
-    pub interactive_vars_json: Option<String>,
-
-    /// Saved rollback interactive command template name
-    #[arg(long)]
-    pub rollback_interactive_template: Option<String>,
-
-    /// Path to a TOML file containing an ad-hoc rollback interactive command template
-    #[arg(long)]
-    pub rollback_interactive_file: Option<PathBuf>,
-
-    /// Path to a JSON file containing variables for the rollback interactive command
-    #[arg(long)]
-    pub rollback_interactive_vars: Option<PathBuf>,
-
-    /// Inline JSON variables for the rollback interactive command
-    #[arg(long)]
-    pub rollback_interactive_vars_json: Option<String>,
-
-    /// Direct command lines for transaction step(s), can be repeated
-    #[arg(long = "command")]
-    pub commands: Vec<String>,
-
-    /// Per-step rollback command lines, must match --command count (or rendered commands)
-    #[arg(long = "rollback-command")]
-    pub rollback_commands: Vec<String>,
-
-    /// Path to file containing per-step rollback commands (one per line)
-    #[arg(long)]
-    pub rollback_commands_file: Option<PathBuf>,
-
-    /// Path to JSON file containing per-step rollback commands (string array)
-    #[arg(long)]
-    pub rollback_commands_json: Option<PathBuf>,
-
-    /// Roll back the failed step itself when using per-step rollback
-    #[arg(long)]
-    pub rollback_on_failure: bool,
-
-    /// Trigger step index for whole-resource rollback (default 0)
-    #[arg(long)]
-    pub rollback_trigger_step_index: Option<usize>,
-
-    /// Target mode for generated tx steps or interactive command execution
-    #[arg(long, short = 'm')]
-    pub mode: Option<String>,
-
-    /// Timeout (seconds) for each tx step
-    #[arg(long)]
-    pub timeout_secs: Option<u64>,
-
-    /// Explicit whole-resource rollback command (optional)
-    #[arg(long)]
-    pub resource_rollback_command: Option<String>,
-
-    /// Dry run: print planned tx block and exit
-    #[arg(long)]
-    pub dry_run: bool,
-
-    /// Print tx result as JSON
-    #[arg(long)]
-    pub json: bool,
 
     /// Save SSH session recording to this JSONL file
     #[arg(long, short = 'r')]

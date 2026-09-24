@@ -150,26 +150,6 @@ pub(super) fn map_async_response(
     }
 }
 
-pub(super) fn map_execute_tx_block_request(
-    req: GrpcExecuteTxBlockRequest,
-) -> Result<WebExecuteTxBlockRequest, Status> {
-    Ok(WebExecuteTxBlockRequest {
-        tx_block_template_name: optional_string(req.tx_block_template_name),
-        tx_block_template_content: optional_string(req.tx_block_template_content),
-        tx_block_template_vars: parse_json_value(
-            &req.tx_block_template_vars_json,
-            "tx_block_template_vars_json",
-            Value::Null,
-        )?,
-        tx_block: parse_json_value(&req.tx_block_json, "tx_block_json", Value::Null)?,
-        run: DryRunOptions {
-            dry_run: Some(req.dry_run),
-        },
-        target: map_execution_target_options(req.connection, &req.record_level)?,
-        task: map_managed_task_options(req.task_id),
-    })
-}
-
 pub(super) fn map_execute_tx_workflow_request(
     req: GrpcExecuteTxWorkflowRequest,
 ) -> Result<WebExecuteTxWorkflowRequest, Status> {

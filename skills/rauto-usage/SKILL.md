@@ -1,6 +1,6 @@
 ---
 name: rauto-usage
-description: "Operate, author, validate, and troubleshoot current rauto CLI and Web workflows. Prefer show objects for reads; use rollback-aware tx, tx-workflow, or orchestrate for changes; handle SSH device discovery, reusable credentials and saved connections, multi-target execution, configuration collection history, persisted cron schedules, session retries and replay, templates, TextFSM, inventory, backup, upload, local Web startup, and managed-agent startup. Use when Codex needs to run rauto, start its services, build valid plans/templates or schedules, manage devices and configuration history, or diagnose CLI/runtime behavior."
+description: "Operate, author, validate, and troubleshoot current rauto CLI and Web workflows. Prefer show objects for reads; use rollback-aware tx-workflow or orchestrate for changes; handle SSH device discovery, reusable credentials and saved connections, multi-target execution, configuration collection history, persisted cron schedules, session retries and replay, templates, TextFSM, inventory, backup, upload, local Web startup, and managed-agent startup. Use when Codex needs to run rauto, start its services, build valid plans/templates or schedules, manage devices and configuration history, or diagnose CLI/runtime behavior."
 ---
 
 # Rauto Usage
@@ -15,7 +15,7 @@ Apply action-first behavior:
 1. Classify request as read-only, network discovery, config-changing, scheduled automation, local Web startup, or managed-agent startup.
 2. For device state/config retrieval, prefer `rauto show <object>` before raw `exec`.
 3. Execute safe read-only operations immediately.
-4. Prefer rollback-aware flows (`tx`, `tx-workflow`, `orchestrate`) for config changes.
+4. Prefer rollback-aware flows (`tx-workflow`, `orchestrate`) for config changes.
 5. Use `rauto device discover` for SSH network discovery and the latest persisted discovery snapshot.
 6. Start local Web or managed-agent mode directly when the user asks for `rauto web` or `rauto agent`.
 7. Ask confirmation before running destructive or ambiguous change operations.
@@ -36,7 +36,6 @@ Apply action-first behavior:
    - default result filtering is `identified`, which excludes endpoints already represented by saved connections.
 4. Execute `rauto web` or `rauto agent` immediately when the corresponding service startup is explicitly requested. Keep the Web service on its loopback default unless network access is requested explicitly.
 5. Use transaction-family execution with the correct entrypoint (high priority):
-   - `tx`: CLI parameter-driven transaction construction
    - `tx-workflow`: workflow JSON
    - `orchestrate`: multi-device plan JSON whose jobs select saved devices, persisted device groups, or saved-device labels and execute only `tx_workflow` actions
 6. Treat interactive commands as the reusable single-command prompt/response path:
@@ -80,7 +79,7 @@ Apply action-first behavior:
 - Running one command or interactive template across saved targets/groups/labels: multi-target `exec` or `interactive`.
 - Running saved command text with vars: `template`.
 - Handling interactive prompts or wizard-like workflows: `interactive`.
-- Changing config on one target: `tx`.
+- Changing config on one target: `tx-workflow` with one or more blocks.
 - Changing config through reusable multi-block workflow: `tx-workflow`.
 - Changing config across devices/groups/sites: `orchestrate`.
 - Querying many saved devices/groups/labels: multi-target `show`.
@@ -111,7 +110,7 @@ Require explicit confirmation before destructive actions:
 - `rauto backup restore ... --replace`
 - profile/template/connection delete operations
 - schedule deletion and configuration-history record deletion
-- tx/workflow/orchestrate execution when user intent is ambiguous
+- tx-workflow/orchestrate execution when user intent is ambiguous
 - raw `exec` or command-template config changes when a rollback-capable transaction path is available
 
 Enforce safety for config changes:
@@ -128,7 +127,7 @@ If user explicitly asks to execute destructive action, proceed.
 
 Ask only for missing mandatory fields:
 
-- `exec/template/interactive/tx/tx-workflow/upload/device test`:
+- `exec/template/interactive/tx-workflow/upload/device test`:
   require either complete host credentials or a valid `--connection`.
 - `orchestrate`:
   require every job to resolve at least one saved device through `targets`, `target_groups`, or `target_tags`; never generate inline connection objects.

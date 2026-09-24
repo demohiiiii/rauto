@@ -4,7 +4,6 @@
   import FileDownIcon from "@lucide/svelte/icons/file-down";
   import { currentLanguageState, tr } from "$lib/i18n.js";
   import SendIcon from "@lucide/svelte/icons/send";
-  import BoxesIcon from "@lucide/svelte/icons/boxes";
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import WorkflowIcon from "@lucide/svelte/icons/workflow";
   import NetworkIcon from "@lucide/svelte/icons/network";
@@ -59,7 +58,6 @@
     "config-fetch": FileDownIcon,
     command: SendIcon,
     interactive: GitBranchIcon,
-    "tx-block": BoxesIcon,
     "tx-workflow": WorkflowIcon,
     orchestrate: NetworkIcon,
     replay: HistoryIcon,

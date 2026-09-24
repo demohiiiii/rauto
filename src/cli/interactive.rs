@@ -92,8 +92,7 @@ pub(crate) async fn run_interactive(
     opts: &crate::cli::GlobalOpts,
 ) -> Result<()> {
     let template = resolve_interactive_template(&args)?;
-    let vars =
-        crate::cli::tx_block::load_vars_json_input(args.vars.as_ref(), args.vars_json.as_deref())?;
+    let vars = load_vars_json_input(args.vars.as_ref(), args.vars_json.as_deref())?;
     if has_multi_target_selectors(&args.targets, &args.groups, &args.labels) {
         return run_multi_interactive(&args, opts, &template, vars).await;
     }
@@ -205,6 +204,33 @@ pub(crate) async fn run_interactive(
         return Err(anyhow::anyhow!("interactive command completed with errors"));
     }
     Ok(())
+}
+
+fn load_vars_json(path: Option<&PathBuf>) -> Result<serde_json::Value> {
+    match path {
+        Some(path) => {
+            let content = fs::read_to_string(path)?;
+            Ok(serde_json::from_str(&content)?)
+        }
+        None => Ok(serde_json::Value::Null),
+    }
+}
+
+fn load_vars_json_input(
+    path: Option<&PathBuf>,
+    inline_json: Option<&str>,
+) -> Result<serde_json::Value> {
+    match (
+        path,
+        inline_json.map(str::trim).filter(|value| !value.is_empty()),
+    ) {
+        (Some(_), Some(_)) => Err(anyhow::anyhow!(
+            "use either --vars or --vars-json, not both"
+        )),
+        (Some(path), None) => load_vars_json(Some(path)),
+        (None, Some(raw)) => Ok(serde_json::from_str(raw)?),
+        (None, None) => Ok(serde_json::Value::Null),
+    }
 }
 
 /// Cloneable subset of [`InteractiveArgs`] needed by each concurrently

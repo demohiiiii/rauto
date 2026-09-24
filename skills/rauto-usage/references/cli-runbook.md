@@ -70,7 +70,7 @@ rauto interactive --template health-check --target core-01 --target core-02 --ma
 Use raw `exec` for one-off harmless commands or when no show object exists.
 Keep `exec` and stored `template` distinct: use `exec` for literal command text and `template` for a saved command template plus vars.
 For device state/config retrieval, prefer `rauto show`.
-For config changes, prefer `tx`, `tx-workflow`, or `orchestrate`.
+For config changes, prefer `tx-workflow` or `orchestrate`.
 
 `exec`, `interactive`, `show`, and `config fetch` share multi-target selection. Repeat `--target`, `--group`, and `--label`/`--tag`; selectors use deduplicated union semantics. rauto resolves and validates every target before starting concurrent execution.
 
@@ -189,14 +189,13 @@ rauto interactive --template builtin:cisco_like_copy --connection core-01 --vars
 ## Transaction Family (JSON)
 
 ```bash
-rauto tx --command "show version" --rollback-command "show version" --connection edge92 --dry-run
 rauto tx-workflow ./tx-workflow.json --connection edge92 --dry-run
 rauto orchestrate ./orchestration.json --dry-run
 ```
 
-`tx` is parameter-driven from CLI. Use tx-block JSON inside transaction workflows, including workflows later selected by orchestration, and validate it with the bundled validator. Do not use a tx block as a direct orchestration action.
+Use tx-block JSON inside transaction workflows, including workflows later selected by orchestration, and validate it with the bundled validator. Do not use a tx block as a direct orchestration action.
 Use transaction-family commands for config-changing work instead of direct `exec`/`template` whenever a rollback or staged plan is practical.
-For multi-device changes, use `orchestrate`; for reusable single-target change plans, use `tx-workflow`; for one target/one transactional unit, use `tx`.
+For multi-device changes, use `orchestrate`; for reusable single-target change plans, use `tx-workflow`; for one target/one transactional unit, use a one-block `tx-workflow`.
 
 ## Reusable JSON Templates
 

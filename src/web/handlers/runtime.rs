@@ -5,6 +5,8 @@ mod history;
 mod interactive;
 mod tx;
 
+#[cfg(test)]
+pub(crate) use context::sanitize_rendered_output_for_response;
 pub(crate) use context::{
     WebTextfsmParseOptions, build_json_template_context, load_json_template_from_input,
     parse_textfsm_output_optional, render_commands_with_runtime_context,
@@ -18,12 +20,4 @@ pub(crate) use history::{
 pub(crate) use interactive::{
     load_interactive_template_from_input, resolve_interactive_connection_vars,
 };
-pub(crate) use tx::{
-    build_tx_block_from_request, resolve_tx_block_request_from_template,
-    resolve_tx_workflow_blocks_from_templates,
-};
-
-#[cfg(test)]
-pub(crate) use context::sanitize_rendered_output_for_response;
-#[cfg(test)]
-pub(crate) use tx::resolve_tx_block_value_from_input;
+pub(crate) use tx::resolve_tx_workflow_blocks_from_templates;
