@@ -1,3 +1,4 @@
+import { executionHistory } from "../src/domains/execution/index.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -302,6 +303,47 @@ test("show result presentations omit command echoes and prompts from transcripts
 
   showExecutionResultState().set({ kind: "empty" });
   batchShowExecutionResultState().set({ kind: "empty" });
+});
+
+test("show and batch executions retain every run in their history", async (t) => {
+  const previousIds = new Set(
+    get(executionHistory.state).entries.map((entry) => entry.id),
+  );
+  t.mock.method(showRuntime, "ensureConnectionTargetSelected", () => true);
+  t.mock.method(showRuntime, "connectionPayload", () => ({
+    connection_name: "edge-a",
+  }));
+  t.mock.method(showRuntime, "pickerValues", (key: string) => {
+    if (key === CONNECTION_PICKER.showObject) return ["version"];
+    if (key === CONNECTION_PICKER.batchShowObject) return ["version"];
+    if (key === CONNECTION_PICKER.batchShowTargets) return ["edge-a"];
+    return [];
+  });
+  let singleRun = 0;
+  t.mock.method(showApi, "execute", async () =>
+    showResponse({ output: `single-${++singleRun}` }),
+  );
+  let batchRun = 0;
+  t.mock.method(showApi, "executeBatch", async () =>
+    batchResponse([batchTarget({ output: `batch-${++batchRun}` })]),
+  );
+
+  await executeShowObject();
+  await executeShowObject();
+  setBatchShowFields({}, { enabled: false });
+  await executeBatchShowObject();
+  await executeBatchShowObject();
+
+  const runs = get(executionHistory.state).entries.filter(
+    (entry) => !previousIds.has(entry.id),
+  );
+  assert.equal(runs.filter((entry) => entry.scope === "single").length, 2);
+  assert.equal(runs.filter((entry) => entry.scope === "batch").length, 2);
+  assert.ok(
+    runs.every(
+      (entry) => entry.feature === "show" && entry.status === "success",
+    ),
+  );
 });
 
 test("failed show result presentations retain the complete diagnostic transcript", () => {
@@ -665,3 +707,33 @@ test("batch text download snapshots the switch and includes failed devices witho
   assert.ok(text.includes("=== edge-a ===\n$ show version\nversion 1"));
   assert.ok(text.includes("=== edge-b ===\n$ show version\nunreachable"));
 });
+
+for (const missing of ["objects", "targets"] as const) {
+  test(`batch show records missing ${missing} as a visible history failure`, async (t) => {
+    t.after(() => batchShowExecutionResultState().set({ kind: "empty" }));
+    t.mock.method(showRuntime, "pickerValues", (key: string) =>
+      missing === "targets" && key === CONNECTION_PICKER.batchShowObject
+        ? ["version"]
+        : [],
+    );
+    const request = t.mock.method(showApi, "executeBatch", async () =>
+      batchResponse([]),
+    );
+    const previousIds = new Set(
+      get(executionHistory.state).entries.map((entry) => entry.id),
+    );
+    await executeBatchShowObject();
+    const runs = get(executionHistory.state).entries.filter(
+      (entry) => !previousIds.has(entry.id),
+    );
+    assert.equal(request.mock.callCount(), 0);
+    assert.equal(runs.length, 1);
+    assert.equal(runs[0].scope, "batch");
+    assert.equal(runs[0].feature, "show");
+    assert.equal(runs[0].status, "error");
+    const result = get(batchShowExecutionResultState());
+    assert.equal(result.kind, "error");
+    if (result.kind === "error") assert.equal(runs[0].message, result.message);
+    assert.ok(runs[0].message.length > 0);
+  });
+}

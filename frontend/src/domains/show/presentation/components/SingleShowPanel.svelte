@@ -1,214 +1,76 @@
 <script lang="ts">
-  import ExecutionResultMeta from "$components/fragments/ExecutionResultMeta.svelte";
-  import ExecutionResultsPanel from "$components/fragments/ExecutionResultsPanel.svelte";
   import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
-  import LoadingButton from "$components/fragments/LoadingButton.svelte";
-  import OutputBlock from "$components/fragments/OutputBlock.svelte";
-  import ParsedOutputBlock from "$components/fragments/ParsedOutputBlock.svelte";
   import SessionRetryFields from "$components/fragments/SessionRetryFields.svelte";
-  import TabList from "$components/fragments/TabList.svelte";
   import TextfsmControls from "$components/fragments/TextfsmControls.svelte";
   import { currentLanguageState, t } from "$lib/i18n.js";
-  import TerminalIcon from "@lucide/svelte/icons/terminal";
   import { createSingleShowPanelWorkspace } from "../../application/createShowWorkspaces.js";
-  import { exportParsedOutputItemExcel } from "$domains/execution/index.js";
   import ShowObjectSelectionPanel from "./ShowObjectSelectionPanel.svelte";
-  import type { Readable } from "svelte/store";
-
-  type StoreValue<T> = T extends Readable<infer Value> ? Value : never;
-  type PanelWorkspace = ReturnType<typeof createSingleShowPanelWorkspace>;
-  type PanelDisplay = StoreValue<PanelWorkspace["panelDisplayStateStore"]>;
 
   let { active }: { active: boolean } = $props();
-  const singleShowPanelWorkspace = createSingleShowPanelWorkspace();
-  let i18nCurrentLanguage = $derived($currentLanguageState);
-  let i18nLabels = $derived.by(() => {
-    i18nCurrentLanguage;
-    return {
-      runTitle: t("showPanelConfigTitle"),
-      footerHint: t("showFooterHint"),
-      downloadOutput: t("downloadCommandOutput"),
-      resultsHint: t("showResultsHint"),
-      resultCount: t("showResultCount"),
-      resultObjectsAria: t("showResultObjectsAria"),
-      rawOutputTab: t("showRawOutputTab"),
-      parsedOutputTab: t("showParsedOutputTab"),
-      succeeded: t("orchestrationStatusSuccess"),
-      failed: t("orchestrationStatusFailed"),
-    };
-  });
+  const workspace = createSingleShowPanelWorkspace();
   const {
     changeShowObject,
     changeShowObjectMode,
     changeSessionRetry,
     executeSingleShow,
-    exportActionHandlersStateStore,
-    exportLoadingStateStore,
     panelDisplayStateStore,
     selectionDisplayStateStore,
     setPanelContext,
     textfsmActionHandlers,
-  } = singleShowPanelWorkspace;
-
-  let singleShowPanelDisplay: PanelDisplay = $derived($panelDisplayStateStore);
+  } = workspace;
+  let singleShowPanelDisplay = $derived($panelDisplayStateStore);
   let selectionDisplay = $derived($selectionDisplayStateStore);
-  let exportActionHandlers = $derived($exportActionHandlersStateStore);
-  let exportLoadingState = $derived($exportLoadingStateStore);
   let showSelectionFields = $derived(singleShowPanelDisplay.selectionFields);
   let showTextfsmFields = $derived(singleShowPanelDisplay.textfsmFields);
-  let singleShowResults = $derived(singleShowPanelDisplay.resultsDisplay);
   let showRunButtonDisplay = $derived(singleShowPanelDisplay.runButtonDisplay);
   let retryState = $derived(singleShowPanelDisplay.retryState);
-  let activeResultKey = $state("");
-  let resultView = $state("output");
-  let resultRows = $derived(singleShowResults.resultRows || []);
-  let showResultRow = $derived(
-    resultRows.find((resultRow) => resultRow.resultKey === activeResultKey) ||
-      resultRows[0] ||
-      null,
-  );
-  let resultItems = $derived(
-    resultRows.map((row) => ({
-      key: row.resultKey,
-      title: row.objectText,
-      subtitle: row.modeText,
-      statusLabel: row.failed ? i18nLabels.failed : i18nLabels.succeeded,
-      statusTone: row.failed ? ("error" as const) : ("success" as const),
-    })),
-  );
-  let failedCount = $derived(resultRows.filter((row) => row.failed).length);
-
-  $effect(() => {
-    setPanelContext({ active, panelDisplay: singleShowPanelDisplay });
+  let i18nLabels = $derived.by(() => {
+    $currentLanguageState;
+    return {
+      runTitle: t("showPanelConfigTitle"),
+      footerHint: t("showFooterHint"),
+    };
   });
-
-  $effect(() => {
-    if (!resultRows.length) {
-      activeResultKey = "";
-      resultView = "output";
-      return;
-    }
-    if (
-      resultRows.some((resultRow) => resultRow.resultKey === activeResultKey)
-    ) {
-      return;
-    }
-    activeResultKey = resultRows[0].resultKey;
-    resultView = "output";
-  });
-
-  function selectResult(resultKey: string) {
-    activeResultKey = resultKey;
-    resultView = "output";
-  }
+  $effect(() =>
+    setPanelContext({ active, panelDisplay: singleShowPanelDisplay }),
+  );
 </script>
 
-{#snippet exportActions()}
-  <LoadingButton
-    variant="outline"
-    size="sm"
-    onclick={exportActionHandlers.downloadOutput}
-    >{i18nLabels.downloadOutput}</LoadingButton
-  >
-  {#if singleShowResults.exportAvailable}
-    <LoadingButton
-      variant="outline"
-      size="sm"
-      loading={exportLoadingState.exportLoading}
-      onclick={exportActionHandlers.export}
-    >
-      <span>{singleShowResults.exportButtonLabel}</span>
-    </LoadingButton>
+<div class="flex min-w-0 flex-col gap-5 p-4 sm:p-5" hidden={!active}>
+  <ShowObjectSelectionPanel
+    onModeChange={changeShowObjectMode}
+    onObjectChange={changeShowObject}
+    {selectionDisplay}
+    {showSelectionFields}
+  />
+
+  {#if active}
+    <TextfsmControls
+      hintKey="textfsmParseHint"
+      includeTemplateInput={false}
+      onEnabledChange={textfsmActionHandlers.enabledChange}
+      onAutoDownloadExcelChange={textfsmActionHandlers.autoDownloadExcelChange}
+      onStrictErrorsChange={textfsmActionHandlers.strictErrorsChange}
+      textfsmFields={showTextfsmFields}
+    />
   {/if}
-{/snippet}
 
-<div class="flex flex-col gap-3" hidden={!active}>
-  <div class="flex min-w-0 flex-col gap-5 p-4 sm:p-5">
-    <ShowObjectSelectionPanel
-      onModeChange={changeShowObjectMode}
-      onObjectChange={changeShowObject}
-      {selectionDisplay}
-      {showSelectionFields}
-    />
+  <SessionRetryFields
+    idPrefix="single-show-session-retry"
+    value={retryState}
+    onChange={changeSessionRetry}
+  />
 
-    {#if active}
-      <TextfsmControls
-        hintKey="textfsmParseHint"
-        includeTemplateInput={false}
-        onEnabledChange={textfsmActionHandlers.enabledChange}
-        onAutoDownloadExcelChange={textfsmActionHandlers.autoDownloadExcelChange}
-        onStrictErrorsChange={textfsmActionHandlers.strictErrorsChange}
-        textfsmFields={showTextfsmFields}
-      />
-    {/if}
-
-    <SessionRetryFields
-      idPrefix="single-show-session-retry"
-      value={retryState}
-      onChange={changeSessionRetry}
-    />
-
-    <ExecutionRunBar
-      autoDownloadOutput={showTextfsmFields.autoDownloadOutput}
-      onAutoDownloadOutputChange={textfsmActionHandlers.autoDownloadOutputChange}
-      title={i18nLabels.runTitle}
-      hint={i18nLabels.footerHint}
-      buttonLabel={showRunButtonDisplay.executeButtonLabel}
-      loading={showRunButtonDisplay.executeLoading}
-      disabled={!singleShowPanelDisplay.retryValid}
-      onRun={executeSingleShow}
-    />
-  </div>
-
-  {#if singleShowResults.resultCount || singleShowResults.statusMessage}
-    <ExecutionResultsPanel
-      title={singleShowResults.title}
-      description={i18nLabels.resultsHint}
-      icon={TerminalIcon}
-      items={resultItems}
-      activeKey={activeResultKey}
-      navigationAriaLabel={i18nLabels.resultObjectsAria}
-      onSelect={selectResult}
-      statusMessage={singleShowResults.statusMessage}
-      statusTone={singleShowResults.statusTone}
-      totalCount={singleShowResults.resultCount}
-      succeededCount={singleShowResults.resultCount - failedCount}
-      {failedCount}
-      totalLabel={i18nLabels.resultCount}
-      succeededLabel={i18nLabels.succeeded}
-      failedLabel={i18nLabels.failed}
-      actions={singleShowResults.resultCount ? exportActions : undefined}
-    >
-      {#snippet detail()}
-        {#if showResultRow}
-          <ExecutionResultMeta fields={showResultRow.metaFields} />
-          {#if singleShowResults.textfsmEnabled}
-            <TabList
-              tabItems={[
-                { value: "output", label: i18nLabels.rawOutputTab },
-                { value: "parsed", label: i18nLabels.parsedOutputTab },
-              ]}
-              activeValue={resultView}
-              aria-label={i18nLabels.resultsHint}
-              onSelect={(view) => (resultView = view)}
-            />
-          {/if}
-          {#if !singleShowResults.textfsmEnabled || resultView === "output"}
-            <OutputBlock
-              title={showResultRow.outputTitle}
-              tone={showResultRow.failed ? "error" : "default"}
-              errorLabel={i18nLabels.failed}
-            >
-              {showResultRow.outputText}
-            </OutputBlock>
-          {:else}
-            <ParsedOutputBlock
-              parsedOutputBlock={showResultRow.parsedOutputBlock}
-              onExportExcel={exportParsedOutputItemExcel}
-            />
-          {/if}
-        {/if}
-      {/snippet}
-    </ExecutionResultsPanel>
-  {/if}
+  <ExecutionRunBar
+    docked={true}
+    {active}
+    autoDownloadOutput={showTextfsmFields.autoDownloadOutput}
+    onAutoDownloadOutputChange={textfsmActionHandlers.autoDownloadOutputChange}
+    title={i18nLabels.runTitle}
+    hint={i18nLabels.footerHint}
+    buttonLabel={showRunButtonDisplay.executeButtonLabel}
+    loading={showRunButtonDisplay.executeLoading}
+    disabled={!singleShowPanelDisplay.retryValid}
+    onRun={executeSingleShow}
+  />
 </div>

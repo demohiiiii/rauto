@@ -109,7 +109,9 @@
   </div>
 {/snippet}
 
-<Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+<Card.Root
+  class="min-w-0 max-w-full gap-0 overflow-hidden border-border/80 py-0 shadow-sm"
+>
   <WorkspaceActionHeader
     {title}
     {description}

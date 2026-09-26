@@ -4,6 +4,7 @@ import {
   connectionPickerState,
 } from "$domains/connections/index.js";
 import {
+  executionHistory,
   downloadCommandOutput,
   exportParsedOutputSheetsExcel,
 } from "$domains/execution/index.js";
@@ -81,10 +82,39 @@ export function createBatchDeliveryWorkspace(kind: "command" | "interactive") {
     if (running || destroyed) return false;
     running = true;
     const { enabled, autoDownloadExcel, autoDownloadOutput } = settings;
+    const historyId = executionHistory.start(kind, "batch", enabled);
     resultStore.set({ kind: "running" });
     downloadErrorStore.set("");
     try {
       const rows = await request();
+      executionHistory.finish(
+        historyId,
+        rows.flatMap((row) => {
+          const outputs = row.outputs.map((output) => ({
+            ...output,
+            device: row.target,
+            host: row.host,
+            profile: row.profile,
+          }));
+          if (row.error || !outputs.length)
+            outputs.push({
+              command: "",
+              output: "",
+              all: null,
+              parsed_output: null,
+              parse_error: null,
+              exit_code: null,
+              error: row.error,
+              success: row.success !== false && !row.error,
+              device: row.target,
+              host: row.host,
+              profile: row.profile,
+            });
+          return outputs;
+        }),
+        "",
+        rows.some((row) => row.success === false),
+      );
       if (destroyed) return false;
       resultStore.set({ kind: "result", resultPayload: rows });
       try {
@@ -97,6 +127,10 @@ export function createBatchDeliveryWorkspace(kind: "command" | "interactive") {
       }
       return true;
     } catch (error) {
+      executionHistory.fail(
+        historyId,
+        error instanceof Error ? error.message : String(error),
+      );
       if (!destroyed)
         resultStore.set({
           kind: "error",

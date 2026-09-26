@@ -177,7 +177,7 @@ function showResultDisplayBase(
   };
 }
 
-function showResultsExecutionDisplay(
+export function showResultsExecutionDisplay(
   showResult: ShowExecutionResult = EMPTY_RESULT,
 ): ShowResultDisplay {
   if (showResult.kind === "running") {
@@ -206,7 +206,9 @@ function singleShowExportSheets(
   });
 }
 
-function singleShowResultsPresentation(resultDisplay: ShowResultDisplay) {
+export function singleShowResultsPresentation(
+  resultDisplay: ShowResultDisplay,
+) {
   const connection = resultDisplay.basePayload?.connection;
   const exportSheets = singleShowExportSheets(resultDisplay);
   const showResults = Array.isArray(resultDisplay?.showResults)
@@ -511,7 +513,7 @@ function batchShowDeviceRows(
   return deviceRows;
 }
 
-function batchShowResultsPresentation(
+export function batchShowResultsPresentation(
   batchPayload: ShowBatchExecuteResponse | null = null,
 ) {
   const batchResult = batchPayload;
@@ -546,7 +548,7 @@ async function exportSingleShowResultsExcel(
   });
 }
 
-function batchShowResultsDisplay(
+export function batchShowResultsDisplay(
   executionResult: BatchShowExecutionResult | null = null,
 ): BatchExecutionDisplay & {
   showResultPanel: boolean;
@@ -659,6 +661,7 @@ export function createShowPageWorkspace({
   afterDomUpdate?: AfterDomUpdate;
 } = {}) {
   const batchShowExecutionResultStateStore = batchShowExecutionResultState();
+  const showExecutionResultStateStore = showExecutionResultState();
   const currentQueryState = writable(DEFAULT_SHOW_PAGE_QUERY);
   const pageDisplayStateStore = derived(
     [currentQueryState, currentLanguageState],
@@ -674,6 +677,13 @@ export function createShowPageWorkspace({
     [batchResultDisplayStateStore, currentLanguageState],
     ([$batchResultDisplay, _currentLanguageState]) =>
       batchShowResultsPresentation($batchResultDisplay.resultPayload),
+  );
+  const singleResultsPresentationStateStore = derived(
+    [showExecutionResultStateStore, currentLanguageState],
+    ([$showExecutionResult, _currentLanguageState]) =>
+      singleShowResultsPresentation(
+        showResultsExecutionDisplay($showExecutionResult),
+      ),
   );
   let lastExecutionProfile = "";
   let lastConnectionTargetKey = "";
@@ -720,6 +730,7 @@ export function createShowPageWorkspace({
     currentQueryState,
     destroy,
     pageDisplayStateStore,
+    singleResultsPresentationStateStore,
     selectQuery,
     setRouteContext,
   };

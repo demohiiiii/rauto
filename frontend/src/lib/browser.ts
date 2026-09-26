@@ -44,6 +44,25 @@ export function storageRemove(key: string): boolean {
   }
 }
 
+export function sessionStorageGet(key: string, fallback = ""): string {
+  try {
+    if (!hasWindow()) return fallback;
+    return window.sessionStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function sessionStorageSet(key: string, value: string): boolean {
+  try {
+    if (!hasWindow()) return false;
+    window.sessionStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function browserPrompt(
   message: string,
   initialValue = "",

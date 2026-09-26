@@ -1,5 +1,6 @@
 <script lang="ts">
   import SearchIcon from "@lucide/svelte/icons/search";
+  import ExecutionDock from "$components/fragments/ExecutionDock.svelte";
   import ExecutionScopePanel from "$components/fragments/ExecutionScopePanel.svelte";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import { afterDomUpdate } from "$lib/svelte.js";
@@ -9,7 +10,6 @@
     showExecutionConnectionProfileState,
   } from "$domains/show/index.js";
   import BatchShowInputPanel from "./BatchShowInputPanel.svelte";
-  import BatchShowResultsPanel from "./BatchShowResultsPanel.svelte";
   import SingleShowPanel from "./SingleShowPanel.svelte";
 
   let { active }: { active: boolean } = $props();
@@ -18,18 +18,11 @@
     return { title: t("showPanelConfigTitle"), hint: t("showPanelConfigHint") };
   });
   const showPageWorkspace = createShowPageWorkspace({ afterDomUpdate });
-  const {
-    batchResultDisplayStateStore,
-    batchResultsPresentationStateStore,
-    currentQueryState,
-    pageDisplayStateStore,
-  } = showPageWorkspace;
+  const { currentQueryState, pageDisplayStateStore } = showPageWorkspace;
   let currentTab = $derived($currentQueryState);
   let pageDisplay = $derived($pageDisplayStateStore);
   let singleActive = $derived(active && pageDisplay.singleActive);
   let batchActive = $derived(active && pageDisplay.batchActive);
-  let batchResultDisplay = $derived($batchResultDisplayStateStore);
-  let batchResultsPresentation = $derived($batchResultsPresentationStateStore);
 
   $effect(() => {
     showPageWorkspace.setRouteContext({
@@ -46,7 +39,7 @@
 </script>
 
 <div class="tab-panel" role="tabpanel" hidden={!active}>
-  <div class="grid gap-3">
+  <ExecutionDock {active} feature="show">
     <ExecutionScopePanel
       title={labels.title}
       description={labels.hint}
@@ -60,14 +53,10 @@
           <SingleShowPanel active={true} />
         </div>
       {:else if batchActive}
-        <div class="workspace-panel-enter grid gap-3">
+        <div class="workspace-panel-enter min-w-0">
           <BatchShowInputPanel active={true} />
-          <BatchShowResultsPanel
-            {batchResultDisplay}
-            {batchResultsPresentation}
-          />
         </div>
       {/if}
     </ExecutionScopePanel>
-  </div>
+  </ExecutionDock>
 </div>

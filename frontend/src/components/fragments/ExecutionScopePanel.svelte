@@ -27,7 +27,9 @@
   }: Props = $props();
 </script>
 
-<Card.Root class="gap-0 overflow-clip border-border/80 py-0 shadow-sm">
+<Card.Root
+  class="min-w-0 max-w-full gap-0 overflow-clip border-border/80 py-0 shadow-sm"
+>
   <WorkspaceActionHeader {title} {description} {icon}>
     {#snippet actions()}
       <TabList

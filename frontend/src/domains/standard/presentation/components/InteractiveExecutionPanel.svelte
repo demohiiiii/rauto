@@ -2,11 +2,9 @@
   import { onDestroy, untrack } from "svelte";
   import { createBatchDeliveryWorkspace } from "../../application/createBatchDeliveryWorkspace.js";
   import BatchDeliveryTargets from "./batch/BatchDeliveryTargets.svelte";
-  import BatchDeliveryResults from "./batch/BatchDeliveryResults.svelte";
   import CopyPlusIcon from "@lucide/svelte/icons/copy-plus";
   import FilePlusIcon from "@lucide/svelte/icons/file-plus";
   import SaveIcon from "@lucide/svelte/icons/save";
-  import TerminalIcon from "@lucide/svelte/icons/terminal";
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import SlidersHorizontalIcon from "@lucide/svelte/icons/sliders-horizontal";
   import { Badge } from "$lib/components/ui/badge/index.js";
@@ -18,22 +16,13 @@
   } from "$domains/command/presentation/components/index.js";
   import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";
-  import ExecutionResultMeta from "$components/fragments/ExecutionResultMeta.svelte";
-  import ExecutionResultsPanel from "$components/fragments/ExecutionResultsPanel.svelte";
-  import OutputBlock from "$components/fragments/OutputBlock.svelte";
-  import ParsedOutputBlock from "$components/fragments/ParsedOutputBlock.svelte";
   import PlainInputField from "$components/fragments/PlainInputField.svelte";
   import SessionRetryFields from "$components/fragments/SessionRetryFields.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
   import StringSelectField from "$components/fragments/StringSelectField.svelte";
   import TextfsmControls from "$components/fragments/TextfsmControls.svelte";
-  import { exportParsedOutputItemExcel } from "$domains/execution/index.js";
   import { createInteractiveExecutionPanelWorkspace } from "../../application/createStandardExecutionWorkspaces.js";
   import { currentLanguageState, t } from "$lib/i18n.js";
-
-  function resultTone(success: boolean): "error" | "success" {
-    return success ? "success" : "error";
-  }
 
   let { active, batch = false }: { active: boolean; batch?: boolean } =
     $props();
@@ -41,7 +30,6 @@
     batch ? createBatchDeliveryWorkspace("interactive") : undefined,
   );
   onDestroy(() => batchWorkspace?.destroy());
-  let activeResultKey = $state("");
   const interactiveExecutionWorkspace =
     createInteractiveExecutionPanelWorkspace(batchWorkspace);
   const {
@@ -62,22 +50,14 @@
     interactivePanelDisplayStateStore,
     openNewInteractiveDialog,
     openSaveAsInteractiveDialog,
-    runActionHandlers,
     saveInteractiveTemplate,
     setPanelContext,
     submitInteractiveNameDialog,
   } = interactiveExecutionWorkspace;
   let interactivePanelDisplay = $derived($interactivePanelDisplayStateStore);
   let authoringDisplay = $derived(interactivePanelDisplay.authoringDisplay);
-  let interactiveExecutionDisplay = $derived(
-    interactivePanelDisplay.executionStatusDisplay,
-  );
-  let exportLoading = $derived(interactivePanelDisplay.exportLoading);
   let interactiveInputDisplay = $derived(
     interactivePanelDisplay.interactiveInputDisplay,
-  );
-  let interactiveResultPresentation = $derived(
-    interactivePanelDisplay.interactiveResultDisplay,
   );
   let interactiveRunButtonDisplay = $derived(
     interactivePanelDisplay.interactiveRunButtonDisplay,
@@ -95,7 +75,6 @@
     interactivePanelDisplay.interactiveRetryState,
   );
   let nameDialog = $derived(authoringDisplay.nameDialog);
-  let exportResultExcel = $derived(runActionHandlers.export);
   let authoringBusy = $derived(!!authoringDisplay.loadingAction);
   let currentDraftName = $derived(
     authoringDisplay.selection.name || interactiveInputDisplay.newSourceLabel,
@@ -128,48 +107,6 @@
       ready: t("interactiveStudioExecutionHint"),
     };
   });
-  let interactiveResultItems = $derived(
-    interactiveResultPresentation.resultRows.map((row, index) => ({
-      key: `${row.commandText || "step"}:${index}`,
-      row,
-      title: row.commandText || "-",
-      subtitle: row.exitCodeMetaText,
-      statusLabel: row.statusLabel,
-      statusTone: resultTone(row.success),
-    })),
-  );
-  let activeResultItem = $derived(
-    interactiveResultItems.find((item) => item.key === activeResultKey) ||
-      interactiveResultItems[0] ||
-      null,
-  );
-  let activeInteractiveResult = $derived(activeResultItem?.row || null);
-  let failedResultCount = $derived(
-    interactiveResultPresentation.resultRows.filter((row) => !row.success)
-      .length,
-  );
-  let interactiveResultStatusMessage = $derived(
-    interactiveExecutionDisplay.statusMessage ||
-      (interactiveResultPresentation.hasResult && !interactiveResultItems.length
-        ? interactiveResultPresentation.resultSummaryMessage
-        : ""),
-  );
-  let activeResultMetaFields = $derived(
-    activeInteractiveResult
-      ? [
-          {
-            label: t("fieldCommand"),
-            value: activeInteractiveResult.commandText,
-            mono: true,
-          },
-          {
-            label: t("txBlockResultExitCode"),
-            value: activeInteractiveResult.exitCodeText,
-          },
-        ]
-      : [],
-  );
-
   function handleNameDialogOpenChange(open: boolean) {
     if (!open) closeInteractiveNameDialog();
   }
@@ -183,95 +120,7 @@
   $effect(() => {
     setPanelContext({ active, interactivePanelDisplay });
   });
-
-  $effect(() => {
-    if (!interactiveResultItems.length) {
-      activeResultKey = "";
-      return;
-    }
-    if (!interactiveResultItems.some((item) => item.key === activeResultKey)) {
-      activeResultKey = interactiveResultItems[0].key;
-    }
-  });
 </script>
-
-{#snippet exportActions()}
-  <LoadingButton
-    variant="outline"
-    size="sm"
-    onclick={runActionHandlers.downloadOutput}
-    >{t("downloadCommandOutput")}</LoadingButton
-  >
-  {#if interactiveResultPresentation.exportAvailable}
-    <LoadingButton
-      variant="outline"
-      size="sm"
-      loading={exportLoading}
-      onclick={exportResultExcel}
-    >
-      <span>{interactiveResultPresentation.exportButtonLabel}</span>
-    </LoadingButton>
-  {/if}
-{/snippet}
-
-{#snippet interactiveExecutionResults()}
-  {#if interactiveExecutionDisplay.statusMessage || interactiveResultPresentation.hasResult}
-    <div class="border-t-4 border-muted p-4 sm:p-5">
-      <ExecutionResultsPanel
-        icon={TerminalIcon}
-        title={interactiveInputDisplay.resultsTitleText}
-        description={interactiveInputDisplay.resultsDescriptionText}
-        items={interactiveResultItems}
-        activeKey={activeResultItem?.key || ""}
-        navigationAriaLabel={interactiveInputDisplay.resultsTitleText}
-        onSelect={(key) => (activeResultKey = key)}
-        statusMessage={interactiveResultStatusMessage}
-        statusTone={interactiveExecutionDisplay.statusTone}
-        totalCount={interactiveResultPresentation.hasResult
-          ? interactiveResultPresentation.resultRows.length
-          : null}
-        succeededCount={interactiveResultPresentation.hasResult
-          ? interactiveResultPresentation.resultRows.length - failedResultCount
-          : null}
-        failedCount={interactiveResultPresentation.hasResult
-          ? failedResultCount
-          : null}
-        totalLabel={t("showResultCount")}
-        succeededLabel={t("orchestrationStatusSuccess", "Success")}
-        failedLabel={t("orchestrationStatusFailed", "Failed")}
-        actions={interactiveResultPresentation.hasResultRows
-          ? exportActions
-          : undefined}
-      >
-        {#snippet detail()}
-          {#if activeInteractiveResult}
-            <ExecutionResultMeta fields={activeResultMetaFields} />
-            {#if activeInteractiveResult.error}
-              <StatusCard
-                message={activeInteractiveResult.error}
-                tone="error"
-                variant="alert"
-              />
-            {/if}
-            <OutputBlock
-              title={activeInteractiveResult.commandText}
-              tone={activeResultItem?.statusTone}
-              errorLabel={t("orchestrationStatusFailed", "Failed")}
-            >
-              {activeInteractiveResult.outputText}
-            </OutputBlock>
-            {#if activeInteractiveResult.parsedOutputBlock}
-              <ParsedOutputBlock
-                parsedOutputBlock={activeInteractiveResult.parsedOutputBlock}
-                onExportExcel={exportParsedOutputItemExcel}
-              />
-            {/if}
-          {/if}
-        {/snippet}
-      </ExecutionResultsPanel>
-    </div>
-  {/if}
-{/snippet}
 
 <div
   data-interactive-workbench
@@ -466,6 +315,8 @@
   </div>
 
   <ExecutionRunBar
+    docked={true}
+    {active}
     autoDownloadOutput={interactiveTextfsmFields.autoDownloadOutput}
     onAutoDownloadOutputChange={changeInteractiveAutoDownloadOutput}
     hint={studioLabels.ready}
@@ -485,9 +336,6 @@
       {interactiveInputDisplay.interactiveVariableCountLabel}
     {/snippet}
   </ExecutionRunBar>
-  {#if batchWorkspace}<BatchDeliveryResults
-      workspace={batchWorkspace}
-    />{:else}{@render interactiveExecutionResults()}{/if}
 </div>
 
 <Dialog.Root open={nameDialog.open} onOpenChange={handleNameDialogOpenChange}>

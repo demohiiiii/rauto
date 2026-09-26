@@ -1,3 +1,4 @@
+import { executionHistory } from "$domains/execution/index.js";
 import { get, writable } from "svelte/store";
 import { t } from "../../../lib/i18n.js";
 import { configFetchApi } from "../infrastructure/configFetchApi.js";
@@ -204,6 +205,10 @@ export function createConfigFetchWorkspace(
       return;
     }
 
+    const historyId = executionHistory.start(
+      "config-fetch",
+      request.mode === "batch" ? "batch" : "single",
+    );
     resultState.set({ kind: "running" });
     try {
       const resultPayload =
@@ -212,8 +217,29 @@ export function createConfigFetchWorkspace(
               await api.fetchConfig(request.payload),
             )
           : await api.fetchConfigBatch(request.payload);
+      executionHistory.finish(
+        historyId,
+        resultPayload.results.map((row) => ({
+          device: row.target || row.host,
+          host: row.host,
+          profile: row.profile,
+          command: row.command,
+          config_kind: row.kind,
+          output: row.content,
+          all: row.all,
+          error: row.error,
+          success: !row.error,
+          normalized_content: row.normalized_content,
+          sha256: row.sha256,
+          normalized_sha256: row.normalized_sha256,
+          fetched_at: row.fetched_at,
+        })),
+        "",
+        resultPayload.execution_response?.success === false,
+      );
       resultState.set({ kind: "result", resultPayload });
     } catch (error) {
+      executionHistory.fail(historyId, errorMessage(error));
       resultState.set({ kind: "error", message: errorMessage(error) });
     }
   }

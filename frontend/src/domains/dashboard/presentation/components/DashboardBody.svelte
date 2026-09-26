@@ -101,7 +101,7 @@
 </svelte:head>
 
 <div aria-busy={busy}>
-  <div class={shellClass}>
+  <div data-dashboard-shell class={shellClass}>
     <div class="hidden lg:block lg:min-h-0">
       <DashboardSidebar
         collapsed={desktopSidebarCollapsed}

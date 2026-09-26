@@ -6,6 +6,7 @@ import {
   normalizeCommandTemplateNames,
 } from "$domains/command/index.js";
 import {
+  executionHistory,
   downloadCommandOutput,
   exportParsedOutputSheetsExcel,
   parsedOutputSheetsFromParsedOutputItems,
@@ -411,6 +412,11 @@ export function createStandardCommandExecutionWorkspace({
     if (!runtime.ensureTarget()) return false;
     const autoDownloadExcel = get(stateStore).textfsm.autoDownloadExcel;
     const autoDownloadOutput = get(stateStore).textfsm.autoDownloadOutput;
+    const historyId = executionHistory.start(
+      "command",
+      "single",
+      get(stateStore).textfsm.enabled,
+    );
     setLoading("execute", true);
     stateStore.update((state) => ({
       ...state,
@@ -421,6 +427,12 @@ export function createStandardCommandExecutionWorkspace({
       const deviceName =
         payload.connection?.connection_name || payload.connection?.host || "";
       const response = await api.executeTemplate(payload);
+      executionHistory.finish(
+        historyId,
+        response.executed.map((item) => ({ ...item, device: deviceName })),
+        "",
+        response.result_summary?.success === false,
+      );
       if (destroyed) return false;
       stateStore.update((state) => ({
         ...state,
@@ -448,6 +460,7 @@ export function createStandardCommandExecutionWorkspace({
       }
       return true;
     } catch (error) {
+      executionHistory.fail(historyId, errorMessage(error));
       if (!destroyed) {
         stateStore.update((state) => ({
           ...state,

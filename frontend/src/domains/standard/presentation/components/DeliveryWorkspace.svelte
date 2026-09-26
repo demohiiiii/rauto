@@ -2,6 +2,7 @@
   import { untrack, type Snippet } from "svelte";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import GitBranchIcon from "@lucide/svelte/icons/git-branch";
+  import ExecutionDock from "$components/fragments/ExecutionDock.svelte";
   import ExecutionScopePanel from "$components/fragments/ExecutionScopePanel.svelte";
   import DashboardTabPanel from "$components/layout/DashboardTabPanel.svelte";
   import type { DeliveryTargetMode } from "$config/dashboardModes.js";
@@ -52,7 +53,7 @@
 </script>
 
 <DashboardTabPanel {active}>
-  <div class="grid gap-3">
+  <ExecutionDock {active} feature={kind}>
     <ExecutionScopePanel
       title={labels.title}
       description={labels.hint}
@@ -71,5 +72,5 @@
         </div>
       {/if}
     </ExecutionScopePanel>
-  </div>
+  </ExecutionDock>
 </DashboardTabPanel>

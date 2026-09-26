@@ -2,41 +2,29 @@
   import * as Alert from "$lib/components/ui/alert";
   import * as Card from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
-  import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
-  import { Separator } from "$lib/components/ui/separator";
   import { Switch } from "$lib/components/ui/switch";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
-  import DownloadIcon from "@lucide/svelte/icons/download";
   import FileDownIcon from "@lucide/svelte/icons/file-down";
   import CircleAlertIcon from "@lucide/svelte/icons/circle-alert";
   import { ConnectionPickerField } from "$domains/connections/presentation/components/fields/index.js";
-  import ExecutionResultMeta from "$components/fragments/ExecutionResultMeta.svelte";
-  import ExecutionResultsPanel from "$components/fragments/ExecutionResultsPanel.svelte";
-  import LoadingButton from "$components/fragments/LoadingButton.svelte";
-  import OutputBlock from "$components/fragments/OutputBlock.svelte";
+  import ExecutionDock from "$components/fragments/ExecutionDock.svelte";
+  import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
+  import StatusCard from "$components/fragments/StatusCard.svelte";
   import SessionRetryFields from "$components/fragments/SessionRetryFields.svelte";
-  import TabList from "$components/fragments/TabList.svelte";
   import ValueLabelSelectField from "$components/fragments/ValueLabelSelectField.svelte";
   import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
   import DashboardTabPanel from "$components/layout/DashboardTabPanel.svelte";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import {
-    CONFIG_FETCH_CONTENT_VIEW,
     CONFIG_FETCH_TARGET_MODE,
-    type ConfigFetchContentView,
     type ConfigFetchTargetMode,
-    configFetchContent,
     configFetchConnectionTargetState as connectionTargetState,
     configFetchFormState,
     configFetchKindAvailable,
     configFetchKindCatalogState,
-    configFetchResultCounts,
-    configFetchResultRows,
     configFetchResultState,
-    configFetchTimestamp,
     configFetchTargetPickerFields,
-    downloadConfigFetchResult,
     executeConfigFetch,
     normalizeConfigFetchTargetMode,
     refreshConfigFetchKindOptions,
@@ -51,25 +39,8 @@
   let kindCatalog = $derived($configFetchKindCatalogState);
   let connectionTarget = $derived($connectionTargetState);
   let result = $derived($configFetchResultState);
-  let activeTarget = $state<string>("");
-  let contentView = $state<ConfigFetchContentView>(
-    CONFIG_FETCH_CONTENT_VIEW.raw,
-  );
   let targetModeValue = $state<ConfigFetchTargetMode>(
     CONFIG_FETCH_TARGET_MODE.current,
-  );
-  let resultRows = $derived(
-    result.kind === "result" ? configFetchResultRows(result.resultPayload) : [],
-  );
-  let resultCounts = $derived(
-    result.kind === "result"
-      ? configFetchResultCounts(result.resultPayload)
-      : { failed: 0, succeeded: 0, total: 0 },
-  );
-  let activeResult = $derived(
-    resultRows.find((row) => row.target === activeTarget) ||
-      resultRows[0] ||
-      null,
   );
   let running = $derived(result.kind === "running");
   let kindAvailable = $derived(
@@ -111,22 +82,6 @@
       maxParallel: t("batchExecMaxParallelLabel"),
       footerHint: t("configFetchFooterHint"),
       runButton: t("configFetchRunBtn"),
-      resultsTitle: t("configFetchResultsTitle"),
-      resultsHint: t("configFetchResultsHint"),
-      total: t("configFetchTotalLabel"),
-      succeeded: t("configFetchSucceededLabel"),
-      failed: t("configFetchFailedLabel"),
-      devicesAria: t("configFetchDevicesAria"),
-      host: t("fieldHost"),
-      profile: t("showResultProfile"),
-      command: t("showResultCommand"),
-      fetchedAt: t("configFetchFetchedAtLabel"),
-      rawHash: t("configFetchRawHashLabel"),
-      normalizedHash: t("configFetchNormalizedHashLabel"),
-      rawTab: t("configFetchRawTab"),
-      normalizedTab: t("configFetchNormalizedTab"),
-      download: t("configFetchDownloadBtn"),
-      resultEmpty: t("configFetchResultEmpty"),
       pickerFields: configFetchTargetPickerFields.map((field) => ({
         ...field,
         labelText: t(field.labelKey),
@@ -134,15 +89,6 @@
       })),
     };
   });
-  let resultItems = $derived(
-    resultRows.map((row, index) => ({
-      key: row.target || String(index),
-      title: row.target || "-",
-      subtitle: [row.host, row.profile].filter(Boolean).join(" · "),
-      statusLabel: row.error ? pageLabels.failed : pageLabels.succeeded,
-      statusTone: row.error ? ("error" as const) : ("success" as const),
-    })),
-  );
   let configCommandMissing = $derived(
     kindCatalog.kind === "ready" && kindCatalog.options.length === 0,
   );
@@ -151,66 +97,6 @@
       "{profile}",
       kindCatalog.profile || currentTargetProfile,
     ),
-  );
-  let contentTabs = $derived(
-    activeResult && typeof activeResult.normalized_content === "string"
-      ? [
-          {
-            value: CONFIG_FETCH_CONTENT_VIEW.raw,
-            label: pageLabels.rawTab,
-          },
-          {
-            value: CONFIG_FETCH_CONTENT_VIEW.normalized,
-            label: pageLabels.normalizedTab,
-          },
-        ]
-      : [
-          {
-            value: CONFIG_FETCH_CONTENT_VIEW.raw,
-            label: pageLabels.rawTab,
-          },
-        ],
-  );
-  let statusMessage = $derived.by(() => {
-    currentLanguage;
-    if (result.kind === "error") return result.message;
-    if (result.kind === "running") return t("configFetchRunning");
-    return "";
-  });
-  let statusTone = $derived<"error" | "running" | "success" | "warning">(
-    result.kind === "error"
-      ? "error"
-      : result.kind === "running"
-        ? "running"
-        : resultCounts.failed === 0
-          ? "success"
-          : resultCounts.succeeded > 0
-            ? "warning"
-            : "error",
-  );
-  let activeMetaFields = $derived(
-    activeResult
-      ? [
-          { label: pageLabels.host, value: activeResult.host },
-          { label: pageLabels.profile, value: activeResult.profile },
-          { label: pageLabels.kind, value: activeResult.kind },
-          {
-            label: pageLabels.fetchedAt,
-            value: configFetchTimestamp(activeResult.fetched_at),
-          },
-          {
-            label: pageLabels.command,
-            value: activeResult.command,
-            mono: true,
-          },
-          { label: pageLabels.rawHash, value: activeResult.sha256, mono: true },
-          {
-            label: pageLabels.normalizedHash,
-            value: activeResult.normalized_sha256,
-            mono: true,
-          },
-        ]
-      : [],
   );
   let lastKindCatalogTarget = "";
 
@@ -237,32 +123,6 @@
     void refreshConfigFetchKindOptions(targetMode);
   });
 
-  $effect(() => {
-    if (!resultRows.length) {
-      activeTarget = "";
-      contentView = CONFIG_FETCH_CONTENT_VIEW.raw;
-      return;
-    }
-    if (!resultRows.some((row) => row.target === activeTarget)) {
-      activeTarget = resultRows[0]?.target || "";
-      contentView = CONFIG_FETCH_CONTENT_VIEW.raw;
-    }
-  });
-
-  $effect(() => {
-    if (
-      contentView === CONFIG_FETCH_CONTENT_VIEW.normalized &&
-      typeof activeResult?.normalized_content !== "string"
-    ) {
-      contentView = CONFIG_FETCH_CONTENT_VIEW.raw;
-    }
-  });
-
-  function selectTarget(target: string) {
-    activeTarget = target;
-    contentView = CONFIG_FETCH_CONTENT_VIEW.raw;
-  }
-
   function selectTargetMode(targetMode: string) {
     const nextTargetMode = normalizeConfigFetchTargetMode(targetMode, "");
     if (!nextTargetMode) {
@@ -275,7 +135,7 @@
 </script>
 
 <DashboardTabPanel {active}>
-  <div class="grid min-w-0 gap-4">
+  <ExecutionDock {active} feature="config-fetch">
     <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
       <WorkspaceActionHeader
         title={pageLabels.title}
@@ -456,90 +316,23 @@
             />
           </section>
         </div>
-
-        <Separator />
-
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="max-w-3xl text-xs text-muted-foreground">
-            {pageLabels.footerHint}
-          </p>
-          <LoadingButton
-            size="lg"
-            loading={running}
-            disabled={!kindAvailable || !retryValid}
-            title={configCommandMissing ? configCommandMissingHint : undefined}
-            aria-describedby={configCommandMissing
-              ? "config-fetch-command-missing"
-              : undefined}
-            onclick={executeConfigFetch}
-          >
-            <FileDownIcon data-icon="inline-start" />
-            <span>{pageLabels.runButton}</span>
-          </LoadingButton>
-        </div>
       </Card.Content>
     </Card.Root>
 
-    {#if result.kind !== "empty"}
-      <ExecutionResultsPanel
-        title={pageLabels.resultsTitle}
-        description={pageLabels.resultsHint}
-        icon={FileDownIcon}
-        items={resultItems}
-        activeKey={activeResult?.target || ""}
-        navigationAriaLabel={pageLabels.devicesAria}
-        onSelect={selectTarget}
-        {statusMessage}
-        {statusTone}
-        totalCount={result.kind === "result" ? resultCounts.total : null}
-        succeededCount={result.kind === "result"
-          ? resultCounts.succeeded
-          : null}
-        failedCount={result.kind === "result" ? resultCounts.failed : null}
-        totalLabel={pageLabels.total}
-        succeededLabel={pageLabels.succeeded}
-        failedLabel={pageLabels.failed}
-        emptyMessage={pageLabels.resultEmpty}
-      >
-        {#snippet detail()}
-          {#if activeResult}
-            <ExecutionResultMeta fields={activeMetaFields} />
-
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <h3 class="text-sm font-semibold text-foreground">
-                {activeResult.target}
-              </h3>
-              {#if !activeResult.error}
-                <div class="flex flex-wrap items-center gap-2">
-                  <TabList
-                    tabItems={contentTabs}
-                    activeValue={contentView}
-                    aria-label={pageLabels.resultsTitle}
-                    onSelect={(view: string) =>
-                      (contentView = view as ConfigFetchContentView)}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    class="min-h-10"
-                    onclick={() =>
-                      downloadConfigFetchResult(activeResult, contentView)}
-                  >
-                    <DownloadIcon data-icon="inline-start" aria-hidden="true" />
-                    {pageLabels.download}
-                  </Button>
-                </div>
-              {/if}
-            </div>
-            <OutputBlock
-              title={`${activeResult.target} · ${contentView === CONFIG_FETCH_CONTENT_VIEW.normalized ? pageLabels.normalizedTab : pageLabels.rawTab}`}
-              tone={activeResult.error ? "error" : "default"}
-              errorLabel={pageLabels.failed}
-              >{configFetchContent(activeResult, contentView)}</OutputBlock
-            >
-          {/if}
-        {/snippet}
-      </ExecutionResultsPanel>
-    {/if}
-  </div>
+    {#if result.kind === "error"}<StatusCard
+        message={result.message}
+        tone="error"
+      />{/if}
+    <ExecutionRunBar
+      docked={true}
+      {active}
+      showAutoDownloadOutput={false}
+      title={pageLabels.title}
+      hint={pageLabels.footerHint}
+      buttonLabel={pageLabels.runButton}
+      loading={running}
+      disabled={!kindAvailable || !retryValid}
+      onRun={executeConfigFetch}
+    />
+  </ExecutionDock>
 </DashboardTabPanel>

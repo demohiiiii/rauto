@@ -1,3 +1,4 @@
+import { executionHistory } from "$domains/execution/index.js";
 import { get, writable } from "svelte/store";
 import { safeString } from "../../../lib/ui.js";
 import {
@@ -183,6 +184,11 @@ export function createStandardInteractiveExecution({
     const autoDownloadExcel = currentStandardStateContext().autoDownloadExcel;
     const autoDownloadOutput = currentStandardStateContext().autoDownloadOutput;
     const textfsm = textfsmPayload();
+    const historyId = executionHistory.start(
+      "interactive",
+      "single",
+      textfsm.parse_textfsm,
+    );
     setInteractiveExecutionResult({ kind: "running" });
     try {
       const connection = standardInteractiveRuntime.connectionPayload();
@@ -209,6 +215,15 @@ export function createStandardInteractiveExecution({
         resultPayload: interactiveResult,
         deviceName,
       });
+      executionHistory.finish(
+        historyId,
+        interactiveResult.outputs.map((item) => ({
+          ...item,
+          device: deviceName,
+        })),
+        "",
+        !interactiveResult.success,
+      );
       if (autoDownloadOutput) {
         await downloadCommandOutput(
           interactiveResult.outputs.map((result) => ({
@@ -230,6 +245,7 @@ export function createStandardInteractiveExecution({
         );
       }
     } catch (error) {
+      executionHistory.fail(historyId, errorMessage(error));
       setInteractiveExecutionResult({
         kind: "error",
         message: errorMessage(error),

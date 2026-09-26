@@ -97,6 +97,8 @@
     />
 
     <ExecutionRunBar
+      docked={true}
+      {active}
       autoDownloadOutput={showTextfsmFields.autoDownloadOutput}
       onAutoDownloadOutputChange={textfsmActionHandlers.autoDownloadOutputChange}
       title={i18nLabels.runTitle}

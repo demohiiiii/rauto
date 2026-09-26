@@ -1,3 +1,4 @@
+import { executionHistory } from "$domains/execution/index.js";
 import {
   normalizeShowQuery,
   SHOW_QUERY,
@@ -567,6 +568,10 @@ export async function executeShowObject(): Promise<void> {
   }
   const objects = selectedShowObjects(SHOW_QUERY.single);
   if (!objects.length) {
+    executionHistory.fail(
+      executionHistory.start("show", "single"),
+      t("showObjectRequired"),
+    );
     setShowExecutionResult({
       kind: "error",
       message: t("showObjectRequired"),
@@ -577,6 +582,11 @@ export async function executeShowObject(): Promise<void> {
     currentShowStateContext().showFormFieldsState.textfsm.autoDownloadExcel;
   const autoDownloadOutput =
     currentShowStateContext().showFormFieldsState.textfsm.autoDownloadOutput;
+  const historyId = executionHistory.start(
+    "show",
+    "single",
+    currentShowStateContext().showFormFieldsState.textfsm.parseTextfsm,
+  );
   setShowExecutionResult({ kind: "running" });
   try {
     const basePayload = showExecutionPayload({
@@ -587,11 +597,22 @@ export async function executeShowObject(): Promise<void> {
     for (const object of objects) {
       showResults.push(await showApi.execute({ ...basePayload, object }));
     }
-    setShowExecutionResult({
+    const executionResult: ShowExecutionResult = {
       kind: "result",
       basePayload,
       results: showResults,
-    });
+    };
+    setShowExecutionResult(executionResult);
+    executionHistory.finish(
+      historyId,
+      showResults.map((row) => ({
+        ...row,
+        device:
+          basePayload.connection.connection_name ||
+          basePayload.connection.host ||
+          "",
+      })),
+    );
     if (autoDownloadOutput) {
       const device =
         basePayload.connection?.connection_name ||
@@ -611,13 +632,22 @@ export async function executeShowObject(): Promise<void> {
       );
     }
   } catch (error) {
-    setShowExecutionResult({ kind: "error", message: errorMessage(error) });
+    const executionResult: ShowExecutionResult = {
+      kind: "error",
+      message: errorMessage(error),
+    };
+    setShowExecutionResult(executionResult);
+    executionHistory.fail(historyId, errorMessage(error));
   }
 }
 
 export async function executeBatchShowObject(): Promise<void> {
   const objects = selectedShowObjects(SHOW_QUERY.batch);
   if (!objects.length) {
+    executionHistory.fail(
+      executionHistory.start("show", "batch"),
+      t("showObjectRequired"),
+    );
     setBatchShowExecutionResult({
       kind: "error",
       message: t("showObjectRequired"),
@@ -632,6 +662,10 @@ export async function executeBatchShowObject(): Promise<void> {
     !payload.groups.length &&
     !payload.labels.length
   ) {
+    executionHistory.fail(
+      executionHistory.start("show", "batch"),
+      t("batchShowTargetRequired"),
+    );
     setBatchShowExecutionResult({
       kind: "error",
       message: t("batchShowTargetRequired"),
@@ -642,6 +676,7 @@ export async function executeBatchShowObject(): Promise<void> {
     currentShowStateContext().showFormFieldsState.batchShow.autoDownloadExcel;
   const autoDownloadOutput =
     currentShowStateContext().showFormFieldsState.batchShow.autoDownloadOutput;
+  const historyId = executionHistory.start("show", "batch", !payload.no_parse);
   setBatchShowExecutionResult({ kind: "running" });
   try {
     const batchShowResult = await showApi.executeBatch({
@@ -649,11 +684,21 @@ export async function executeBatchShowObject(): Promise<void> {
       object: objects[0],
       objects,
     });
-    setBatchShowExecutionResult({
+    const executionResult: BatchShowExecutionResult = {
       kind: "result",
       resultPayload: batchShowResult,
       textfsmEnabled: !payload.no_parse,
-    });
+    };
+    setBatchShowExecutionResult(executionResult);
+    executionHistory.finish(
+      historyId,
+      batchShowResult.results.map((row) => ({
+        ...row,
+        device: row.target || row.host,
+      })),
+      "",
+      batchShowResult.result_summary?.success === false,
+    );
     if (autoDownloadOutput) {
       await downloadCommandOutput(
         batchShowResult.results.map((result) => ({
@@ -672,10 +717,12 @@ export async function executeBatchShowObject(): Promise<void> {
       );
     }
   } catch (error) {
-    setBatchShowExecutionResult({
+    const executionResult: BatchShowExecutionResult = {
       kind: "error",
       message: errorMessage(error),
-    });
+    };
+    setBatchShowExecutionResult(executionResult);
+    executionHistory.fail(historyId, errorMessage(error));
   }
 }
 

@@ -32,3 +32,17 @@ export type {
   SessionRetryValidation,
   TextfsmExcelExportPayload,
 } from "./model/types.js";
+export {
+  executionHistory,
+  createExecutionHistory,
+} from "./application/executionHistory.js";
+export {
+  executionHistoryFunctions,
+  filterExecutionHistory,
+} from "./model/executionHistory.js";
+export type {
+  ExecutionHistoryEntry,
+  ExecutionHistoryFunction,
+  ExecutionHistoryOutput,
+  ExecutionHistoryStatus,
+} from "./model/executionHistory.js";
