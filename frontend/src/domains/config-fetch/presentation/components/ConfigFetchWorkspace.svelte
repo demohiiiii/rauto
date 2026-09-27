@@ -80,7 +80,6 @@
       normalized: t("configFetchNormalizedLabel"),
       normalizedHint: t("configFetchNormalizedHint"),
       maxParallel: t("batchExecMaxParallelLabel"),
-      footerHint: t("configFetchFooterHint"),
       runButton: t("configFetchRunBtn"),
       pickerFields: configFetchTargetPickerFields.map((field) => ({
         ...field,
@@ -324,11 +323,8 @@
         tone="error"
       />{/if}
     <ExecutionRunBar
-      docked={true}
       {active}
       showAutoDownloadOutput={false}
-      title={pageLabels.title}
-      hint={pageLabels.footerHint}
       buttonLabel={pageLabels.runButton}
       loading={running}
       disabled={!kindAvailable || !retryValid}

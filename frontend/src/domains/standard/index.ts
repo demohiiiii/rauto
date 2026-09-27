@@ -7,12 +7,10 @@ export { createInteractiveExecutionPanelWorkspace } from "./application/createSt
 export {
   interactiveExecutionPayload,
   interactiveExecutionResultState,
-  interactiveParsedOutputSheets,
   createStandardLoadingKeysStore,
   createStandardTextfsmStateStore,
   EMPTY_RESULT,
   executeInteractive,
-  exportInteractiveExcel,
   normalizeInteractiveExecutionSource,
   refreshStandardExecutionModeOptions,
   setStandardTextfsmEnabled,

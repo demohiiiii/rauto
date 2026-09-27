@@ -33,7 +33,6 @@ export function createBatchDeliveryWorkspace(kind: "command" | "interactive") {
   const resultStore = writable<
     StandardBatchExecutionResult<StandardBatchInteractiveTargetResponse[]>
   >({ kind: "empty" });
-  const downloadErrorStore = writable("");
   let running = false;
   let destroyed = false;
   const selection =
@@ -57,22 +56,19 @@ export function createBatchDeliveryWorkspace(kind: "command" | "interactive") {
     };
   }
 
-  async function downloadOutput(rows = currentRows()) {
+  async function downloadOutput(
+    rows: StandardBatchInteractiveTargetResponse[],
+  ) {
     await downloadCommandOutput(
       batchDeliveryOutputEntries(rows),
       `batch-${kind}-output`,
     );
   }
 
-  async function exportExcel(rows = currentRows()) {
+  async function exportExcel(rows: StandardBatchInteractiveTargetResponse[]) {
     await exportParsedOutputSheetsExcel(batchDeliverySheets(rows), {
       filename: `textfsm-batch-${kind}.xlsx`,
     });
-  }
-
-  function currentRows() {
-    const result = get(resultStore);
-    return result.kind === "result" ? result.resultPayload : [];
   }
 
   async function execute(
@@ -84,7 +80,6 @@ export function createBatchDeliveryWorkspace(kind: "command" | "interactive") {
     const { enabled, autoDownloadExcel, autoDownloadOutput } = settings;
     const historyId = executionHistory.start(kind, "batch", enabled);
     resultStore.set({ kind: "running" });
-    downloadErrorStore.set("");
     try {
       const rows = await request();
       executionHistory.finish(
@@ -117,14 +112,8 @@ export function createBatchDeliveryWorkspace(kind: "command" | "interactive") {
       );
       if (destroyed) return false;
       resultStore.set({ kind: "result", resultPayload: rows });
-      try {
-        if (autoDownloadOutput) await downloadOutput(rows);
-        if (enabled && autoDownloadExcel) await exportExcel(rows);
-      } catch (error) {
-        downloadErrorStore.set(
-          error instanceof Error ? error.message : String(error),
-        );
-      }
+      if (autoDownloadOutput) await downloadOutput(rows);
+      if (enabled && autoDownloadExcel) await exportExcel(rows);
       return true;
     } catch (error) {
       executionHistory.fail(
@@ -224,13 +213,10 @@ export function createBatchDeliveryWorkspace(kind: "command" | "interactive") {
     kind,
     maxParallelStore,
     resultStore,
-    downloadErrorStore,
     executeCommand,
     executeInteractive,
     renderTemplate,
     subscribeTargets,
-    downloadOutput: () => downloadOutput(),
-    exportExcel: () => exportExcel(),
     destroy() {
       destroyed = true;
     },

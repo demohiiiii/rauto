@@ -188,12 +188,9 @@
   {/if}
 
   <ExecutionRunBar
-    docked={true}
     {active}
     autoDownloadOutput={commandState.textfsm.autoDownloadOutput}
     onAutoDownloadOutputChange={changeAutoDownloadOutput}
-    title={t("commandDeliveryTitle")}
-    hint={t(batch ? "batchExecFooterHint" : "commandDeliveryHint")}
     buttonLabel={t("execBtn")}
     loading={commandState.loadingActions.includes("execute")}
     disabled={!retryValid ||

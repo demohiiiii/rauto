@@ -19,7 +19,6 @@
   let i18nLabels = $derived.by(() => {
     i18nCurrentLanguage;
     return {
-      runTitle: t("showPanelConfigTitle"),
       footerHint: t("batchShowFooterHint"),
       targetsTitle: t("batchDeliveryTargetsTitle"),
       maxParallel: t("batchExecMaxParallelLabel"),
@@ -97,12 +96,9 @@
     />
 
     <ExecutionRunBar
-      docked={true}
       {active}
       autoDownloadOutput={showTextfsmFields.autoDownloadOutput}
       onAutoDownloadOutputChange={textfsmActionHandlers.autoDownloadOutputChange}
-      title={i18nLabels.runTitle}
-      hint={i18nLabels.footerHint}
       buttonLabel={showRunButtonDisplay.executeButtonLabel}
       loading={showRunButtonDisplay.executeLoading}
       disabled={!batchShowPanelDisplay.retryValid ||

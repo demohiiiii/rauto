@@ -203,7 +203,6 @@ export interface StandardCommandExecutionWorkspace {
   changeVars(vars?: JsonObject): void;
   destroy(): void;
   execute(): Promise<boolean>;
-  downloadOutput(): Promise<void>;
   initialize(): Promise<boolean>;
   preview(): Promise<boolean>;
   selectSource(sourceValue?: string): Promise<boolean>;

@@ -476,17 +476,6 @@ export function createStandardCommandExecutionWorkspace({
     }
   }
 
-  async function downloadOutput(): Promise<void> {
-    const result = get(stateStore).executionResult;
-    if (result.kind !== "result") return;
-    await downloadCommandOutput(
-      result.resultPayload.executed.map((item) => ({
-        ...item,
-        device: result.deviceName,
-      })),
-    );
-  }
-
   function destroy(): void {
     destroyed = true;
     batch?.destroy();
@@ -515,7 +504,6 @@ export function createStandardCommandExecutionWorkspace({
     changeRetry,
     preview,
     execute,
-    downloadOutput,
     destroy,
   };
 }

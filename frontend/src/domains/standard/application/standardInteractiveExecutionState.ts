@@ -253,29 +253,6 @@ export function createStandardInteractiveExecution({
     }
   }
 
-  async function downloadInteractiveOutput(): Promise<void> {
-    const result = get(interactiveExecutionResultState());
-    if (result.kind !== "result") return;
-    await downloadCommandOutput(
-      result.resultPayload.outputs.map((item) => ({
-        ...item,
-        device: result.deviceName,
-      })),
-      "interactive-output",
-    );
-  }
-
-  async function exportInteractiveExcel(
-    exportParsedOutputSheetsExcel: (
-      sheets: StandardParsedOutputSheet[],
-      options: { filename: string },
-    ) => Promise<void> | void,
-  ): Promise<void> {
-    await exportParsedOutputSheetsExcel(interactiveParsedOutputSheets(), {
-      filename: "textfsm-interactive.xlsx",
-    });
-  }
-
   function interactiveParsedOutputSheets(
     interactiveExecutionResult: InteractiveExecutionResult = get(
       currentStandardStateContext().interactiveExecutionResult,
@@ -308,9 +285,6 @@ export function createStandardInteractiveExecution({
     interactiveExecutionPayload,
     setStandardTextfsmFields,
     executeInteractive,
-    downloadInteractiveOutput,
-    exportInteractiveExcel,
-    interactiveParsedOutputSheets,
     refreshStandardExecutionModeOptions,
   };
 }
@@ -327,8 +301,5 @@ export const {
   interactiveExecutionPayload,
   setStandardTextfsmFields,
   executeInteractive,
-  downloadInteractiveOutput,
-  exportInteractiveExcel,
-  interactiveParsedOutputSheets,
   refreshStandardExecutionModeOptions,
 } = createStandardInteractiveExecution();

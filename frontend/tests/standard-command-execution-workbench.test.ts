@@ -1,3 +1,7 @@
+import {
+  executionHistory,
+  downloadCommandOutput,
+} from "../src/domains/execution/index.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { get } from "svelte/store";
@@ -391,7 +395,11 @@ test("command text auto and manual downloads use the same original device and wo
   await workspace.changeContent("uptime");
   workspace.changeTextfsm({ enabled: false, autoDownloadOutput: true });
   await workspace.execute();
-  await workspace.downloadOutput();
+  await downloadCommandOutput(
+    get(executionHistory.state).entries.find(
+      (row) => row.feature === "command" && row.scope === "single",
+    )!.outputs,
+  );
   assert.equal(download.mock.callCount(), 2);
   for (const call of download.mock.calls) {
     const blob = call.arguments[0];

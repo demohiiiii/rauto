@@ -17,7 +17,6 @@ export {
 export {
   batchShowObjectAvailabilityPresentation,
   createBatchShowInputPanelWorkspace,
-  createBatchShowResultsPanelWorkspace,
   createShowPageWorkspace,
   createSingleShowPanelWorkspace,
 } from "./application/createShowWorkspaces.js";

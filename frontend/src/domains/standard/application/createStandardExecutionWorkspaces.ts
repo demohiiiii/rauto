@@ -11,10 +11,6 @@ import { callbackFormValueHandler } from "../../../lib/events.js";
 import { currentLanguageState } from "../../../lib/i18n.js";
 import { createLoadingRunner } from "../../../lib/svelte.js";
 import {
-  executionResultDisplay,
-  exportParsedOutputSheetsExcel,
-} from "$domains/execution/index.js";
-import {
   createSessionRetryState,
   sessionRetryValidation,
 } from "$domains/execution/index.js";
@@ -26,7 +22,6 @@ import type { BatchDeliveryWorkspace } from "./createBatchDeliveryWorkspace.js";
 import { standardInteractiveRuntime } from "../infrastructure/standardInteractiveRuntime.js";
 import { standardInteractiveTextfsmPayload } from "../model/standardInteractive.js";
 import {
-  interactiveResultPresentation,
   interactiveExecutionInputPresentation,
   standardInteractiveRunButtonPresentation,
   standardInteractiveTemplateFieldsPresentation,
@@ -70,19 +65,14 @@ export function createInteractiveExecutionPanelWorkspace(
     },
   });
   const {
-    interactiveExecutionResultState,
     createStandardLoadingKeysStore,
     createStandardTextfsmStateStore,
     executeInteractive,
-    exportInteractiveExcel,
-    downloadInteractiveOutput,
     setStandardTextfsmEnabled,
     setStandardTextfsmFields,
     setStandardTextfsmStrictErrors,
     setStandardTextfsmTemplate,
   } = execution;
-  const interactiveExecutionResultStateStore =
-    interactiveExecutionResultState();
   const authoringModePicker = modeSelection(MODE_SELECT.standardInteractive);
   const interactiveTextfsmStateStore = createStandardTextfsmStateStore();
   const interactiveRetryStateStore = writable<SessionRetryState>(
@@ -118,7 +108,6 @@ export function createInteractiveExecutionPanelWorkspace(
       authoringModePicker.state,
       interactiveTextfsmStateStore,
       interactiveRetryStateStore,
-      interactiveExecutionResultStateStore,
       loadingKeysStore,
       authoring.selectionStateStore,
       authoring.actionStateStore,
@@ -136,7 +125,6 @@ export function createInteractiveExecutionPanelWorkspace(
       $authoringModeState,
       $interactiveTextfsmState,
       $interactiveRetryState,
-      $interactiveExecutionResult,
       $loadingKeysStore,
       $authoringSelection,
       $authoringActions,
@@ -164,9 +152,6 @@ export function createInteractiveExecutionPanelWorkspace(
         strictErrors: $interactiveTextfsmState.strictErrors,
         template: $interactiveTextfsmState.template,
       });
-      const executionStatusDisplay = executionResultDisplay(
-        $interactiveExecutionResult,
-      );
       const authoringModeDisplay =
         standardModeSelectPresentation($authoringModeState);
       return {
@@ -182,17 +167,10 @@ export function createInteractiveExecutionPanelWorkspace(
           selection: $authoringSelection,
           tomlText: $authoringTomlText,
         },
-        executionStatusDisplay,
-        exportLoading: $loadingKeysStore.includes("export"),
         interactiveInputDisplay: interactiveExecutionInputPresentation({
           templateName: interactiveTemplateFields.templateName,
           templateOptions: interactiveTemplateFields.templateOptions,
         }),
-        interactiveResultDisplay: interactiveResultPresentation(
-          $interactiveExecutionResult.kind === "result"
-            ? $interactiveExecutionResult.resultPayload
-            : null,
-        ),
         interactiveRunButtonDisplay: standardInteractiveRunButtonPresentation({
           executeLoading: $loadingKeysStore.includes("execute"),
         }),
@@ -336,18 +314,6 @@ export function createInteractiveExecutionPanelWorkspace(
     return saved;
   }
 
-  function exportInteractiveExecutionExcel() {
-    return loadingRunner.run("export", () =>
-      exportInteractiveExcel(exportParsedOutputSheetsExcel),
-    );
-  }
-
-  const runActionHandlers = {
-    execute: executeInteractiveExecution,
-    export: () => exportInteractiveExecutionExcel(),
-    downloadOutput: downloadInteractiveOutput,
-  };
-
   function setPanelContext({
     active = false,
     interactivePanelDisplay = null,
@@ -397,11 +363,9 @@ export function createInteractiveExecutionPanelWorkspace(
       interactiveVarsInputPanelWorkspace.changeInteractiveVarValue,
     closeInteractiveNameDialog,
     executeInteractiveExecution,
-    exportInteractiveExecutionExcel,
     interactivePanelDisplayStateStore,
     openNewInteractiveDialog,
     openSaveAsInteractiveDialog,
-    runActionHandlers,
     saveInteractiveTemplate,
     saveInteractiveTemplateAs: authoring.saveAs,
     setPanelContext,

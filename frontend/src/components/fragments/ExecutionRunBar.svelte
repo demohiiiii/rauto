@@ -4,23 +4,15 @@
     executionDockKey,
     type ExecutionDockContext,
   } from "./executionDockContext.js";
-  import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
   import PlayIcon from "@lucide/svelte/icons/play";
   import CommandOutputDownloadControl from "./CommandOutputDownloadControl.svelte";
   import LoadingButton from "./LoadingButton.svelte";
-  import { cn } from "$lib/utils.js";
 
   interface Props {
     buttonLabel: string;
-    hint: string;
     autoDownloadOutput?: boolean;
     onAutoDownloadOutputChange?: (value: boolean) => void;
-    title?: string;
-    summary?: Snippet;
     actions?: Snippet;
-    className?: string;
-    compact?: boolean;
-    docked?: boolean;
     active?: boolean;
     loading?: boolean;
     showAutoDownloadOutput?: boolean;
@@ -30,58 +22,28 @@
 
   let {
     buttonLabel,
-    hint,
     autoDownloadOutput = false,
     onAutoDownloadOutputChange = () => {},
-    title = "",
-    summary,
     actions,
-    className = "",
-    compact = false,
-    docked = false,
     active = true,
     loading = false,
     showAutoDownloadOutput = true,
     disabled = false,
     onRun,
   }: Props = $props();
-  let effectiveCompact = $derived(compact || docked);
   const dock = getContext<ExecutionDockContext | undefined>(executionDockKey);
   $effect(() => {
-    if (docked && active && dock) return dock.register(footer);
+    if (active && dock) return dock.register(footer);
   });
 </script>
 
 {#snippet footer()}
   <footer
     data-execution-runbar
-    class={cn(
-      "sticky bottom-3 z-10 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/95 p-3 shadow-lg shadow-black/5 backdrop-blur-md sm:px-5",
-      docked &&
-        "static min-h-16 h-auto w-max max-w-full flex-nowrap py-2 sm:px-3",
-      className,
-    )}
+    class="static z-10 flex h-auto min-h-16 w-max min-w-0 max-w-full flex-nowrap items-center justify-between gap-3 rounded-2xl border border-border bg-background/95 px-3 py-2 shadow-lg shadow-black/5 backdrop-blur-md"
   >
-    {#if !effectiveCompact}
-      <div class="flex min-w-0 items-center gap-3">
-        <div
-          class="hidden size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary sm:flex"
-          aria-hidden="true"
-        >
-          <ArrowRightIcon class="size-4" />
-        </div>
-        <div class="min-w-0">
-          <p class="text-sm font-medium">
-            {#if summary}{@render summary()}{:else}{title}{/if}
-          </p>
-          <p class="mt-0.5 text-xs text-muted-foreground">{hint}</p>
-        </div>
-      </div>
-    {/if}
     <div
-      class={docked
-        ? "flex min-w-0 flex-wrap items-center justify-end gap-2 sm:flex-nowrap"
-        : "flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto"}
+      class="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:flex-nowrap"
     >
       {#if showAutoDownloadOutput}
         <CommandOutputDownloadControl
@@ -103,4 +65,4 @@
     </div>
   </footer>
 {/snippet}
-{#if !docked || !dock}{@render footer()}{/if}
+{#if !dock && active}{@render footer()}{/if}

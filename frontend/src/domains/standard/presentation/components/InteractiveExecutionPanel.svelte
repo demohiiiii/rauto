@@ -104,7 +104,6 @@
       optionsHint: t("interactiveStudioOptionsHint"),
       sequence: t("interactiveStudioSequence"),
       draft: t("interactiveStudioUnsaved"),
-      ready: t("interactiveStudioExecutionHint"),
     };
   });
   function handleNameDialogOpenChange(open: boolean) {
@@ -315,27 +314,16 @@
   </div>
 
   <ExecutionRunBar
-    docked={true}
     {active}
     autoDownloadOutput={interactiveTextfsmFields.autoDownloadOutput}
     onAutoDownloadOutputChange={changeInteractiveAutoDownloadOutput}
-    hint={studioLabels.ready}
     buttonLabel={interactiveInputDisplay.executeButtonLabel}
     loading={interactiveRunButtonDisplay.executeLoading}
     disabled={!authoringDisplay.canRun ||
       authoringBusy ||
       !interactivePanelDisplay.interactiveRetryValid}
     onRun={executeInteractiveExecution}
-  >
-    {#snippet summary()}
-      <span class="font-mono">{promptCount}</span>
-      {t("interactiveCommandPromptCountLabel")}<span
-        class="mx-2 text-border"
-        aria-hidden="true">/</span
-      ><span class="font-mono">{interactiveVariableCount}</span>
-      {interactiveInputDisplay.interactiveVariableCountLabel}
-    {/snippet}
-  </ExecutionRunBar>
+  />
 </div>
 
 <Dialog.Root open={nameDialog.open} onOpenChange={handleNameDialogOpenChange}>

@@ -1,3 +1,8 @@
+import { get } from "svelte/store";
+import {
+  executionHistory,
+  downloadCommandOutput,
+} from "../src/domains/execution/index.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -166,8 +171,6 @@ test("interactive text output downloads without TextFSM and preserves original c
     setStandardTextfsmFields,
     interactiveExecutionResultState,
   } = await import("../src/domains/standard/index.js");
-  const { downloadInteractiveOutput } =
-    await import("../src/domains/standard/application/standardInteractiveExecutionState.js");
   const { standardInteractiveApi } =
     await import("../src/domains/standard/infrastructure/standardInteractiveApi.js");
   const { standardInteractiveRuntime } =
@@ -222,7 +225,11 @@ test("interactive text output downloads without TextFSM and preserves original c
   t.mock.method(standardInteractiveRuntime, "connectionPayload", () => ({
     connection_name: "other-device",
   }));
-  await downloadInteractiveOutput();
+  await downloadCommandOutput(
+    get(executionHistory.state).entries.find(
+      (row) => row.feature === "interactive" && row.scope === "single",
+    )!.outputs,
+  );
   assert.equal(download.mock.callCount(), 2);
   const blob = download.mock.calls[1].arguments[0];
   assert.ok(blob);

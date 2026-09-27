@@ -1,3 +1,7 @@
+import {
+  executionHistory,
+  downloadCommandOutput,
+} from "../src/domains/execution/index.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { get } from "svelte/store";
@@ -142,7 +146,11 @@ test("batch command uses the shared template workspace and forwards all executio
   assert.equal(excel.mock.callCount(), 1);
   assert.equal(download.mock.callCount(), 2);
   workspace.changeTextfsm({ enabled: false, autoDownloadOutput: false });
-  await batch.downloadOutput();
+  await downloadCommandOutput(
+    get(executionHistory.state).entries.find(
+      (row) => row.feature === "command" && row.scope === "batch",
+    )!.outputs,
+  );
   const blob = download.mock.calls[2].arguments[0];
   assert.ok(blob);
   assert.equal(await blob.text(), "=== edge-01 ===\n$ uptime\nup");

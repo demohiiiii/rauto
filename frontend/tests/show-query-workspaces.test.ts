@@ -1,4 +1,9 @@
-import { executionHistory } from "../src/domains/execution/index.js";
+import {
+  executionHistory,
+  downloadCommandOutput,
+  executionResultOutputText,
+  executionResultFailed,
+} from "../src/domains/execution/index.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -20,7 +25,6 @@ import {
 import type {
   ShowBatchExecuteResponse,
   ShowBatchTargetResponse,
-  ShowExecuteBasePayload,
   ShowExecuteResponse,
   ShowObjectDefinition,
 } from "../src/domains/show/index.js";
@@ -39,16 +43,6 @@ function resultSummary(success: boolean): TaskResultSummary {
     outcome: success ? "success" : "failed",
     success,
     summary: success ? "Show command completed" : "Show command failed",
-  };
-}
-
-function showBasePayload(): ShowExecuteBasePayload {
-  return {
-    connection: {},
-    mode: null,
-    no_parse: false,
-    record_level: "key-events-only",
-    textfsm_strict_errors: false,
   };
 }
 
@@ -264,46 +258,55 @@ test("batch show max parallel payload normalization drops invalid values", () =>
   assert.equal(normalizeBatchMaxParallel("abc"), null);
 });
 
-test("show result presentations omit command echoes and prompts from transcripts", () => {
-  const rawTranscript = "show version\nclean output\nRouter#";
-  const result = showResponse({
-    all: rawTranscript,
-    output: "clean output",
-    parsed_output: [{ version: "17.9" }],
+for (const success of [true, false]) {
+  test(`show history displays ${success ? "clean output" : "the diagnostic transcript"} for single and batch results`, async (t) => {
+    t.after(() => {
+      setShowTextfsmFields();
+      setBatchShowFields();
+      showExecutionResultState().set({ kind: "empty" });
+      batchShowExecutionResultState().set({ kind: "empty" });
+    });
+    t.mock.method(showRuntime, "ensureConnectionTargetSelected", () => true);
+    t.mock.method(showRuntime, "connectionPayload", () => ({
+      connection_name: "edge-a",
+    }));
+    t.mock.method(showRuntime, "pickerValues", (key: string) => {
+      if (
+        key === CONNECTION_PICKER.showObject ||
+        key === CONNECTION_PICKER.batchShowObject
+      )
+        return ["version"];
+      if (key === CONNECTION_PICKER.batchShowTargets) return ["edge-a"];
+      return [];
+    });
+    const result = showResponse({
+      success,
+      all: "show version\noutput\nRouter#",
+      output: "output",
+      parsed_output: [{ version: "17.9" }],
+    });
+    t.mock.method(showApi, "execute", async () => result);
+    t.mock.method(showApi, "executeBatch", async () =>
+      batchResponse([batchTarget(result)]),
+    );
+    await executeShowObject();
+    await executeBatchShowObject();
+    for (const scope of ["single", "batch"]) {
+      const entry = get(executionHistory.state).entries.find(
+        (row) => row.feature === "show" && row.scope === scope,
+      )!;
+      const output = entry.outputs[0];
+      assert.equal(entry.status, success ? "success" : "error");
+      assert.equal(
+        executionResultOutputText(output, "output", {
+          preferTranscript: executionResultFailed(output),
+        }),
+        success ? "output" : result.all,
+      );
+      assert.deepEqual(output.parsed_output, [{ version: "17.9" }]);
+    }
   });
-
-  showExecutionResultState().set({
-    kind: "result",
-    basePayload: showBasePayload(),
-    results: [result],
-  });
-  const singleWorkspace = createSingleShowPanelWorkspace();
-  assert.equal(
-    get(singleWorkspace.panelDisplayStateStore).resultsDisplay.resultRows[0]
-      .outputText,
-    "clean output",
-  );
-  assert.equal(
-    get(singleWorkspace.panelDisplayStateStore).resultsDisplay
-      .parsedResultCount,
-    1,
-  );
-
-  batchShowExecutionResultState().set({
-    kind: "result",
-    resultPayload: batchResponse([batchTarget({ ...result })]),
-    textfsmEnabled: true,
-  });
-  const pageWorkspace = createShowPageWorkspace();
-  assert.equal(
-    get(pageWorkspace.batchResultsPresentationStateStore).resultRows[0]
-      .outputText,
-    "clean output",
-  );
-
-  showExecutionResultState().set({ kind: "empty" });
-  batchShowExecutionResultState().set({ kind: "empty" });
-});
+}
 
 test("show and batch executions retain every run in their history", async (t) => {
   const previousIds = new Set(
@@ -346,87 +349,57 @@ test("show and batch executions retain every run in their history", async (t) =>
   );
 });
 
-test("failed show result presentations retain the complete diagnostic transcript", () => {
-  const diagnosticTranscript = "show version\nERROR: command failed\nRouter#";
-  const result = showResponse({
-    all: diagnosticTranscript,
-    output: "ERROR: command failed",
-    success: false,
-  });
-
-  showExecutionResultState().set({
-    kind: "result",
-    basePayload: showBasePayload(),
-    results: [result],
-  });
-  const singleWorkspace = createSingleShowPanelWorkspace();
-  assert.equal(
-    get(singleWorkspace.panelDisplayStateStore).resultsDisplay.resultRows[0]
-      .outputText,
-    diagnosticTranscript,
-  );
-
-  batchShowExecutionResultState().set({
-    kind: "result",
-    resultPayload: batchResponse([
-      batchTarget({ ...result, error: "command failed" }),
-    ]),
-    textfsmEnabled: true,
-  });
-  const pageWorkspace = createShowPageWorkspace();
-  assert.equal(
-    get(pageWorkspace.batchResultsPresentationStateStore).resultRows[0]
-      .outputText,
-    diagnosticTranscript,
-  );
-
-  showExecutionResultState().set({ kind: "empty" });
-  batchShowExecutionResultState().set({ kind: "empty" });
-});
-
-test("show result parsing controls follow the executed request, including empty parse results", async (t) => {
-  const singleWorkspace = createSingleShowPanelWorkspace();
-  const pageWorkspace = createShowPageWorkspace();
+test("show history parsing settings follow the request even when forms change during execution", async (t) => {
   t.after(() => {
+    setShowTextfsmFields();
+    setBatchShowFields();
     showExecutionResultState().set({ kind: "empty" });
     batchShowExecutionResultState().set({ kind: "empty" });
-    setBatchShowFields();
   });
+  t.mock.method(showRuntime, "ensureConnectionTargetSelected", () => true);
+  t.mock.method(showRuntime, "connectionPayload", () => ({
+    connection_name: "edge-a",
+  }));
   t.mock.method(showRuntime, "pickerValues", (key: string) => {
-    if (key === CONNECTION_PICKER.batchShowObject) return ["version"];
+    if (
+      key === CONNECTION_PICKER.showObject ||
+      key === CONNECTION_PICKER.batchShowObject
+    )
+      return ["version"];
     if (key === CONNECTION_PICKER.batchShowTargets) return ["edge-a"];
     return [];
   });
-
   for (const enabled of [false, true]) {
-    showExecutionResultState().set({
-      kind: "result",
-      basePayload: { ...showBasePayload(), no_parse: !enabled },
-      results: [showResponse({ parsed_output: null })],
-    });
-    singleWorkspace.textfsmActionHandlers.enabledChange(!enabled);
-    assert.equal(
-      get(singleWorkspace.panelDisplayStateStore).resultsDisplay.textfsmEnabled,
-      enabled,
-    );
-
+    setShowTextfsmFields({ enabled });
     setBatchShowFields({}, { enabled });
+    t.mock.method(
+      showApi,
+      "execute",
+      async (payload: Parameters<typeof showApi.execute>[0]) => {
+        assert.equal(payload.no_parse, !enabled);
+        setShowTextfsmFields({ enabled: !enabled });
+        return showResponse({ parsed_output: null });
+      },
+    );
     t.mock.method(
       showApi,
       "executeBatch",
       async (payload: Parameters<typeof showApi.executeBatch>[0]) => {
         assert.equal(payload.no_parse, !enabled);
         assert.equal(Object.hasOwn(payload, "textfsm_platform"), false);
-        // The form may change while the request is in flight.
         setBatchShowFields({}, { enabled: !enabled });
         return batchResponse([batchTarget({ parsed_output: null })]);
       },
     );
+    await executeShowObject();
     await executeBatchShowObject();
-    assert.equal(
-      get(pageWorkspace.batchResultDisplayStateStore).textfsmEnabled,
-      enabled,
-    );
+    for (const scope of ["single", "batch"]) {
+      const entry = get(executionHistory.state).entries.find(
+        (row) => row.feature === "show" && row.scope === scope,
+      )!;
+      assert.equal(entry.textfsmEnabled, enabled);
+      assert.equal(entry.outputs[0].parsed_output, null);
+    }
   }
 });
 
@@ -648,7 +621,11 @@ test("single show text download works without parsing and manual download retain
   t.mock.method(showRuntime, "connectionPayload", () => ({
     connection_name: "different-device",
   }));
-  await get(workspace.exportActionHandlersStateStore).downloadOutput();
+  await downloadCommandOutput(
+    get(executionHistory.state).entries.find(
+      (row) => row.feature === "show" && row.scope === "single",
+    )!.outputs,
+  );
   assert.equal(download.mock.callCount(), 2);
   const first = download.mock.calls[0].arguments[0];
   const second = download.mock.calls[1].arguments[0];
@@ -664,8 +641,6 @@ test("single show text download works without parsing and manual download retain
 test("batch text download snapshots the switch and includes failed devices without parsed data", async (t) => {
   const { executionResultRuntime } =
     await import("../src/domains/execution/infrastructure/executionResultRuntime.js");
-  const { createBatchShowResultsPanelWorkspace } =
-    await import("../src/domains/show/application/createShowWorkspaces.js");
   const download = t.mock.method(executionResultRuntime, "download", () => {});
   t.after(() => {
     setBatchShowFields();
@@ -694,12 +669,11 @@ test("batch text download snapshots the switch and includes failed devices witho
     await executeBatchShowObject();
     assert.equal(download.mock.callCount(), enabled ? 1 : 0);
   }
-  const page = createShowPageWorkspace();
-  const workspace = createBatchShowResultsPanelWorkspace();
-  workspace.setResultsContext({
-    batchResultsPresentation: get(page.batchResultsPresentationStateStore),
-  });
-  await get(workspace.exportActionHandlersStateStore).downloadOutput();
+  await downloadCommandOutput(
+    get(executionHistory.state).entries.find(
+      (row) => row.feature === "show" && row.scope === "batch",
+    )!.outputs,
+  );
   assert.equal(download.mock.callCount(), 2);
   const blob = download.mock.calls[1].arguments[0];
   assert.ok(blob);
