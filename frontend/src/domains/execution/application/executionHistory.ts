@@ -1,3 +1,8 @@
+import {
+  historyDetailSnapshot,
+  historyDetailSucceeded,
+  type ExecutionHistoryDetail,
+} from "../model/executionHistoryDetail.js";
 import { get, writable, readonly } from "svelte/store";
 import {
   readExecutionHistory,
@@ -87,9 +92,11 @@ export function createExecutionHistory({
     outputs: ExecutionHistoryOutput[],
     message = "",
     failed = false,
+    detail?: ExecutionHistoryDetail,
   ) {
     // Copy the result so later editor changes and downloads cannot alter a run.
     const snapshot = structuredClone(outputs.map(historyOutputSnapshot));
+    const detailSnapshot = detail ? historyDetailSnapshot(detail) : undefined;
     update((value) => ({
       ...value,
       entries: value.entries.map((entry) =>
@@ -98,6 +105,7 @@ export function createExecutionHistory({
               ...entry,
               completedAt: now(),
               outputs: snapshot,
+              detail: detailSnapshot,
               message,
               status: message ? "error" : historyStatus(snapshot, failed),
             }
@@ -107,12 +115,17 @@ export function createExecutionHistory({
   }
   function fail(id: string, message: string) {
     const existing = get(store).entries.find((entry) => entry.id === id);
-    finish(id, existing?.outputs ?? [], message, true);
+    finish(id, existing?.outputs ?? [], message, true, existing?.detail);
   }
   return {
     state: readonly(store),
     start,
     finish,
+    finishDetail(id: string, detail: ExecutionHistoryDetail) {
+      const succeeded = historyDetailSucceeded(detail);
+      finish(id, [], "", !succeeded, detail);
+      return succeeded;
+    },
     fail,
     setLimit(value: number) {
       const limit = historyLimit(value);

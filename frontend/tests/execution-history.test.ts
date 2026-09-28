@@ -29,7 +29,10 @@ test("retention is per function and combines single and batch runs", () => {
       ledger.finish(id, [{ device: "r1", command: String(i), success: true }]);
     }
   }
-  assert.equal(get(ledger.state).entries.length, 40);
+  assert.equal(
+    get(ledger.state).entries.length,
+    executionHistoryFunctions.length * 10,
+  );
   for (const feature of executionHistoryFunctions) {
     const runs = filterExecutionHistory(get(ledger.state).entries, [feature]);
     assert.equal(runs.length, 10);
@@ -37,7 +40,10 @@ test("retention is per function and combines single and batch runs", () => {
     assert.equal(runs.at(-1)?.outputs[0].command, "2");
   }
   ledger.setLimit(2);
-  assert.equal(get(ledger.state).entries.length, 8);
+  assert.equal(
+    get(ledger.state).entries.length,
+    executionHistoryFunctions.length * 2,
+  );
   assert.equal(
     filterExecutionHistory(get(ledger.state).entries, [
       "command",
@@ -48,7 +54,7 @@ test("retention is per function and combines single and batch runs", () => {
   assert.equal(
     filterExecutionHistory(get(ledger.state).entries, executionHistoryFunctions)
       .length,
-    8,
+    executionHistoryFunctions.length * 2,
   );
   assert.equal(filterExecutionHistory(get(ledger.state).entries, []).length, 0);
   assert.equal(historyLimit(undefined), 10);

@@ -5,9 +5,7 @@
   import CopyPlusIcon from "@lucide/svelte/icons/copy-plus";
   import FilePlusIcon from "@lucide/svelte/icons/file-plus";
   import SaveIcon from "@lucide/svelte/icons/save";
-  import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import SlidersHorizontalIcon from "@lucide/svelte/icons/sliders-horizontal";
-  import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import {
@@ -19,7 +17,7 @@
   import PlainInputField from "$components/fragments/PlainInputField.svelte";
   import SessionRetryFields from "$components/fragments/SessionRetryFields.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
-  import StringSelectField from "$components/fragments/StringSelectField.svelte";
+  import TemplateSourceField from "$components/fragments/TemplateSourceField.svelte";
   import TextfsmControls from "$components/fragments/TextfsmControls.svelte";
   import { createInteractiveExecutionPanelWorkspace } from "../../application/createStandardExecutionWorkspaces.js";
   import { currentLanguageState, t } from "$lib/i18n.js";
@@ -76,26 +74,10 @@
   );
   let nameDialog = $derived(authoringDisplay.nameDialog);
   let authoringBusy = $derived(!!authoringDisplay.loadingAction);
-  let currentDraftName = $derived(
-    authoringDisplay.selection.name || interactiveInputDisplay.newSourceLabel,
-  );
-  let currentSourceLabel = $derived(
-    authoringDisplay.selection.kind === "builtin"
-      ? interactiveInputDisplay.builtinSourceLabel
-      : authoringDisplay.selection.kind === "custom"
-        ? interactiveInputDisplay.customSourceLabel
-        : interactiveInputDisplay.newSourceLabel,
-  );
   let nameDialogTitle = $derived(
     nameDialog.action === "new"
       ? interactiveInputDisplay.nameDialogNewTitle
       : interactiveInputDisplay.nameDialogSaveAsTitle,
-  );
-  let promptCount = $derived(authoringDisplay.model.prompts.length);
-  let interactiveVariableCount = $derived(
-    Array.isArray(interactiveVarsDisplay?.fieldRows)
-      ? interactiveVarsDisplay.fieldRows.length
-      : 0,
   );
   let studioLabels = $derived.by(() => {
     $currentLanguageState;
@@ -103,7 +85,6 @@
       options: t("interactiveStudioOptions"),
       optionsHint: t("interactiveStudioOptionsHint"),
       sequence: t("interactiveStudioSequence"),
-      draft: t("interactiveStudioUnsaved"),
     };
   });
   function handleNameDialogOpenChange(open: boolean) {
@@ -130,69 +111,12 @@
     <BatchDeliveryTargets workspace={batchWorkspace} />
   {/if}
 
-  <section
-    class="interactive-source min-w-0 overflow-hidden rounded-2xl border border-border/80 bg-card"
-    aria-label={interactiveInputDisplay.templateTitleText}
-  >
-    <div
-      class="flex min-w-0 flex-wrap items-center justify-between gap-4 p-4 sm:p-5"
-    >
-      <div class="flex min-w-0 items-center gap-3">
-        <div
-          class="flex size-11 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary"
-        >
-          <GitBranchIcon class="size-5" />
-        </div>
-        <div class="min-w-0">
-          <div
-            class="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
-          >
-            <span>{interactiveInputDisplay.currentDraftLabel}</span>
-            <span aria-hidden="true">/</span>
-            <span>{currentSourceLabel}</span>
-            {#if authoringDisplay.dirty}
-              <span
-                class="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-400"
-                ><span class="size-1.5 rounded-full bg-current"
-                ></span>{studioLabels.draft}</span
-              >
-            {/if}
-          </div>
-          <h2
-            class="break-all text-lg font-semibold tracking-tight text-foreground"
-          >
-            {currentDraftName}
-          </h2>
-        </div>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <Badge
-          variant="secondary"
-          class="gap-1.5 rounded-lg px-2.5 py-1 font-normal"
-          ><span class="font-mono font-semibold">{promptCount}</span>{t(
-            "interactiveCommandPromptCountLabel",
-          )}</Badge
-        >
-        <Badge
-          variant="outline"
-          class="gap-1.5 rounded-lg px-2.5 py-1 font-normal"
-          ><span class="font-mono font-semibold"
-            >{interactiveVariableCount}</span
-          >{interactiveInputDisplay.interactiveVariableCountLabel}</Badge
-        >
-      </div>
-    </div>
-    <div
-      class="flex min-w-0 flex-wrap items-center gap-2 border-t border-border/70 bg-background/60 px-4 py-3 sm:px-5"
-    >
-      <div class="min-w-0 basis-full sm:max-w-sm sm:flex-1 sm:basis-auto">
-        <StringSelectField
-          placeholderText={interactiveInputDisplay.templateField.placeholder}
-          aria-label={interactiveInputDisplay.templateField.ariaLabelText}
-          title={interactiveInputDisplay.templateField.placeholder}
+  <div class="grid min-w-0 gap-2">
+    <div class="flex min-w-0 flex-wrap items-center gap-2">
+      <div class="min-w-0 basis-full">
+        <TemplateSourceField
           value={interactiveTemplateFields.templateName}
           optionValues={interactiveInputDisplay.templateOptionRows}
-          includeEmptyOption={true}
           disabled={authoringBusy}
           onValueChange={changeInteractiveTemplateName}
         />
@@ -231,7 +155,7 @@
         </Button>
       </div>
     </div>
-  </section>
+  </div>
 
   {#if authoringDisplay.errorMessage}
     <StatusCard message={authoringDisplay.errorMessage} tone="error" />
@@ -366,13 +290,6 @@
 <style>
   .interactive-studio {
     container-type: inline-size;
-  }
-  .interactive-source {
-    background-image: linear-gradient(
-      110deg,
-      color-mix(in oklab, var(--primary) 6%, transparent),
-      transparent 65%
-    );
   }
   @container (min-width: 64rem) {
     .interactive-studio-columns {

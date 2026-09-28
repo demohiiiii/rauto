@@ -52,6 +52,8 @@
       "config-fetch": t("configFetchTitle"),
       command: t("commandDeliveryTitle"),
       interactive: t("interactiveDeliveryTitle"),
+      "tx-workflow": t("txStageWorkflow"),
+      orchestrate: t("orchestrationWorkspaceTitle"),
     };
   });
 

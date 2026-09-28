@@ -1,6 +1,6 @@
 <script lang="ts">
   import OrchestrationInputPanel from "$domains/orchestration/presentation/components/editor/OrchestrationInputPanel.svelte";
-  import { createOrchestrationStageWorkspace } from "$domains/orchestration/index.js";
+  import ExecutionDock from "$components/fragments/ExecutionDock.svelte";
 
   interface TextFile {
     text(): Promise<string>;
@@ -19,26 +19,15 @@
     onImportFile,
     onEditorInput,
   }: Props = $props();
-  const orchestrationStageWorkspace = createOrchestrationStageWorkspace();
-  const { executionPanelDisplayStateStore, setStageContext } =
-    orchestrationStageWorkspace;
-  let orchestrationExecutionPanelDisplay = $derived(
-    $executionPanelDisplayStateStore,
-  );
-
-  $effect(() => {
-    setStageContext({ active });
-  });
 </script>
 
-<div class="grid gap-2" hidden={!active}>
+<ExecutionDock {active} feature="orchestrate">
   <div class="grid gap-2">
     <OrchestrationInputPanel
       {active}
       {onEditorInput}
       {onExecute}
       {onImportFile}
-      executionPanelDisplay={orchestrationExecutionPanelDisplay}
     />
   </div>
-</div>
+</ExecutionDock>

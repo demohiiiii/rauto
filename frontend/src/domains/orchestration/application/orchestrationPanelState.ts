@@ -8,11 +8,6 @@ import { dashboardState } from "$domains/dashboard/index.js";
 import { createOrchestratedWorkspace } from "./orchestratedWorkspace.js";
 import { executionModeOptionsVersion } from "$domains/profiles/index.js";
 import { orchestrationEditorRunButtonDisplayPresentation } from "../presentation/orchestrationFormStructureState.js";
-import {
-  orchestrationExecutionPanelDisplay,
-  orchestrationStageExecutionDisplayPresentation,
-  orchestrationStagePreviewDisplay,
-} from "../presentation/orchestrationResultDisplayState.js";
 import { orchestrationStageJobsPanelDisplay } from "../presentation/orchestrationResultDetailState.js";
 import {
   orchestratedActiveStageDefinition,
@@ -22,15 +17,7 @@ import type {
   OrchestratedStageComponent,
   OrchestratedStageDefinition,
 } from "../presentation/componentTypes.js";
-import {
-  orchestrationPreviewState,
-  orchestrationResultState,
-  transactionOutputState,
-  TX_OUTPUT,
-  TX_VISUAL,
-  txExecutionModes,
-  visualOutputState,
-} from "$domains/transactions/index.js";
+import { txExecutionModes } from "$domains/transactions/index.js";
 
 interface ExternalActionContext {
   isCurrent?: () => boolean;
@@ -184,79 +171,6 @@ export function createOrchestrationStageDetailPanelWorkspace() {
 
   return {
     jobsPanelDisplayStateStore,
-  };
-}
-
-export function createOrchestrationStageWorkspace() {
-  const activeStateStore = writable(false);
-  const orchestrationPreviewFallbackStateStore = visualOutputState(
-    TX_VISUAL.orchestrationPreview,
-  );
-  const orchestrationExecutionFallbackStateStore = transactionOutputState(
-    TX_OUTPUT.orchestrationExec,
-  );
-  let lastPreviewDisplay = orchestrationStagePreviewDisplay({
-    preview: { plan: null },
-  });
-  const previewDisplayStateStore = derived(
-    [
-      activeStateStore,
-      currentLanguageState,
-      orchestrationPreviewState,
-      orchestrationPreviewFallbackStateStore,
-    ],
-    ([$active, _language, $previewState, $previewFallbackState]) => {
-      if (!$active) {
-        return lastPreviewDisplay;
-      }
-      lastPreviewDisplay = orchestrationStagePreviewDisplay({
-        fallback: $previewFallbackState,
-        preview: $previewState,
-      });
-      return lastPreviewDisplay;
-    },
-  );
-  let lastExecutionDisplay = orchestrationStageExecutionDisplayPresentation({
-    executionPayload: null,
-  });
-  const executionDisplayStateStore = derived(
-    [
-      activeStateStore,
-      currentLanguageState,
-      orchestrationResultState,
-      orchestrationExecutionFallbackStateStore,
-    ],
-    ([
-      $active,
-      _language,
-      $orchestrationResultState,
-      $executionFallbackState,
-    ]) => {
-      if (!$active) {
-        return lastExecutionDisplay;
-      }
-      const orchestrationExecutionPayload =
-        $orchestrationResultState == null ? null : $orchestrationResultState;
-      lastExecutionDisplay = orchestrationStageExecutionDisplayPresentation({
-        executionFallback: $executionFallbackState,
-        executionPayload: orchestrationExecutionPayload,
-      });
-      return lastExecutionDisplay;
-    },
-  );
-  const executionPanelDisplayStateStore = derived(
-    [executionDisplayStateStore, currentLanguageState],
-    ([$executionDisplayStateStore, _currentLanguageState]) =>
-      orchestrationExecutionPanelDisplay($executionDisplayStateStore),
-  );
-
-  return {
-    executionDisplayStateStore,
-    executionPanelDisplayStateStore,
-    previewDisplayStateStore,
-    setStageContext({ active = false }: { active?: boolean } = {}) {
-      activeStateStore.set(active);
-    },
   };
 }
 

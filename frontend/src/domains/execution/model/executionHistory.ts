@@ -1,3 +1,4 @@
+import type { ExecutionHistoryDetail } from "./executionHistoryDetail.js";
 import type { JsonValue } from "$lib/jsonValue.js";
 import type { CommandOutputEntry } from "./types.js";
 import { executionResultFailed } from "./executionResult.js";
@@ -7,6 +8,8 @@ export const executionHistoryFunctions = [
   "config-fetch",
   "command",
   "interactive",
+  "tx-workflow",
+  "orchestrate",
 ] as const;
 export type ExecutionHistoryFunction =
   (typeof executionHistoryFunctions)[number];
@@ -36,6 +39,7 @@ export interface ExecutionHistoryEntry {
   status: ExecutionHistoryStatus;
   message: string;
   outputs: ExecutionHistoryOutput[];
+  detail?: ExecutionHistoryDetail;
 }
 export interface ExecutionHistorySnapshot {
   limit: number;

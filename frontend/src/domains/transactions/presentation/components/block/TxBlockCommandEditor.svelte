@@ -1,9 +1,8 @@
 <script lang="ts">
+  import TemplateSourceField from "$components/fragments/TemplateSourceField.svelte";
+  import { MANUAL_COMMAND_SOURCE } from "$domains/command/index.js";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
-  import {
-    CommandEditor,
-    CommandTemplateSourceField,
-  } from "$domains/command/presentation/components/index.js";
+  import { CommandEditor } from "$domains/command/presentation/components/index.js";
   import CollapsibleGroup from "$components/fragments/CollapsibleGroup.svelte";
   import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
@@ -86,7 +85,8 @@
     title={t("txBlockFormCommand")}
     description={t("txBlockFormCommandHint")}
   >
-    <CommandTemplateSourceField
+    <TemplateSourceField
+      manualValue={MANUAL_COMMAND_SOURCE}
       value={commandTemplateSource.selection}
       optionValues={commandTemplateSource.optionValues}
       disabled={commandTemplateSource.loading}

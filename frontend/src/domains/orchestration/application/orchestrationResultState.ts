@@ -23,6 +23,7 @@ interface PreviewPanelContext {
 }
 
 interface ExecutionPanelContext {
+  onOpenDetail?: (detail: OrchestrationExecutionDetailEntry) => void;
   panelDisplay?: OrchestrationExecutionPanelDisplay | null;
 }
 
@@ -124,9 +125,12 @@ function orchestrationExecutionStagePanelCallbacks(
 
 function orchestrationExecutionPanelCallbacks(
   resultDisplay: OrchestrationExecutionResultDisplay,
+  onOpenDetail: (
+    detail: OrchestrationExecutionDetailEntry | null,
+  ) => void = openOrchestrationExecutionDetail,
 ) {
   function openStageDetail(stageIndex = 0): void {
-    openOrchestrationExecutionDetail(
+    onOpenDetail(
       orchestrationExecutionDetailAt(resultDisplay.detailIndex, stageIndex),
     );
   }
@@ -136,7 +140,7 @@ function orchestrationExecutionPanelCallbacks(
     jobIndex = 0,
     targetIndex = 0,
   ): void {
-    openOrchestrationExecutionDetail(
+    onOpenDetail(
       orchestrationExecutionDetailAt(
         resultDisplay.detailIndex,
         stageIndex,
@@ -160,6 +164,7 @@ function orchestrationExecutionPanelCallbacks(
 
 export function createOrchestrationExecutionPanelWorkspace({
   panelDisplay = null,
+  onOpenDetail,
 }: ExecutionPanelContext = {}) {
   const panelDisplayStateStore =
     writable<OrchestrationExecutionPanelDisplay | null>(panelDisplay);
@@ -181,10 +186,19 @@ export function createOrchestrationExecutionPanelWorkspace({
       ($panelDisplayStateStore ?? orchestrationExecutionPanelDisplay())
         .executionModeDisplay,
   );
+  const openDetailStateStore =
+    writable<ExecutionPanelContext["onOpenDetail"]>(onOpenDetail);
   const executionCallbacksStateStore = deriveStore(
-    resultDisplayStateStore,
-    ($resultDisplayStateStore) =>
-      orchestrationExecutionPanelCallbacks($resultDisplayStateStore),
+    [resultDisplayStateStore, openDetailStateStore],
+    ([$resultDisplayStateStore, $onOpenDetail]) =>
+      orchestrationExecutionPanelCallbacks(
+        $resultDisplayStateStore,
+        $onOpenDetail
+          ? (detail) => {
+              if (detail) $onOpenDetail(detail);
+            }
+          : undefined,
+      ),
   );
   return {
     executionCallbacksStateStore,
@@ -193,8 +207,10 @@ export function createOrchestrationExecutionPanelWorkspace({
     resultDisplayStateStore,
     setExecutionPanelContext({
       panelDisplay: nextPanelDisplay = null,
+      onOpenDetail: nextOnOpenDetail,
     }: ExecutionPanelContext = {}): void {
       panelDisplayStateStore.set(nextPanelDisplay);
+      openDetailStateStore.set(nextOnOpenDetail);
     },
     statusDisplayStateStore,
   };

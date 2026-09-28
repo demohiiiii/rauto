@@ -18,17 +18,11 @@
     OrchestrationPlanFormModel,
     OrchestrationRunButtonDisplay,
     OrchestrationTemplateReplacementReason,
-    orchestrationExecutionPanelDisplay,
   } from "$domains/orchestration/index.js";
-
-  type ExecutionPanelDisplay = ReturnType<
-    typeof orchestrationExecutionPanelDisplay
-  >;
 
   interface Props {
     active?: boolean;
     editorSyncVersion?: number;
-    executionPanelDisplay: ExecutionPanelDisplay;
     onEditorInput?: (text: string) => void;
     onExecute?: () => Promise<void> | void;
     onImportFile?: (
@@ -45,7 +39,6 @@
     onImportFile,
     orchestrationEditorRunButtonDisplay,
     editorSyncVersion = 0,
-    executionPanelDisplay,
   }: Props = $props();
 
   const orchestrationEditorWorkspace =
@@ -197,5 +190,4 @@
   {closeNameDialog}
   {submitNameDialog}
   runButtonDisplay={orchestrationEditorRunButtonDisplay}
-  {executionPanelDisplay}
 />

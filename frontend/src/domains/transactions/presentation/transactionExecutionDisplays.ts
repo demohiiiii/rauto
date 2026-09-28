@@ -362,43 +362,6 @@ export type TxWorkflowOutputPanelDisplay = ReturnType<
   typeof txWorkflowOutputPanelDisplay
 >;
 
-const emptyTxWorkflowOutputPanelDisplay = txWorkflowOutputPanelDisplay();
-
-export function createTxWorkflowRunPanelWorkspace({
-  panelDisplay = null,
-}: {
-  panelDisplay?: TxWorkflowOutputPanelDisplay | null;
-} = {}) {
-  const panelDisplayStateStore = writable<TxWorkflowOutputPanelDisplay>(
-    panelDisplay || emptyTxWorkflowOutputPanelDisplay,
-  );
-  const executionModeDisplayStateStore = deriveStore(
-    panelDisplayStateStore,
-    (display) => display.executionPanelDisplay.executionModeDisplay,
-  );
-  const executionStatusDisplayStateStore = deriveStore(
-    panelDisplayStateStore,
-    (display) => display.executionPanelDisplay.statusDisplay,
-  );
-  const workflowExecutionResultDisplayStateStore = deriveStore(
-    panelDisplayStateStore,
-    (display) => display.executionPanelDisplay.workflowExecutionDisplay,
-  );
-  return {
-    executionModeDisplayStateStore,
-    executionStatusDisplayStateStore,
-    panelDisplayStateStore,
-    setPanelDisplay(
-      nextPanelDisplay: TxWorkflowOutputPanelDisplay | null = null,
-    ) {
-      panelDisplayStateStore.set(
-        nextPanelDisplay || emptyTxWorkflowOutputPanelDisplay,
-      );
-    },
-    workflowExecutionResultDisplayStateStore,
-  };
-}
-
 export function createTxWorkflowBlockResultPanelWorkspace(
   inputState: WorkflowBlockWorkspaceInput = {},
 ) {

@@ -1,3 +1,7 @@
+import {
+  isHistoryDetail,
+  historyDetailSnapshot,
+} from "../model/executionHistoryDetail.js";
 import { sessionStorageGet, sessionStorageSet } from "$lib/browser.js";
 import {
   executionHistoryFunctions,
@@ -83,7 +87,9 @@ function entry(value: unknown): value is ExecutionHistoryEntry {
       typeof value.textfsmEnabled === "boolean") &&
     typeof value.message === "string" &&
     Array.isArray(value.outputs) &&
-    value.outputs.every(output)
+    value.outputs.every(output) &&
+    (value.detail === undefined ||
+      (isHistoryDetail(value.detail) && value.detail.kind === value.feature))
   );
 }
 export function parseExecutionHistory(
@@ -102,11 +108,12 @@ export function parseExecutionHistory(
         ids.add(row.id);
         return true;
       })
-      .map((row) =>
-        row.status === "running"
-          ? { ...row, status: "interrupted" as const }
-          : row,
-      );
+      .map((row) => ({
+        ...row,
+        detail: row.detail ? historyDetailSnapshot(row.detail) : undefined,
+        status:
+          row.status === "running" ? ("interrupted" as const) : row.status,
+      }));
     return { limit, entries: retainExecutionHistory(entries, limit) };
   } catch {
     return { limit: 10, entries: [] };

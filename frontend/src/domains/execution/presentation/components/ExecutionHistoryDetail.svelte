@@ -75,144 +75,181 @@
   }
 </script>
 
-<ExecutionResultsPanel
-  title={t("executionHistoryTitle")}
-  icon={TerminalIcon}
-  items={deviceRows}
-  alwaysShowNavigation={entry.scope === "batch"}
-  activeKey={selectedDevice?.key ?? ""}
-  navigationAriaLabel={t("batchShowResultDevicesAria")}
-  onSelect={(key) => {
-    device = key;
-    commandIndex = "0";
-    view = "output";
-  }}
-  statusMessage={entry.message ||
-    (entry.status === "running"
-      ? t("running")
-      : entry.status === "interrupted"
-        ? t("executionHistoryInterrupted")
-        : "")}
-  statusTone={entry.status === "running" ? "running" : "error"}
-  emptyMessage={t("templateExecNoItems")}
->
-  {#snippet actions()}
-    {#if entry.outputs.length}
-      <LoadingButton
-        variant="outline"
-        size="sm"
-        onclick={() =>
-          downloadCommandOutput(entry.outputs, "execution-history-output")}
-        >{t("downloadCommandOutput")}</LoadingButton
-      >
-    {/if}
-    {#if entry.textfsmEnabled !== false && sheets.length}
-      <LoadingButton
-        variant="outline"
-        size="sm"
-        loading={exporting}
-        onclick={exportAll}>{t("textfsmExportAllExcel")}</LoadingButton
-      >
-    {/if}
-  {/snippet}
-  {#snippet detail()}
-    {#if output}
-      <div class="min-w-0 overflow-x-auto">
-        <TabList
-          tabItems={commands.map((row, index) => ({
-            value: String(index),
-            label: row.object || row.command || "-",
-          }))}
-          activeValue={String(Math.max(0, commands.indexOf(output)))}
-          aria-label={t("fieldCommand")}
-          onSelect={(value) => {
-            commandIndex = value;
-            view = "output";
-          }}
-        />
-      </div>
+{#if entry.detail}
+  <div class="grid min-w-0 gap-4">
+    {#if entry.message || entry.detail.result === null}<StatusCard
+        message={entry.message || t("requestFailed")}
+        tone="error"
+      />{/if}
+    {#if entry.detail.kind === "tx-workflow"}
       <ExecutionResultMeta
-        fields={[
-          { label: t("fieldHost"), value: output.host || output.device },
-          { label: t("fieldCommand"), value: output.command, mono: true },
-          ...(output.mode
-            ? [{ label: t("modePlaceholder"), value: output.mode }]
-            : []),
-          ...(output.exit_code != null
-            ? [
-                {
-                  label: t("txBlockResultExitCode"),
-                  value: String(output.exit_code),
-                },
-              ]
-            : []),
-          ...(output.sha256
-            ? [
-                {
-                  label: t("configFetchRawHashLabel"),
-                  value: output.sha256,
-                  mono: true,
-                },
-              ]
-            : []),
-          ...(output.normalized_sha256
-            ? [
-                {
-                  label: t("configFetchNormalizedHashLabel"),
-                  value: output.normalized_sha256,
-                  mono: true,
-                },
-              ]
-            : []),
-        ]}
+        fields={[{ label: t("fieldHost"), value: entry.detail.device }]}
       />
-      {#if output.error}<StatusCard message={output.error} tone="error" />{/if}
-      {#if hasParsed || output.normalized_content != null}
-        <TabList
-          tabItems={[
-            { value: "output", label: t("showRawOutputTab") },
-            ...(hasParsed
-              ? [{ value: "parsed", label: t("showParsedOutputTab") }]
+      {#await import("$domains/transactions/presentation/components/workflow/TxWorkflowExecutionResult.svelte")}
+        <StatusCard message={t("loading")} />
+      {:then module}
+        <module.default result={entry.detail.result} />
+      {:catch}
+        <StatusCard message={t("requestFailed")} tone="error" />
+      {/await}
+    {:else}
+      {#await import("$domains/orchestration/presentation/components/result/OrchestrationHistoryDetail.svelte")}
+        <StatusCard message={t("loading")} />
+      {:then module}
+        <module.default result={entry.detail.result} />
+      {:catch}
+        <StatusCard message={t("requestFailed")} tone="error" />
+      {/await}
+    {/if}
+  </div>
+{:else}
+  <ExecutionResultsPanel
+    title={t("executionHistoryTitle")}
+    icon={TerminalIcon}
+    items={deviceRows}
+    alwaysShowNavigation={entry.scope === "batch"}
+    activeKey={selectedDevice?.key ?? ""}
+    navigationAriaLabel={t("batchShowResultDevicesAria")}
+    onSelect={(key) => {
+      device = key;
+      commandIndex = "0";
+      view = "output";
+    }}
+    statusMessage={entry.message ||
+      (entry.status === "running"
+        ? t("running")
+        : entry.status === "interrupted"
+          ? t("executionHistoryInterrupted")
+          : "")}
+    statusTone={entry.status === "running" ? "running" : "error"}
+    emptyMessage={t("templateExecNoItems")}
+  >
+    {#snippet actions()}
+      {#if entry.outputs.length}
+        <LoadingButton
+          variant="outline"
+          size="sm"
+          onclick={() =>
+            downloadCommandOutput(entry.outputs, "execution-history-output")}
+          >{t("downloadCommandOutput")}</LoadingButton
+        >
+      {/if}
+      {#if entry.textfsmEnabled !== false && sheets.length}
+        <LoadingButton
+          variant="outline"
+          size="sm"
+          loading={exporting}
+          onclick={exportAll}>{t("textfsmExportAllExcel")}</LoadingButton
+        >
+      {/if}
+    {/snippet}
+    {#snippet detail()}
+      {#if output}
+        <div class="min-w-0 overflow-x-auto">
+          <TabList
+            tabItems={commands.map((row, index) => ({
+              value: String(index),
+              label: row.object || row.command || "-",
+            }))}
+            activeValue={String(Math.max(0, commands.indexOf(output)))}
+            aria-label={t("fieldCommand")}
+            onSelect={(value) => {
+              commandIndex = value;
+              view = "output";
+            }}
+          />
+        </div>
+        <ExecutionResultMeta
+          fields={[
+            { label: t("fieldHost"), value: output.host || output.device },
+            { label: t("fieldCommand"), value: output.command, mono: true },
+            ...(output.mode
+              ? [{ label: t("modePlaceholder"), value: output.mode }]
               : []),
-            ...(output.normalized_content != null
-              ? [{ value: "normalized", label: t("configFetchNormalizedTab") }]
+            ...(output.exit_code != null
+              ? [
+                  {
+                    label: t("txBlockResultExitCode"),
+                    value: String(output.exit_code),
+                  },
+                ]
+              : []),
+            ...(output.sha256
+              ? [
+                  {
+                    label: t("configFetchRawHashLabel"),
+                    value: output.sha256,
+                    mono: true,
+                  },
+                ]
+              : []),
+            ...(output.normalized_sha256
+              ? [
+                  {
+                    label: t("configFetchNormalizedHashLabel"),
+                    value: output.normalized_sha256,
+                    mono: true,
+                  },
+                ]
               : []),
           ]}
-          activeValue={view}
-          aria-label={t("executionHistoryTitle")}
-          onSelect={(value) => (view = value)}
         />
-      {/if}
-      {#if view === "parsed"}
-        <ParsedOutputBlock
-          parsedOutputBlock={parsedOutputBlockDisplayFromItem(output)}
-          onExportExcel={exportParsedOutputItemExcel}
-        />
-      {:else}
-        <OutputBlock
-          title={output.command}
-          tone={executionResultFailed(output) ? "error" : "default"}
-          errorLabel={t("orchestrationStatusFailed")}
-        >
-          {view === "normalized"
-            ? output.normalized_content
-            : executionResultOutputText(output, "output", {
-                preferTranscript: executionResultFailed(output),
-              })}
-        </OutputBlock>
-        {#if entry.feature === "config-fetch" && !executionResultFailed(output) && (view === "normalized" ? typeof output.normalized_content === "string" : typeof output.output === "string")}
-          <LoadingButton
-            variant="outline"
-            size="sm"
-            onclick={() =>
-              downloadHistoryConfig(
-                entry,
-                output,
-                view === "normalized" ? "normalized" : "raw",
-              )}>{t("configFetchDownloadBtn")}</LoadingButton
+        {#if output.error}<StatusCard
+            message={output.error}
+            tone="error"
+          />{/if}
+        {#if hasParsed || output.normalized_content != null}
+          <TabList
+            tabItems={[
+              { value: "output", label: t("showRawOutputTab") },
+              ...(hasParsed
+                ? [{ value: "parsed", label: t("showParsedOutputTab") }]
+                : []),
+              ...(output.normalized_content != null
+                ? [
+                    {
+                      value: "normalized",
+                      label: t("configFetchNormalizedTab"),
+                    },
+                  ]
+                : []),
+            ]}
+            activeValue={view}
+            aria-label={t("executionHistoryTitle")}
+            onSelect={(value) => (view = value)}
+          />
+        {/if}
+        {#if view === "parsed"}
+          <ParsedOutputBlock
+            parsedOutputBlock={parsedOutputBlockDisplayFromItem(output)}
+            onExportExcel={exportParsedOutputItemExcel}
+          />
+        {:else}
+          <OutputBlock
+            title={output.command}
+            tone={executionResultFailed(output) ? "error" : "default"}
+            errorLabel={t("orchestrationStatusFailed")}
           >
+            {view === "normalized"
+              ? output.normalized_content
+              : executionResultOutputText(output, "output", {
+                  preferTranscript: executionResultFailed(output),
+                })}
+          </OutputBlock>
+          {#if entry.feature === "config-fetch" && !executionResultFailed(output) && (view === "normalized" ? typeof output.normalized_content === "string" : typeof output.output === "string")}
+            <LoadingButton
+              variant="outline"
+              size="sm"
+              onclick={() =>
+                downloadHistoryConfig(
+                  entry,
+                  output,
+                  view === "normalized" ? "normalized" : "raw",
+                )}>{t("configFetchDownloadBtn")}</LoadingButton
+            >
+          {/if}
         {/if}
       {/if}
-    {/if}
-  {/snippet}
-</ExecutionResultsPanel>
+    {/snippet}
+  </ExecutionResultsPanel>
+{/if}

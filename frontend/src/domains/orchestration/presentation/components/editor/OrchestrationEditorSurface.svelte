@@ -1,14 +1,13 @@
 <script lang="ts">
   import BracesIcon from "@lucide/svelte/icons/braces";
   import EyeIcon from "@lucide/svelte/icons/eye";
-  import PlayIcon from "@lucide/svelte/icons/play";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Card from "$lib/components/ui/card/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";
   import PlainInputField from "$components/fragments/PlainInputField.svelte";
-  import PlainSelectField from "$components/fragments/PlainSelectField.svelte";
+  import TemplateSourceField from "$components/fragments/TemplateSourceField.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
   import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
   import WorkspaceTemplateActions from "$components/fragments/WorkspaceTemplateActions.svelte";
@@ -16,7 +15,7 @@
   import { currentLanguageState, t } from "$lib/i18n.js";
   import { orchestrationPlanFormModelToJsonText } from "$domains/orchestration/index.js";
   import { TX_EDITOR } from "$domains/transactions/index.js";
-  import OrchestrationExecutionPanel from "$domains/orchestration/presentation/components/result/OrchestrationExecutionPanel.svelte";
+  import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
   import OrchestrationPlanFormEditor from "$domains/orchestration/presentation/components/editor/OrchestrationPlanFormEditor.svelte";
   import OrchestrationPreviewPanel from "$domains/orchestration/presentation/components/preview/OrchestrationPreviewPanel.svelte";
   import TxJsonFormSurface from "$domains/transactions/presentation/components/shared/TxJsonFormSurface.svelte";
@@ -31,12 +30,8 @@
     OrchestrationRunButtonDisplay,
     OrchestrationTemplateDisplayState,
     OrchestrationVisualEditorDisplay,
-    orchestrationExecutionPanelDisplay,
   } from "$domains/orchestration/index.js";
 
-  type ExecutionPanelDisplay = ReturnType<
-    typeof orchestrationExecutionPanelDisplay
-  >;
   type TemplateAction = () => Promise<boolean> | boolean | void;
 
   interface Props {
@@ -45,7 +40,6 @@
     closeNameDialog: () => void;
     editorDisplay: OrchestrationEditorRunPanelDisplay;
     editorValue: string;
-    executionPanelDisplay: ExecutionPanelDisplay;
     onEditorErrorChange?: (error: string) => void;
     onEditorInput?: (text: string) => void;
     onExecute?: () => Promise<void> | void;
@@ -86,7 +80,6 @@
     closeNameDialog,
     submitNameDialog,
     runButtonDisplay = {},
-    executionPanelDisplay,
   }: Props = $props();
 
   let currentLanguage = $derived($currentLanguageState);
@@ -94,7 +87,6 @@
     mode: OrchestrationEditorView;
     open: boolean;
   }>({ open: false, mode: "json" });
-  let executionDialogOpen = $state(false);
   let templateBusy = $derived(!!templateDisplay?.loadingAction);
   let nameDialog = $derived(
     templateDisplay?.nameDialog || {
@@ -104,23 +96,11 @@
       value: "",
     },
   );
-  let templateOptions = $derived.by(() => {
-    currentLanguage;
-    return [
-      {
-        optionLabel: t("orchestrationTemplateManualDraft"),
-        optionValue: "",
-      },
-      ...(Array.isArray(templateDisplay?.templateOptions)
-        ? templateDisplay.templateOptions
-            .filter((option) => option.value)
-            .map((option) => ({
-              optionLabel: option.label || option.value,
-              optionValue: option.value,
-            }))
-        : []),
-    ];
-  });
+  let templateOptions = $derived(
+    templateDisplay.templateOptions
+      .map((option) => option.value)
+      .filter(Boolean),
+  );
   let selectionLabel = $derived.by(() => {
     currentLanguage;
     if (templateDisplay?.selectionKind === "new") {
@@ -194,7 +174,6 @@
   }
 
   async function executeCurrentPlan(): Promise<void> {
-    executionDialogOpen = true;
     await onExecute?.();
   }
 </script>
@@ -230,19 +209,13 @@
   </WorkspaceActionHeader>
 
   <Card.Content class="grid gap-4 p-4 sm:p-5">
-    <div class="grid gap-2 sm:grid-cols-[minmax(0,22rem)_1fr] sm:items-end">
-      <label class="grid gap-2">
-        <span class="text-sm font-medium text-foreground">
-          {t("orchestrationTemplateSelectLabel")}
-        </span>
-        <PlainSelectField
-          value={templateDisplay?.selectedName || ""}
-          optionRows={templateOptions}
-          disabled={templateBusy}
-          aria-label={t("orchestrationTemplateSelectLabel")}
-          onValueChange={onTemplateChange}
-        />
-      </label>
+    <div class="grid min-w-0 gap-2">
+      <TemplateSourceField
+        value={templateDisplay.selectedName || ""}
+        optionValues={templateOptions}
+        disabled={templateBusy}
+        onValueChange={onTemplateChange}
+      />
       <div class="min-w-0">
         {#if templateDisplay?.errorMessage}
           <StatusCard message={templateDisplay.errorMessage} tone="error" />
@@ -259,8 +232,6 @@
       onChange={onFormChange}
       onErrorChange={onEditorErrorChange}
       onOpenView={openEditorDialog}
-      onExecute={executeCurrentPlan}
-      {runButtonDisplay}
     />
   </Card.Content>
 </Card.Root>
@@ -363,28 +334,10 @@
   </Dialog.Content>
 </Dialog.Root>
 
-<Dialog.Root bind:open={executionDialogOpen}>
-  <Dialog.Content
-    class="flex max-h-[90dvh] w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden border-border bg-card p-0 shadow-2xl sm:max-w-6xl"
-  >
-    <Dialog.Header
-      class="shrink-0 border-b border-border bg-muted/15 px-5 py-4 pr-14"
-    >
-      <div class="flex min-w-0 items-start gap-3 text-left">
-        <span
-          class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15"
-          ><PlayIcon /></span
-        >
-        <div class="min-w-0">
-          <Dialog.Title>{t("orchestrationExecutionDialogTitle")}</Dialog.Title>
-          <Dialog.Description
-            >{t("orchestrationExecutionDialogHint")}</Dialog.Description
-          >
-        </div>
-      </div>
-    </Dialog.Header>
-    <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
-      <OrchestrationExecutionPanel panelDisplay={executionPanelDisplay} />
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+<ExecutionRunBar
+  {active}
+  buttonLabel={t("orchestrationExecBtn")}
+  loading={runButtonDisplay.executeLoading}
+  showAutoDownloadOutput={false}
+  onRun={executeCurrentPlan}
+/>

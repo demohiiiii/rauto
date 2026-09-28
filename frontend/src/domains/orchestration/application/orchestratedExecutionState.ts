@@ -1,4 +1,5 @@
 import { get } from "svelte/store";
+import { executionHistory } from "$domains/execution/index.js";
 
 import {
   executeOrchestration,
@@ -397,16 +398,31 @@ async function previewOrchestrationWithDependencies(
 async function executeOrchestrationRunWithDependencies(
   dependencies: OrchestratedExecutionDependencies,
 ): Promise<void> {
+  const historyId = executionHistory.start("orchestrate", "batch");
   setRunningStatus(TX_OUTPUT.orchestrationExec);
   try {
     const orchestrationRunPayload = await executeOrchestration(
       orchestrationExecutionPayload({ dependencies, dryRun: false }),
+    );
+    const succeeded = executionHistory.finishDetail(historyId, {
+      kind: "orchestrate",
+      result: orchestrationRunPayload.orchestration_result,
+    });
+    dependencies.showToast?.(
+      tr(
+        succeeded
+          ? "executionHistoryRunSucceeded"
+          : "executionHistoryRunFailed",
+      ),
+      succeeded ? "success" : "error",
     );
     dependencies.setOrchestrationPreview?.(
       orchestrationRunPayload.plan,
       orchestrationRunPayload.orchestration_result,
     );
   } catch (error) {
+    executionHistory.fail(historyId, errorMessage(error));
+    dependencies.showToast?.(errorMessage(error), "error");
     setErrorStatus(TX_OUTPUT.orchestrationExec, error);
   }
 }
@@ -468,14 +484,30 @@ async function executeWorkflowWithDependencies(
   dependencies: OrchestratedExecutionDependencies,
 ): Promise<void> {
   if (!dependencies.ensureConnectionTargetSelected()) return;
+  const historyId = executionHistory.start("tx-workflow", "single");
   setRunningStatus(TX_OUTPUT.txWorkflowExec);
   try {
-    const workflowExecutionPayload = await executeTxWorkflow(
-      txWorkflowExecutionPayload({ dependencies, dryRun: false }),
-    );
+    const request = txWorkflowExecutionPayload({ dependencies, dryRun: false });
+    const device =
+      request.connection?.connection_name || request.connection?.host || "";
+    const workflowExecutionPayload = await executeTxWorkflow(request);
+    const succeeded = executionHistory.finishDetail(historyId, {
+      kind: "tx-workflow",
+      device,
+      result: workflowExecutionPayload.tx_workflow_result,
+    });
     setTxWorkflowExecutionResult(workflowExecutionPayload.tx_workflow_result);
-    dependencies.showToast?.(tr("txWorkflowExecuteDone"), "success");
+    dependencies.showToast?.(
+      tr(
+        succeeded
+          ? "executionHistoryRunSucceeded"
+          : "executionHistoryRunFailed",
+      ),
+      succeeded ? "success" : "error",
+    );
   } catch (error) {
+    executionHistory.fail(historyId, errorMessage(error));
+    dependencies.showToast?.(errorMessage(error), "error");
     setErrorStatus(TX_OUTPUT.txWorkflowExec, error);
   }
 }

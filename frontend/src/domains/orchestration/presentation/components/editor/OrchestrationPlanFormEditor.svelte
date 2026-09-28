@@ -5,7 +5,6 @@
     OrchestrationErrorChangeHandler,
     OrchestrationPlanChangeHandler,
     OrchestrationPlanFormModel,
-    OrchestrationRunButtonDisplay,
     OrchestrationVisualEditorDisplay,
   } from "$domains/orchestration/index.js";
 
@@ -14,9 +13,7 @@
     model: OrchestrationPlanFormModel;
     onChange?: OrchestrationPlanChangeHandler | null;
     onErrorChange?: OrchestrationErrorChangeHandler | null;
-    onExecute?: () => Promise<void> | void;
     onOpenView?: (view: OrchestrationEditorView) => void;
-    runButtonDisplay?: OrchestrationRunButtonDisplay;
     visualDisplay: OrchestrationVisualEditorDisplay;
   }
 
@@ -27,8 +24,6 @@
     onChange = null,
     onErrorChange = null,
     onOpenView,
-    onExecute,
-    runButtonDisplay = {},
   }: Props = $props();
 </script>
 
@@ -39,6 +34,4 @@
   {onChange}
   {onErrorChange}
   {onOpenView}
-  {onExecute}
-  {runButtonDisplay}
 />

@@ -5,7 +5,7 @@
   import { onDestroy, tick, untrack } from "svelte";
   import CommandEditor from "$domains/command/presentation/components/CommandEditor.svelte";
   import CommandSurface from "$domains/command/presentation/components/CommandSurface.svelte";
-  import CommandTemplateSourceField from "$domains/command/presentation/components/CommandTemplateSourceField.svelte";
+  import TemplateSourceField from "$components/fragments/TemplateSourceField.svelte";
   import JsonObjectFieldsEditor from "$components/fragments/JsonObjectFieldsEditor.svelte";
   import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";
@@ -86,7 +86,8 @@
 >
   {#if batchWorkspace}<BatchDeliveryTargets workspace={batchWorkspace} />{/if}
   <div class="grid min-w-0 gap-2">
-    <CommandTemplateSourceField
+    <TemplateSourceField
+      manualValue={MANUAL_COMMAND_SOURCE}
       hintText={t("commandTemplateSourceHint")}
       value={commandState.sourceSelection}
       optionValues={commandState.sourceOptions}

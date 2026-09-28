@@ -5,7 +5,6 @@
   import PanelRightOpenIcon from "@lucide/svelte/icons/panel-right-open";
   import PanelTopCloseIcon from "@lucide/svelte/icons/panel-top-close";
   import PanelTopOpenIcon from "@lucide/svelte/icons/panel-top-open";
-  import PlayIcon from "@lucide/svelte/icons/play";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import {
     Background,
@@ -20,7 +19,6 @@
   import { onDestroy, onMount } from "svelte";
   import type { ComponentProps } from "svelte";
   import { Button } from "$lib/components/ui/button/index.js";
-  import LoadingButton from "$components/fragments/LoadingButton.svelte";
   import { previewTxWorkflowTemplate } from "$api/client.js";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import { plainObject } from "$lib/jsonValue.js";
@@ -73,7 +71,6 @@
     OrchestrationFlowSelection,
     OrchestrationPlanChangeHandler,
     OrchestrationPlanFormModel,
-    OrchestrationRunButtonDisplay,
     OrchestrationStageFlowNode,
     OrchestrationVisualEditorDisplay,
     OrchestrationWorkflowPreview,
@@ -132,9 +129,7 @@
     model: OrchestrationPlanFormModel;
     onChange?: OrchestrationPlanChangeHandler | null;
     onErrorChange?: OrchestrationErrorChangeHandler | null;
-    onExecute?: () => Promise<void> | void;
     onOpenView?: (view: OrchestrationEditorView) => void;
-    runButtonDisplay?: OrchestrationRunButtonDisplay;
     visualDisplay: OrchestrationVisualEditorDisplay;
   }
 
@@ -145,8 +140,6 @@
     onChange,
     onErrorChange,
     onOpenView,
-    onExecute,
-    runButtonDisplay = {},
   }: Props = $props();
 
   const nodeTypes = {
@@ -1007,17 +1000,6 @@
         ><EyeIcon data-icon="inline-start" /><span class="hidden sm:inline"
           >{t("txBlockEditorReadonlyTab")}</span
         ></Button
-      >
-      <LoadingButton
-        variant="default"
-        size="sm"
-        loading={runButtonDisplay.executeLoading}
-        title={t("orchestrationExecBtn")}
-        aria-label={t("orchestrationExecBtn")}
-        onclick={onExecute}
-        ><PlayIcon data-icon="inline-start" /><span class="hidden sm:inline"
-          >{t("orchestrationExecBtn")}</span
-        ></LoadingButton
       >
     </div>
   </div>

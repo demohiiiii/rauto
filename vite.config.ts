@@ -66,8 +66,8 @@ export default defineConfig(({ command, isPreview }) => ({
               test: SHARED_UI_MODULE_PATTERN,
               entriesAware: true,
               // Merge small shared controls to keep lazy page request counts bounded.
-              entriesAwareMergeThreshold: 32 * 1024,
-              maxModuleSize: 10 * 1024,
+              entriesAwareMergeThreshold: 48 * 1024,
+              maxModuleSize: 16 * 1024,
               priority: 100,
             },
           ],

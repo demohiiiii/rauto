@@ -3,14 +3,18 @@
   import StatusCard from "$components/fragments/StatusCard.svelte";
   import SummaryMetricCard from "$components/fragments/SummaryMetricCard.svelte";
   import { createOrchestrationExecutionPanelWorkspace } from "$domains/orchestration/index.js";
-  import type { orchestrationExecutionPanelDisplay } from "$domains/orchestration/index.js";
+  import type {
+    orchestrationExecutionPanelDisplay,
+    OrchestrationExecutionDetailEntry,
+  } from "$domains/orchestration/index.js";
   import OrchestrationExecutionStagePanel from "$domains/orchestration/presentation/components/result/OrchestrationExecutionStagePanel.svelte";
 
   interface Props {
+    onOpenDetail?: (detail: OrchestrationExecutionDetailEntry) => void;
     panelDisplay: ReturnType<typeof orchestrationExecutionPanelDisplay>;
   }
 
-  let { panelDisplay }: Props = $props();
+  let { panelDisplay, onOpenDetail }: Props = $props();
   const orchestrationExecutionPanelWorkspace =
     createOrchestrationExecutionPanelWorkspace();
   const {
@@ -26,7 +30,7 @@
   let executionCallbacks = $derived($executionCallbacksStateStore);
 
   $effect(() => {
-    setExecutionPanelContext({ panelDisplay });
+    setExecutionPanelContext({ panelDisplay, onOpenDetail });
   });
 </script>
 

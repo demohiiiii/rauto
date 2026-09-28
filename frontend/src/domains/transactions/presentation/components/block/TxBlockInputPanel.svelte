@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Card from "$lib/components/ui/card";
-  import { CommandTemplateSourceField } from "$domains/command/presentation/components/index.js";
+  import TemplateSourceField from "$components/fragments/TemplateSourceField.svelte";
   import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
   import WorkspaceTemplateActions from "$components/fragments/WorkspaceTemplateActions.svelte";
   import { txBlockReadonlyEditorViewTabs } from "$config/dashboardModes.js";
@@ -211,13 +211,13 @@
       {/snippet}
     </WorkspaceActionHeader>
     <Card.Content class="grid gap-4 p-4 sm:p-5">
-      <CommandTemplateSourceField
+      <TemplateSourceField
+        manualValue={MANUAL_COMMAND_SOURCE}
         value={txBlockSourceSelection}
         optionValues={txBlockSourceOptions}
         disabled={txBlockSourceLoading}
         labelText={t("txBlockSourceLabel")}
         hintText={t("txBlockSourceHint")}
-        manualLabelText={t("txBlockSourceManual")}
         onValueChange={selectTxBlockSource}
       />
       <TxDirectVarsPanel

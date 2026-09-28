@@ -1,6 +1,7 @@
 <script lang="ts">
   import TxWorkflowInputPanel from "$domains/transactions/presentation/components/workflow/TxWorkflowInputPanel.svelte";
-  import TxWorkflowRunPanel from "$domains/transactions/presentation/components/workflow/TxWorkflowRunPanel.svelte";
+  import ExecutionDock from "$components/fragments/ExecutionDock.svelte";
+  import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
   import { createTxWorkflowStageWorkspace } from "$domains/transactions/index.js";
   import type {
     JsonTemplateActionContext,
@@ -82,7 +83,7 @@
   });
 </script>
 
-<div class="grid gap-2" hidden={!active}>
+<ExecutionDock {active} feature="tx-workflow">
   <div class="grid gap-2">
     <TxWorkflowInputPanel
       {active}
@@ -95,9 +96,12 @@
       {onSaveJsonTemplate}
       {onSaveBlockTemplate}
     />
-    <TxWorkflowRunPanel
-      panelDisplay={workflowOutputPanelDisplay}
-      onExecute={executeWorkflow}
+    <ExecutionRunBar
+      {active}
+      buttonLabel={workflowOutputPanelDisplay.executeButtonLabel}
+      loading={workflowOutputPanelDisplay.loadingDisplay.execute}
+      showAutoDownloadOutput={false}
+      onRun={executeWorkflow}
     />
   </div>
-</div>
+</ExecutionDock>

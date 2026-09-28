@@ -4,7 +4,7 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Card from "$lib/components/ui/card";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
-  import { CommandTemplateSourceField } from "$domains/command/presentation/components/index.js";
+  import TemplateSourceField from "$components/fragments/TemplateSourceField.svelte";
   import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
   import WorkspaceTemplateActions from "$components/fragments/WorkspaceTemplateActions.svelte";
   import { currentLanguageState, t } from "$lib/i18n.js";
@@ -247,13 +247,12 @@
       {/snippet}
     </WorkspaceActionHeader>
     <Card.Content class="grid gap-5 p-4 sm:p-5">
-      <CommandTemplateSourceField
+      <TemplateSourceField
+        manualValue={MANUAL_COMMAND_SOURCE}
         value={workflowSourceSelection}
         optionValues={workflowSourceOptions}
         disabled={workflowSourceLoading}
-        labelText={t("txWorkflowSourceLabel")}
         hintText={t("txWorkflowSourceHint")}
-        manualLabelText={t("txWorkflowSourceManual")}
         onValueChange={selectWorkflowSource}
       />
       <TxDirectVarsPanel

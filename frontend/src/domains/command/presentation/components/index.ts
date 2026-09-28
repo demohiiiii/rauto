@@ -1,6 +1,5 @@
 export { default as InteractiveRuntimeFields } from "./InteractiveRuntimeFields.svelte";
 export { default as CommandEditor } from "./CommandEditor.svelte";
-export { default as CommandTemplateSourceField } from "./CommandTemplateSourceField.svelte";
 export { default as CommandMultilineModeField } from "./CommandMultilineModeField.svelte";
 export { default as CommandTextAreaField } from "./CommandTextAreaField.svelte";
 export { default as InteractiveReadonlyView } from "./InteractiveReadonlyView.svelte";
