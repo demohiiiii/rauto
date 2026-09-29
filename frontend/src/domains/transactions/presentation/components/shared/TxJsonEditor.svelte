@@ -5,6 +5,7 @@
   import type { TxEditorKey } from "$domains/transactions/index.js";
 
   interface Props {
+    readonly?: boolean;
     "aria-label"?: string;
     active?: boolean;
     editorKey: TxEditorKey;
@@ -15,6 +16,7 @@
   }
 
   let {
+    readonly = false,
     "aria-label": ariaLabel,
     active = true,
     editorKey,
@@ -55,6 +57,7 @@
 </script>
 
 <JsonTextEditor
+  {readonly}
   {active}
   class={hostClass}
   aria-label={ariaLabel}

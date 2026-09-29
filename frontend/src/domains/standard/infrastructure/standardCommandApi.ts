@@ -1,4 +1,6 @@
 import {
+  createTemplate,
+  updateTemplate,
   executeTemplate,
   getTemplate,
   inspectCommandTemplate,
@@ -8,6 +10,8 @@ import {
 import type { StandardCommandApi } from "../model/types.js";
 
 export const standardCommandApi: StandardCommandApi = {
+  createTemplate,
+  updateTemplate,
   executeTemplate,
   getTemplate,
   inspectCommandTemplate,

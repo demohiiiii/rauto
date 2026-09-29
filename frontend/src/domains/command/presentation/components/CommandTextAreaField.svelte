@@ -2,6 +2,7 @@
   import PlainTextAreaField from "$components/fragments/PlainTextAreaField.svelte";
 
   interface Props {
+    loading?: boolean;
     "aria-label"?: string;
     disabled?: boolean;
     readonly?: boolean;
@@ -11,6 +12,7 @@
   }
 
   let {
+    loading = undefined,
     value = "",
     placeholderText = "",
     "aria-label": ariaLabel = "",
@@ -21,6 +23,7 @@
 </script>
 
 <PlainTextAreaField
+  {loading}
   class="min-h-20 resize-y font-mono leading-relaxed"
   aria-label={ariaLabel || placeholderText}
   {placeholderText}

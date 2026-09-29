@@ -12,6 +12,7 @@
   import type { OrchestrationJobFlowNode } from "$domains/orchestration/index.js";
 
   type JobNodeData = OrchestrationJobFlowNode["data"] & {
+    readonly?: boolean;
     addBlockLabel: string;
     blockCountText: string;
     canMoveNext: boolean;
@@ -78,7 +79,7 @@
       type="button"
       title={data.movePreviousLabel}
       aria-label={data.movePreviousLabel}
-      disabled={!data.canMovePrevious}
+      disabled={data.readonly || !data.canMovePrevious}
       onclick={(event) => runAction(event, data.onMovePrevious)}
       ><ArrowUpIcon /></Button
     >
@@ -88,11 +89,12 @@
       type="button"
       title={data.moveNextLabel}
       aria-label={data.moveNextLabel}
-      disabled={!data.canMoveNext}
+      disabled={data.readonly || !data.canMoveNext}
       onclick={(event) => runAction(event, data.onMoveNext)}
       ><ArrowDownIcon /></Button
     >
     <Button
+      disabled={data.readonly}
       variant="ghost"
       size="icon-sm"
       type="button"
@@ -102,6 +104,7 @@
       ><CopyIcon /></Button
     >
     <Button
+      disabled={data.readonly}
       class="text-destructive hover:text-destructive"
       variant="ghost"
       size="icon-sm"
@@ -197,6 +200,7 @@
   {#if data.canAddBlock}
     <div class="nodrag nopan absolute bottom-2.5 left-3 right-3 z-20">
       <Button
+        disabled={data.readonly}
         class="w-full"
         variant="outline"
         size="sm"

@@ -4,6 +4,7 @@
   import { Button } from "$lib/components/ui/button/index.js";
 
   interface StageInsertNodeData {
+    readonly?: boolean;
     hasSource: boolean;
     hasTarget: boolean;
     labelText: string;
@@ -33,6 +34,7 @@
 {/if}
 
 <Button
+  disabled={data.readonly}
   class="size-11 rounded-full border-primary/35 bg-background text-primary shadow-md hover:border-primary hover:bg-primary hover:text-primary-foreground"
   variant="outline"
   size="icon"

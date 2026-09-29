@@ -309,6 +309,7 @@ for (const scope of ["single", "batch"] as const) {
       true,
     );
     const draft = 'name = "existing"\ncommand = "show {{item}} detail"\n';
+    workspace.editInteractiveTemplate();
     workspace.changeInteractiveToml(draft);
     await workspace.authoring.inspectCurrent();
     workspace.changeInteractiveVarValue("item")({
@@ -372,3 +373,77 @@ for (const scope of ["single", "batch"] as const) {
     ]);
   });
 }
+
+test("template variables remain editable while content and options lock, and cancel restores options", async (t) => {
+  const { createInteractiveExecutionPanelWorkspace } =
+    await import("../src/domains/standard/index.js");
+  const detail = {
+    name: "saved",
+    content: 'name = "saved"\ncommand = "show {{item}}"',
+    vars_schema: [
+      {
+        name: "item",
+        label: "item",
+        type: "string",
+        required: true,
+        allow_empty: false,
+        default: null,
+        description: null,
+        placeholder: null,
+        options: [],
+      },
+    ],
+  };
+  t.mock.method(globalThis, "fetch", async () => Response.json(detail));
+  const workspace = createInteractiveExecutionPanelWorkspace();
+  const display = () => get(workspace.interactivePanelDisplayStateStore);
+  await workspace.changeInteractiveTemplateName("saved");
+  workspace.changeInteractiveTextfsmEnabled(true);
+  workspace.changeInteractiveRetry({ enabled: true });
+  assert.equal(display().interactiveTextfsmFields.enabled, false);
+  assert.equal(display().interactiveRetryState.enabled, false);
+  workspace.changeInteractiveVarValue("item")({
+    currentTarget: { value: "version" },
+  });
+  assert.equal(display().interactiveVarsDisplay.fieldRows[0].value, "version");
+  workspace.editInteractiveTemplate();
+  workspace.changeInteractiveTextfsmEnabled(true);
+  workspace.changeInteractiveRetry({ enabled: true });
+  assert.equal(display().interactiveTextfsmFields.enabled, true);
+  assert.equal(display().interactiveRetryState.enabled, true);
+  workspace.cancelInteractiveTemplateEdit();
+  assert.equal(display().interactiveTextfsmFields.enabled, false);
+  assert.equal(display().interactiveRetryState.enabled, false);
+  assert.equal(display().interactiveVarsDisplay.fieldRows[0].value, "version");
+  workspace.copyInteractiveTemplate();
+  assert.equal(display().interactiveTemplateFields.templateName, "");
+  assert.equal(display().authoringDisplay.readonly, false);
+  assert.equal(display().authoringDisplay.model.command, "show {{item}}");
+  assert.equal(display().interactiveVarsDisplay.fieldRows[0].value, "version");
+});
+
+test("interactive template labels distinguish built-ins while preserving selection keys", async () => {
+  const { interactiveExecutionInputPresentation } =
+    await import("../src/domains/standard/presentation/standardInteractivePresentation.js");
+  const display = interactiveExecutionInputPresentation({
+    templateName: "builtin:missing-from-catalog",
+    templateOptions: ["inspection", "builtin:inspection"],
+  });
+  assert.deepEqual(display.templateOptionDetails.inspection, {
+    label: "inspection",
+  });
+  assert.equal(
+    display.templateOptionDetails["builtin:inspection"].label,
+    "inspection",
+  );
+  assert.ok(display.templateOptionDetails["builtin:inspection"].badge);
+  assert.deepEqual(display.templateOptionRows, [
+    "builtin:missing-from-catalog",
+    "inspection",
+    "builtin:inspection",
+  ]);
+  assert.equal(
+    display.templateOptionDetails["builtin:missing-from-catalog"].label,
+    "missing-from-catalog",
+  );
+});

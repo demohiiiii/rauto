@@ -23,6 +23,7 @@
   }
 
   interface Props {
+    readonly?: boolean;
     active?: boolean;
     editorDisplayMode?: TransactionEditorView;
     editorKind?: "inline" | "tx-host";
@@ -50,6 +51,7 @@
   }
 
   let {
+    readonly = false,
     active = true,
     editorDisplayMode = "form",
     editorKind = "tx-host",
@@ -175,6 +177,7 @@
       {/if}
       {#if showInlineEditor}
         <JsonTextEditor
+          {readonly}
           {active}
           class={hostClass}
           aria-label={editorAriaLabel}
@@ -187,6 +190,7 @@
         />
       {:else}
         <TxJsonEditor
+          {readonly}
           {active}
           {editorKey}
           host-class={hostClass}

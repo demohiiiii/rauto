@@ -1,3 +1,4 @@
+import { createTemplateAuthoringSession } from "$domains/templates/index.js";
 import type { BatchDeliveryWorkspace } from "./createBatchDeliveryWorkspace.js";
 import { MODE_SELECT, modeSelection } from "$domains/profiles/index.js";
 import { get, writable } from "svelte/store";
@@ -87,6 +88,25 @@ export function createStandardCommandExecutionWorkspace({
   let previewVersion = 0;
   let previewTimer = 0;
   let destroyed = false;
+  const session = createTemplateAuthoringSession<
+    Pick<
+      ReturnType<typeof newStandardCommandWorkspaceState>,
+      "content" | "mode" | "multilineMode" | "textfsm" | "retry"
+    >
+  >({
+    isBusy: () => destroyed || get(stateStore).loadingActions.includes("save"),
+  });
+  const unsubscribeSession = session.stateStore.subscribe(
+    ({ editing, readonly, nameDialog }) => {
+      stateStore.update((state) => ({
+        ...state,
+        editing,
+        readonly,
+        nameDialog,
+      }));
+    },
+  );
+  const canEdit = session.canEdit;
 
   const unsubscribeMode = commandModePicker.state.subscribe((modeState) => {
     stateStore.update((state) => ({
@@ -214,6 +234,7 @@ export function createStandardCommandExecutionWorkspace({
   ): Promise<boolean> {
     const source = sourceValue.trim() || MANUAL_COMMAND_SOURCE;
     const current = get(stateStore);
+    if (current.loadingActions.includes("save")) return false;
     if (
       source === current.sourceSelection &&
       !current.loadingActions.includes("template")
@@ -226,6 +247,7 @@ export function createStandardCommandExecutionWorkspace({
     invalidatePreview();
     if (source === MANUAL_COMMAND_SOURCE) {
       setLoading("template", false);
+      session.adoptSource("manual");
       stateStore.update((state) => ({
         ...state,
         sourceSelection: MANUAL_COMMAND_SOURCE,
@@ -245,6 +267,7 @@ export function createStandardCommandExecutionWorkspace({
       const detail = await api.getTemplate(source);
       if (destroyed || version !== loadVersion) return false;
       const content = detail.content;
+      session.adoptSource("custom");
       stateStore.update((state) => ({
         ...state,
         sourceSelection: source,
@@ -275,8 +298,7 @@ export function createStandardCommandExecutionWorkspace({
   }
 
   function changeContent(content = ""): Promise<boolean> {
-    if (destroyed || get(stateStore).sourceSelection !== MANUAL_COMMAND_SOURCE)
-      return Promise.resolve(false);
+    if (!canEdit()) return Promise.resolve(false);
     loadVersion += 1;
     invalidatePreview();
     setLoading("template", false);
@@ -300,12 +322,14 @@ export function createStandardCommandExecutionWorkspace({
   }
 
   function changeMode(mode = ""): void {
+    if (!canEdit()) return;
     commandModePicker.setValue(mode);
   }
 
   function changeMultilineMode(
     multilineMode: "split_lines" | "whole" = "split_lines",
   ): void {
+    if (!canEdit()) return;
     stateStore.update((state) => ({
       ...state,
       multilineMode: multilineMode === "whole" ? "whole" : "split_lines",
@@ -315,6 +339,11 @@ export function createStandardCommandExecutionWorkspace({
   function changeTextfsm(
     patch: Partial<StandardCommandTextfsmState> = {},
   ): void {
+    if (
+      !canEdit() &&
+      Object.keys(patch).some((key) => key !== "autoDownloadOutput")
+    )
+      return;
     stateStore.update((state) => ({
       ...state,
       textfsm: { ...state.textfsm, ...patch },
@@ -322,10 +351,127 @@ export function createStandardCommandExecutionWorkspace({
   }
 
   function changeRetry(retry: Partial<SessionRetryState> = {}): void {
+    if (!canEdit()) return;
     stateStore.update((state) => ({
       ...state,
       retry: { ...state.retry, ...retry },
     }));
+  }
+
+  function startEditing(): void {
+    if (get(stateStore).loadingActions.includes("template")) return;
+    if (
+      session.startEditing(() => {
+        const state = get(stateStore);
+        return {
+          content: state.content,
+          mode: state.mode,
+          multilineMode: state.multilineMode,
+          textfsm: { ...state.textfsm },
+          retry: { ...state.retry },
+        };
+      })
+    )
+      invalidatePreview();
+  }
+
+  async function cancelEditing(): Promise<boolean> {
+    if (
+      !session.cancelEditing((snapshot) => {
+        runtime.clearTimer(inspectionTimer);
+        inspectionVersion += 1;
+        invalidatePreview();
+        commandModePicker.setValue(snapshot.mode);
+        stateStore.update((state) => ({
+          ...state,
+          ...snapshot,
+          textfsm: {
+            ...snapshot.textfsm,
+            autoDownloadOutput: state.textfsm.autoDownloadOutput,
+          },
+          dirty: false,
+        }));
+      })
+    )
+      return false;
+    await inspectContent(get(stateStore).content);
+    return preview();
+  }
+
+  function copyToManual(): void {
+    if (get(stateStore).loadingActions.includes("template")) return;
+    session.copyToManual(() => {
+      loadVersion += 1;
+      invalidatePreview();
+      stateStore.update((state) => ({
+        ...state,
+        sourceSelection: MANUAL_COMMAND_SOURCE,
+        baselineContent: "",
+        dirty: !!state.content,
+      }));
+    });
+  }
+
+  async function persistTemplate(
+    name: string,
+    creating: boolean,
+  ): Promise<boolean> {
+    if (
+      !canEdit() ||
+      get(stateStore).loadingActions.includes("template") ||
+      !commandReady()
+    )
+      return false;
+    const content = get(stateStore).content;
+    setLoading("save", true);
+    try {
+      const detail = await (creating
+        ? api.createTemplate(name, content)
+        : api.updateTemplate(name, content));
+      if (destroyed) return false;
+      const savedName = detail.name || name;
+      session.adoptSource("custom");
+      stateStore.update((state) => ({
+        ...state,
+        sourceSelection: savedName,
+        sourceOptions: [...new Set([...state.sourceOptions, savedName])].sort(),
+        baselineContent: content,
+        dirty: false,
+        status: { message: "", tone: "info" },
+      }));
+      await inspectContent(content);
+      await preview();
+      return true;
+    } catch (error) {
+      if (!destroyed) {
+        setStatus(errorMessage(error), "error");
+      }
+      return false;
+    } finally {
+      if (!destroyed) setLoading("save", false);
+    }
+  }
+
+  async function saveTemplate(): Promise<boolean> {
+    if (
+      !canEdit() ||
+      get(stateStore).loadingActions.includes("template") ||
+      !commandReady()
+    )
+      return false;
+    const state = get(stateStore);
+    if (state.sourceSelection === MANUAL_COMMAND_SOURCE) {
+      session.openNameDialog();
+      return false;
+    }
+    return persistTemplate(state.sourceSelection, false);
+  }
+
+  function submitNameDialog(): Promise<boolean> {
+    return session.submitNameDialog(
+      (name) => persistTemplate(name, true),
+      () => get(stateStore).status.message,
+    );
   }
 
   function currentExecutionPayload(): StandardCommandExecutionPayload {
@@ -478,6 +624,8 @@ export function createStandardCommandExecutionWorkspace({
 
   function destroy(): void {
     destroyed = true;
+    unsubscribeSession();
+    session.destroy();
     batch?.destroy();
     loadVersion += 1;
     inspectionVersion += 1;
@@ -494,6 +642,13 @@ export function createStandardCommandExecutionWorkspace({
 
   return {
     stateStore,
+    startEditing,
+    cancelEditing,
+    copyToManual,
+    saveTemplate,
+    changeNameDialogValue: session.changeNameDialogValue,
+    closeNameDialog: session.closeNameDialog,
+    submitNameDialog,
     initialize,
     selectSource,
     changeContent,

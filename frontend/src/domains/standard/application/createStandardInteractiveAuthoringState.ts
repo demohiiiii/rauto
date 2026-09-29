@@ -1,3 +1,4 @@
+import { createTemplateAuthoringSession } from "$domains/templates/index.js";
 import { derived, get, writable } from "svelte/store";
 import {
   interactiveTemplateModelToToml,
@@ -11,7 +12,6 @@ import type {
   StandardInteractiveAuthoringState,
   StandardCommandStatusTone,
   StandardInteractiveAuthoringOptions,
-  StandardInteractiveNameDialogAction,
   StandardInteractiveSelection,
   StandardInteractiveTemplateDetail,
 } from "../model/types.js";
@@ -62,35 +62,36 @@ export function createStandardInteractiveAuthoringState({
     statusMessage: "",
     statusTone: "info" as StandardCommandStatusTone,
   });
-  const nameDialogStateStore = writable({
-    action: "new" as StandardInteractiveNameDialogAction,
-    errorMessage: "",
-    open: false,
-    value: "",
-  });
+  const session =
+    createTemplateAuthoringSession<StandardInteractiveTemplateDetail>({
+      isBusy: () => !!get(operationStateStore).loadingAction,
+    });
+  const { nameDialogStateStore } = session;
   let loadVersion = 0;
   let inspectionTimer: ReturnType<typeof setTimeout> | null = null;
 
   const actionStateStore = derived(
     [
       selectionStateStore,
+      session.stateStore,
       operationStateStore,
       draft.modelStateStore,
       draft.errorStateStore,
       draft.inspectionStateStore,
     ] as const,
-    ([selection, operation, _model, parseError, inspection]) => {
+    ([selection, authoring, operation, model, parseError, inspection]) => {
       const valid =
         !parseError && !inspection.errorMessage && !inspection.loading;
-      const hasSelectedName = !!normalizedName(selection.name);
-      const canUseCurrentDraft = selection.kind !== "new" || hasSelectedName;
+      const usable = valid && !!model.command.trim();
+      const { readonly, editing } = authoring;
       return {
-        canRun: valid && canUseCurrentDraft,
-        canSave:
-          valid &&
-          hasSelectedName &&
-          (selection.kind === "custom" || selection.kind === "new"),
-        canSaveAs: valid && canUseCurrentDraft,
+        canRun: usable && !operation.loadingAction,
+        canSave: usable && !readonly && !operation.loadingAction,
+        canSaveAs: usable && !operation.loadingAction,
+        canEditTemplate:
+          selection.kind === "custom" && !editing && !operation.loadingAction,
+        editing,
+        readonly,
         dirty: draft.isDirty(),
         loadingAction: operation.loadingAction,
         statusMessage: operation.statusMessage,
@@ -192,11 +193,14 @@ export function createStandardInteractiveAuthoringState({
   }
 
   async function selectTemplate(value = ""): Promise<boolean> {
+    if (get(operationStateStore).loadingAction.startsWith("save")) return false;
     if (!(await allowReplacement())) return false;
     const selection = classifySelection(value);
     const version = ++loadVersion;
     clearInspectionTimer();
     if (selection.kind === "new") {
+      session.adoptSource("manual");
+      setLoadingAction();
       draft.setModel(defaultInteractiveTemplateModel());
       draft.markClean();
       selectionStateStore.set(selection);
@@ -213,6 +217,7 @@ export function createStandardInteractiveAuthoringState({
       });
       if (version !== loadVersion) return false;
       applyLoadedDetail(selection, detail);
+      session.adoptSource(selection.kind);
       return true;
     } catch (error) {
       if (version === loadVersion) {
@@ -224,29 +229,48 @@ export function createStandardInteractiveAuthoringState({
     }
   }
 
-  function createNewDraft(name = ""): boolean {
-    const templateName = normalizedName(name);
-    if (!templateName) return false;
-    loadVersion += 1;
-    clearInspectionTimer();
-    draft.setModel({
-      ...defaultInteractiveTemplateModel(),
-      name: templateName,
+  const canEdit = session.canEdit;
+
+  function startEditing(): void {
+    if (
+      session.startEditing(() => ({
+        name: get(selectionStateStore).name,
+        content: get(draft.tomlTextStateStore),
+        vars_schema: structuredClone(
+          get(draft.inspectionStateStore).varsSchema,
+        ),
+      }))
+    )
+      setStatus();
+  }
+
+  function cancelEditing(): void {
+    if (
+      session.cancelEditing((snapshot) => {
+        clearInspectionTimer();
+        applyLoadedDetail(get(selectionStateStore), snapshot);
+      })
+    )
+      setStatus();
+  }
+
+  function copyToManual(): boolean {
+    return session.copyToManual(() => {
+      selectionStateStore.set(defaultSelection());
+      draft.markUnsaved();
+      setStatus();
     });
-    draft.markUnsaved();
-    selectionStateStore.set({ kind: "new", name: templateName, value: "" });
-    onInspection(null);
-    setStatus();
-    return true;
   }
 
   function setModel(model: InteractiveTemplateModel): void {
+    if (!canEdit()) return;
     draft.setModel(model);
     setStatus();
     scheduleInspection();
   }
 
   function setTomlText(tomlText = ""): boolean {
+    if (!canEdit()) return false;
     const valid = draft.setTomlText(tomlText);
     setStatus();
     clearInspectionTimer();
@@ -263,32 +287,37 @@ export function createStandardInteractiveAuthoringState({
   }
 
   function applySavedTemplate(name: string, content: string): void {
+    const vars_schema = get(draft.inspectionStateStore).varsSchema;
     draft.setTomlText(content);
+    draft.applyInspection(draft.beginInspection(), { vars_schema });
     draft.markClean();
     selectionStateStore.set({ kind: "custom", name, value: name });
+    session.adoptSource("custom");
   }
 
   async function save(): Promise<boolean> {
     const selection = get(selectionStateStore);
     const actions = get(actionStateStore);
-    if (selection.kind === "builtin") {
-      setStatus(t("interactiveBuiltinSaveDisabled"), "error");
-      return false;
-    }
+    if (!actions.canSave) return false;
     const name = normalizedName(selection.name);
-    if (!actions.canSave || !name) {
-      setStatus(t("interactiveTemplateSaveNameRequired"), "error");
+    if (selection.kind !== "custom") {
+      session.openNameDialog();
       return false;
     }
+    return persistTemplate(name, false);
+  }
+
+  async function persistTemplate(
+    name: string,
+    creating: boolean,
+  ): Promise<boolean> {
     const content = contentForName(name);
-    setLoadingAction("save");
+    setLoadingAction(creating ? "saveAs" : "save");
     setStatus();
     try {
-      if (selection.kind === "custom") {
-        await updateTemplate(name, content);
-      } else {
-        await createTemplate(name, content);
-      }
+      await (creating
+        ? createTemplate(name, content)
+        : updateTemplate(name, content));
       await refreshTemplates();
       applySavedTemplate(name, content);
       setStatus(`${t("interactiveTemplateSaved")}: ${name}`, "success");
@@ -308,21 +337,7 @@ export function createStandardInteractiveAuthoringState({
       setStatus(t("interactiveTemplateSaveNameRequired"), "error");
       return false;
     }
-    const content = contentForName(targetName);
-    setLoadingAction("saveAs");
-    setStatus();
-    try {
-      await createTemplate(targetName, content);
-      await refreshTemplates();
-      applySavedTemplate(targetName, content);
-      setStatus(`${t("interactiveTemplateSaved")}: ${targetName}`, "success");
-      return true;
-    } catch (error) {
-      setStatus(errorMessage(error), "error");
-      return false;
-    } finally {
-      setLoadingAction();
-    }
+    return persistTemplate(targetName, true);
   }
 
   function executeSource() {
@@ -335,75 +350,30 @@ export function createStandardInteractiveAuthoringState({
     };
   }
 
-  function openNameDialog(action: StandardInteractiveNameDialogAction): void {
-    const selection = get(selectionStateStore);
-    nameDialogStateStore.set({
-      action,
-      errorMessage: "",
-      open: true,
-      value:
-        action === "saveAs" && selection.name ? `${selection.name}-copy` : "",
-    });
-  }
-
-  function openNewDialog(): void {
-    openNameDialog("new");
-  }
-
-  function openSaveAsDialog(): void {
-    openNameDialog("saveAs");
-  }
-
-  function closeNameDialog(): void {
-    nameDialogStateStore.update((state) => ({ ...state, open: false }));
-  }
-
-  function setNameDialogValue(value = ""): void {
-    nameDialogStateStore.update((state) => ({
-      ...state,
-      errorMessage: "",
-      value,
-    }));
-  }
-
-  async function submitNameDialog(): Promise<boolean> {
-    const dialog = get(nameDialogStateStore);
-    const name = normalizedName(dialog.value);
-    if (!name) {
-      nameDialogStateStore.update((state) => ({
-        ...state,
-        errorMessage: t("interactiveTemplateSaveNameRequired"),
-      }));
-      return false;
-    }
-    let success: boolean;
-    if (dialog.action === "new") {
-      if (!(await allowReplacement())) return false;
-      success = createNewDraft(name);
-    } else {
-      success = await saveAs(name);
-    }
-    if (success) closeNameDialog();
-    return success;
+  function submitNameDialog(): Promise<boolean> {
+    return session.submitNameDialog(
+      saveAs,
+      () => get(operationStateStore).statusMessage,
+    );
   }
 
   return {
     actionStateStore,
-    closeNameDialog,
-    createNewDraft,
+    startEditing,
+    cancelEditing,
+    copyToManual,
+    closeNameDialog: session.closeNameDialog,
     draft,
     executeSource,
     inspectCurrent,
     nameDialogStateStore,
-    openNewDialog,
-    openSaveAsDialog,
     operationStateStore,
     save,
     saveAs,
     selectionStateStore,
     selectTemplate,
     setModel,
-    setNameDialogValue,
+    setNameDialogValue: session.changeNameDialogValue,
     setTomlText,
     submitNameDialog,
   };

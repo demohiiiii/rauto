@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
   import ArrowDownIcon from "@lucide/svelte/icons/arrow-down";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
@@ -25,6 +26,7 @@
   } from "$domains/orchestration/index.js";
 
   interface Props {
+    readonly?: boolean;
     canMoveNext?: boolean;
     canMovePrevious?: boolean;
     canMutateSelection?: boolean;
@@ -42,6 +44,7 @@
   }
 
   let {
+    readonly = false,
     model,
     selection,
     visualDisplay,
@@ -177,7 +180,7 @@
       </div>
     </div>
     <div class="flex shrink-0 items-center gap-1">
-      {#if canMutateSelection}
+      {#if canMutateSelection && !readonly}
         <Button
           variant="ghost"
           size="icon-sm"
@@ -232,7 +235,11 @@
   </div>
 </header>
 
-<div class="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+<ReadonlyFields
+  scopeOnly={selection?.kind === "workflow-block"}
+  disabled={readonly}
+  class="min-w-0 min-h-0 flex-1 overflow-y-auto p-3 sm:p-4"
+>
   {#if selection?.kind === "stage" && currentStageRow}
     <OrchestrationStageSettingsEditor
       {model}
@@ -260,4 +267,4 @@
       onWorkflowChange={updateInlineWorkflow}
     />
   {/if}
-</div>
+</ReadonlyFields>

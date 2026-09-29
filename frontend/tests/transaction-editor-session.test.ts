@@ -27,7 +27,7 @@ import {
   txWorkflowFormModelFromJson,
   txWorkflowFormModelToJsonText,
 } from "../src/domains/transactions/index.js";
-import { createTxBlockInputPanelWorkspace } from "../src/domains/transactions/index.js";
+import { createTxWorkflowInputPanelWorkspace } from "../src/domains/transactions/index.js";
 import type {
   JsonErrorDetail,
   JsonTemplateSelectState,
@@ -1033,15 +1033,15 @@ test("manual block and workflow Form changes invalidate pending external actions
   }
 });
 
-test("manual block form changes invalidate a pending template load", async () => {
+test("manual workflow form changes invalidate a pending template load", async () => {
   const host = createTxJsonEditorsHost();
   const deferred = createDeferredPromise();
   const loadActionContexts: ExternalActionContext[] = [];
-  const staleModel = txBlockFormModelFromJson({
-    ...defaultTxBlockTemplatePayload(),
+  const staleModel = txWorkflowFormModelFromJson({
+    ...defaultTxWorkflowTemplatePayload(),
     name: "stale-load",
   });
-  const workspace = createTxBlockInputPanelWorkspace({
+  const workspace = createTxWorkflowInputPanelWorkspace({
     onLoadJsonTemplate: async (
       _name: string,
       actionContext: ExternalActionContext,
@@ -1049,9 +1049,12 @@ test("manual block form changes invalidate a pending template load", async () =>
       loadActionContexts.push(actionContext);
       await deferred.promise;
       if (actionContext.isCurrent()) {
-        host.setTxBlockEditorRawText(txBlockFormModelToJsonText(staleModel), {
-          notify: false,
-        });
+        host.setTxWorkflowEditorRawText(
+          txWorkflowFormModelToJsonText(staleModel),
+          {
+            notify: false,
+          },
+        );
       }
     },
   });
@@ -1066,7 +1069,7 @@ test("manual block form changes invalidate a pending template load", async () =>
     sessionPublications += 1;
   });
   const jsonWorkspace = createTxJsonEditorWorkspace({
-    editorKey: TX_EDITOR.txBlock,
+    editorKey: TX_EDITOR.txWorkflow,
     onInput(jsonText) {
       hostNotifications += 1;
       workspace.handleEditorJsonInput(jsonText);
@@ -1078,8 +1081,8 @@ test("manual block form changes invalidate a pending template load", async () =>
   sessionPublications = 0;
 
   const loadPromise = workspace.loadJsonTemplate("pending");
-  const replacementModel = txBlockFormModelFromJson({
-    ...defaultTxBlockTemplatePayload(),
+  const replacementModel = txWorkflowFormModelFromJson({
+    ...defaultTxWorkflowTemplatePayload(),
     name: "replacement",
   });
   workspace.changeFormModel(replacementModel, {
@@ -1096,7 +1099,7 @@ test("manual block form changes invalidate a pending template load", async () =>
   assert.deepEqual(workspace.currentFormModel(), replacementModel);
   assert.equal(
     get(workspace.jsonTextStateStore),
-    txBlockFormModelToJsonText(replacementModel),
+    txWorkflowFormModelToJsonText(replacementModel),
   );
   assert.equal(hostNotifications, 1);
   assert.equal(modelPublications, 1);
@@ -1170,11 +1173,11 @@ test("workspace initializes once and reset restores the default session", () => 
 });
 
 test("transaction input resetDraft creates a local default without template callbacks", () => {
-  const workspace = createTxBlockInputPanelWorkspace();
+  const workspace = createTxWorkflowInputPanelWorkspace();
   workspace.ensureInitialized();
   workspace.changeFormModel(
-    txBlockFormModelFromJson({
-      ...defaultTxBlockTemplatePayload(),
+    txWorkflowFormModelFromJson({
+      ...defaultTxWorkflowTemplatePayload(),
       name: "edited",
     }),
   );
@@ -1182,7 +1185,7 @@ test("transaction input resetDraft creates a local default without template call
   const draft = workspace.resetDraft();
 
   assert.ok(draft);
-  assert.equal(draft.name, defaultTxBlockTemplatePayload().name);
+  assert.equal(draft.name, defaultTxWorkflowTemplatePayload().name);
   const currentModel = workspace.currentFormModel();
   assert.ok(currentModel);
   assert.equal(currentModel.name, draft.name);

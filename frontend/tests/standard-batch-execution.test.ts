@@ -115,6 +115,7 @@ test("batch command uses the shared template workspace and forwards all executio
   t.after(workspace.destroy);
   await workspace.selectSource("test");
   assert.equal(await workspace.changeContent("cannot edit"), false);
+  workspace.startEditing();
   workspace.changeVars({ item: "version" });
   workspace.changeMultilineMode("whole");
   workspace.changeMode("enable");
@@ -205,10 +206,10 @@ test("batch interactive and single interactive keep drafts, settings, and variab
   const batch = createInteractiveExecutionPanelWorkspace(
     createBatchDeliveryWorkspace("interactive"),
   );
-  single.authoring.createNewDraft("single");
-  batch.authoring.createNewDraft("batch");
-  single.authoring.draft.setTomlText('name = "single"\ncommand = ""');
-  batch.authoring.draft.setTomlText('name = "batch"\ncommand = ""');
+  single.authoring.draft.setTomlText(
+    'name = "single"\ncommand = "show version"',
+  );
+  batch.authoring.draft.setTomlText('name = "batch"\ncommand = "show version"');
   batch.changeInteractiveTextfsmEnabled(true);
   batch.changeInteractiveTextfsmStrictErrors(true);
   batch.changeInteractiveTextfsmTemplate("custom");
@@ -216,7 +217,7 @@ test("batch interactive and single interactive keep drafts, settings, and variab
   await batch.executeInteractiveExecution();
   const payload = execute.mock.calls[0].arguments[0];
   assert.ok(payload);
-  assert.equal(payload.content, 'name = "batch"\ncommand = ""');
+  assert.equal(payload.content, 'name = "batch"\ncommand = "show version"');
   assert.equal(payload.parse_textfsm, true);
   assert.equal(payload.textfsm_strict_errors, true);
   assert.equal(payload.textfsm_template, "custom");
@@ -224,7 +225,7 @@ test("batch interactive and single interactive keep drafts, settings, and variab
   assert.equal("connection" in payload, false);
   assert.equal(
     get(single.authoring.draft.tomlTextStateStore),
-    'name = "single"\ncommand = ""',
+    'name = "single"\ncommand = "show version"',
   );
   assert.equal(
     get(single.interactivePanelDisplayStateStore).interactiveTextfsmFields

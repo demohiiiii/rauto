@@ -5,6 +5,8 @@
   import { onDestroy, tick, untrack } from "svelte";
   import CommandEditor from "$domains/command/presentation/components/CommandEditor.svelte";
   import CommandSurface from "$domains/command/presentation/components/CommandSurface.svelte";
+  import TemplateSourceActions from "$components/fragments/TemplateSourceActions.svelte";
+  import TemplateSaveDialog from "$components/fragments/TemplateSaveDialog.svelte";
   import TemplateSourceField from "$components/fragments/TemplateSourceField.svelte";
   import JsonObjectFieldsEditor from "$components/fragments/JsonObjectFieldsEditor.svelte";
   import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
@@ -30,11 +32,8 @@
   });
   const { stateStore } = workspace;
   let commandState = $derived($stateStore);
-  let templateSelected = $derived(
-    commandState.sourceSelection !== MANUAL_COMMAND_SOURCE,
-  );
   let displayedCommand = $derived(
-    templateSelected
+    commandState.readonly
       ? commandState.preview.kind === "result"
         ? commandState.preview.text
         : ""
@@ -92,7 +91,24 @@
       value={commandState.sourceSelection}
       optionValues={commandState.sourceOptions}
       onValueChange={handleSourceChange}
-    />
+      disabled={commandState.loadingActions.includes("save") ||
+        commandState.loadingActions.includes("template")}
+    >
+      {#snippet actions()}
+        <TemplateSourceActions
+          readonly={commandState.readonly}
+          editing={commandState.editing}
+          busy={commandState.loadingActions.includes("save") ||
+            commandState.loadingActions.includes("template")}
+          saving={commandState.loadingActions.includes("save")}
+          canSave={!!commandState.content.trim()}
+          onEdit={workspace.startEditing}
+          onCopy={workspace.copyToManual}
+          onSave={workspace.saveTemplate}
+          onCancel={workspace.cancelEditing}
+        />
+      {/snippet}
+    </TemplateSourceField>
   </div>
 
   {#if commandState.dirty}
@@ -117,15 +133,19 @@
     </div>
   {/if}
 
-  <div class="grid min-w-0 gap-3">
+  <fieldset
+    class="grid min-w-0 gap-3"
+    disabled={commandState.readonly ||
+      commandState.loadingActions.includes("save")}
+  >
     <CommandEditor
       command={displayedCommand}
-      commandLabel={templateSelected
+      commandLabel={commandState.readonly
         ? t("commandRenderedTitle")
         : t("fieldCommand")}
-      readonly={templateSelected}
+      readonly={commandState.readonly}
       multilineMode={commandState.multilineMode}
-      placeholderText={templateSelected
+      placeholderText={commandState.readonly
         ? t(
             commandState.preview.kind === "running" ||
               commandState.loadingActions.includes("template")
@@ -147,7 +167,7 @@
         />
       {/snippet}
 
-      {#if templateSelected && commandState.preview.kind === "error"}
+      {#if commandState.readonly && commandState.preview.kind === "error"}
         <StatusCard message={commandState.preview.message} tone="error" />
       {/if}
 
@@ -176,9 +196,9 @@
         />
       {/if}
     </CommandEditor>
-  </div>
+  </fieldset>
 
-  {#if !templateSelected && commandState.preview.kind !== "empty"}
+  {#if !commandState.readonly && commandState.preview.kind !== "empty"}
     <CommandSurface variant="section" title={t("commandPreviewTitle")}>
       {#if commandState.preview.kind === "error"}
         <StatusCard message={commandState.preview.message} tone="error" />
@@ -196,7 +216,7 @@
     loading={commandState.loadingActions.includes("execute")}
     disabled={!retryValid ||
       commandState.loadingActions.includes("template") ||
-      (templateSelected && commandState.preview.kind !== "result")}
+      (commandState.readonly && commandState.preview.kind !== "result")}
     onRun={workspace.execute}
   >
     {#snippet actions()}
@@ -212,3 +232,13 @@
     {/snippet}
   </ExecutionRunBar>
 </div>
+
+<TemplateSaveDialog
+  open={commandState.nameDialog.open}
+  value={commandState.nameDialog.value}
+  error={commandState.nameDialog.error}
+  busy={commandState.loadingActions.includes("save")}
+  onChange={workspace.changeNameDialogValue}
+  onClose={workspace.closeNameDialog}
+  onSave={workspace.submitNameDialog}
+/>

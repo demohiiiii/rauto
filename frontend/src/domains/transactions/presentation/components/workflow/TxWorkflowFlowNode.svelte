@@ -55,7 +55,7 @@
   onDestroy(clearHoverHideTimer);
 </script>
 
-{#if toolbarVisible}
+{#if toolbarVisible && !data.readonly}
   <div
     role="group"
     aria-label={data.titleText}

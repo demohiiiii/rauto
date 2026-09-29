@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
   import { CommandSequenceEditor } from "$domains/command/presentation/components/index.js";
   import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
   import { txBlockCommandDraft } from "$domains/transactions/index.js";
@@ -63,14 +64,16 @@
     onChange={(flow) => onChange?.({ ...operation, flow })}
   >
     {#snippet renderSettings()}
-      <PresenceFieldGrid
-        fieldRows={flowFieldRows}
-        valueHandlerMode="event"
-        hostClass="grid gap-3 md:grid-cols-2"
-        presenceControlsMode="hidden"
-        onValueChangeForKey={flowActionHandlers.flowFieldValueHandler}
-        onPresenceChangeForKey={flowActionHandlers.flowFieldPresenceHandler}
-      />
+      <ReadonlyFields>
+        <PresenceFieldGrid
+          fieldRows={flowFieldRows}
+          valueHandlerMode="event"
+          hostClass="grid gap-3 md:grid-cols-2"
+          presenceControlsMode="hidden"
+          onValueChangeForKey={flowActionHandlers.flowFieldValueHandler}
+          onPresenceChangeForKey={flowActionHandlers.flowFieldPresenceHandler}
+        />
+      </ReadonlyFields>
     {/snippet}
     {#snippet renderStepContent(commandStepRow)}
       <TxBlockCommandEditor

@@ -2,36 +2,18 @@
   import OrchestrationEditorRunPanel from "$domains/orchestration/presentation/components/editor/OrchestrationEditorRunPanel.svelte";
   import { createOrchestrationInputPanelWorkspace } from "$domains/orchestration/index.js";
 
-  interface TextFile {
-    text(): Promise<string>;
-  }
-
-  interface ExternalActionContext {
-    isCurrent?: () => boolean;
-  }
-
   interface Props {
     active?: boolean;
     onEditorInput?: (text: string) => void;
     onExecute?: () => void;
-    onImportFile?: (
-      file: TextFile,
-      actionContext?: ExternalActionContext | null,
-    ) => void;
   }
 
-  let {
-    active = false,
-    onEditorInput,
-    onExecute,
-    onImportFile,
-  }: Props = $props();
+  let { active = false, onEditorInput, onExecute }: Props = $props();
 
   const orchestrationInputWorkspace = createOrchestrationInputPanelWorkspace();
   const {
     editorSyncVersionStateStore,
     executeOrchestration,
-    importFile,
     orchestrationEditorRunButtonDisplayStateStore,
     setInputPanelContext,
   } = orchestrationInputWorkspace;
@@ -43,7 +25,6 @@
   $effect(() => {
     setInputPanelContext({
       onExecute,
-      onImportFile,
     });
   });
 </script>
@@ -54,5 +35,4 @@
   {orchestrationEditorRunButtonDisplay}
   {onEditorInput}
   onExecute={executeOrchestration}
-  onImportFile={importFile}
 />

@@ -13,6 +13,7 @@
   import InteractiveCommandEditor from "./InteractiveCommandEditor.svelte";
 
   interface Props {
+    loading?: boolean;
     studio?: boolean;
     activeTab?: InteractiveEditorTab;
     ariaLabel?: string;
@@ -28,6 +29,7 @@
   }
 
   let {
+    loading = undefined,
     studio = false,
     activeTab = "visual",
     ariaLabel = "",
@@ -67,6 +69,7 @@
 {#if activeTab === "visual"}
   <fieldset class={studio ? "min-w-0 p-4 sm:p-5" : "contents"} {disabled}>
     <InteractiveCommandEditor
+      {loading}
       compact={studio}
       step={model}
       {modeOptions}
@@ -78,6 +81,7 @@
 {:else}
   <div class="min-w-0 px-4 py-5 sm:px-6">
     <TextAreaField
+      {loading}
       class="min-h-[30rem] font-mono text-sm"
       labelText={tomlLabel}
       hintText={tomlHint}

@@ -4,11 +4,6 @@ import type { Readable } from "svelte/store";
 import { currentLanguageState } from "../../../lib/i18n.js";
 import { safeString as safeTemplateString } from "../../../lib/ui.js";
 import {
-  defaultTxBlockTemplatePayload,
-  txBlockFormModelFromJson,
-  txBlockFormModelToJsonText,
-} from "../model/transactionBlockFormModels.js";
-import {
   defaultTxWorkflowTemplatePayload,
   txWorkflowFormModelFromJson,
   txWorkflowFormModelToJsonText,
@@ -17,13 +12,7 @@ import {
   createTxInputLoadingKeysStore,
   createTxInputPanelActionWorkspace,
   createTxInputPanelWorkspace,
-  saveTxBlockEditorFormModel,
   saveTxWorkflowEditorFormModel,
-  txBlockInputEditorSurfaceDisplay,
-  txBlockInputEditorSyncState,
-  txBlockInputFormState,
-  txBlockInputPanelDisplay,
-  txBlockJsonPlaceholder,
   txTemplateRunActionHandlers,
   txTemplateRunPanelDisplay,
   txWorkflowInputEditorSurfaceDisplay,
@@ -47,7 +36,6 @@ import type {
   TransactionEditorView,
   TransactionParsedFormState,
   TransactionTemplateResource,
-  TxBlockFormModel,
   TxWorkflowFormModel,
 } from "../model/types.js";
 import type { TextFile, TxInputDependencies } from "./transactionInputState.js";
@@ -414,59 +402,6 @@ function createConfiguredTxInputPanelWorkspace<
     setInputPanelContext,
     ...txInputWorkspace,
     ...actionWorkspace,
-  };
-}
-
-export function createTxBlockInputPanelWorkspace<TFile = TextFile>(
-  inputState: TransactionInputState<TFile> = {},
-) {
-  const panelConfigStateStore = writable({
-    newButtonLabelKey: safeTemplateString(
-      inputState.newButtonLabelKey ||
-        (typeof inputState.getDisplayConfig === "function"
-          ? inputState.getDisplayConfig()?.newButtonLabelKey
-          : ""),
-    ),
-  });
-  const panelDisplayStateStore = deriveStore(
-    [panelConfigStateStore, currentLanguageState],
-    ([$panelConfigStateStore, _currentLanguageState]) =>
-      txBlockInputPanelDisplay({
-        jsonPlaceholder: txBlockJsonPlaceholder,
-        newButtonLabelKey: $panelConfigStateStore.newButtonLabelKey || "newBtn",
-      }),
-  );
-  const { setInputPanelContext, ...workspace } =
-    createConfiguredTxInputPanelWorkspace<
-      TxBlockFormModel,
-      JsonErrorDetail,
-      ReturnType<typeof txBlockInputPanelDisplay>,
-      ReturnType<typeof txBlockInputEditorSurfaceDisplay>,
-      TFile
-    >({
-      applyPanelContext(nextInputState: TransactionInputState<TFile>) {
-        if (!("newButtonLabelKey" in nextInputState)) return;
-        panelConfigStateStore.update((currentConfig) => ({
-          ...currentConfig,
-          newButtonLabelKey: safeTemplateString(
-            nextInputState.newButtonLabelKey,
-          ),
-        }));
-      },
-      buildDefaultFormModel: () =>
-        txBlockFormModelFromJson(defaultTxBlockTemplatePayload()),
-      editorDisplayFromPanel: txBlockInputEditorSurfaceDisplay,
-      formModelToJsonText: txBlockFormModelToJsonText,
-      inputEditorSyncState: txBlockInputEditorSyncState,
-      inputFormStateFromJsonText: txBlockInputFormState,
-      inputState,
-      panelDisplayStateStore,
-      saveEditorFormModel: saveTxBlockEditorFormModel,
-    });
-
-  return {
-    ...workspace,
-    setBlockInputPanelContext: setInputPanelContext,
   };
 }
 

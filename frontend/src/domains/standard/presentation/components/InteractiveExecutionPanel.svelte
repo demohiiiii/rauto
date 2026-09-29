@@ -1,20 +1,15 @@
 <script lang="ts">
+  import TemplateSourceActions from "$components/fragments/TemplateSourceActions.svelte";
+  import TemplateSaveDialog from "$components/fragments/TemplateSaveDialog.svelte";
   import { onDestroy, untrack } from "svelte";
   import { createBatchDeliveryWorkspace } from "../../application/createBatchDeliveryWorkspace.js";
   import BatchDeliveryTargets from "./batch/BatchDeliveryTargets.svelte";
-  import CopyPlusIcon from "@lucide/svelte/icons/copy-plus";
-  import FilePlusIcon from "@lucide/svelte/icons/file-plus";
-  import SaveIcon from "@lucide/svelte/icons/save";
   import SlidersHorizontalIcon from "@lucide/svelte/icons/sliders-horizontal";
-  import { Button } from "$lib/components/ui/button/index.js";
-  import * as Dialog from "$lib/components/ui/dialog/index.js";
   import {
     InteractiveAuthoringViews,
     InteractiveRuntimeFields,
   } from "$domains/command/presentation/components/index.js";
   import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
-  import LoadingButton from "$components/fragments/LoadingButton.svelte";
-  import PlainInputField from "$components/fragments/PlainInputField.svelte";
   import SessionRetryFields from "$components/fragments/SessionRetryFields.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
   import TemplateSourceField from "$components/fragments/TemplateSourceField.svelte";
@@ -46,8 +41,9 @@
     closeInteractiveNameDialog,
     executeInteractiveExecution,
     interactivePanelDisplayStateStore,
-    openNewInteractiveDialog,
-    openSaveAsInteractiveDialog,
+    editInteractiveTemplate,
+    cancelInteractiveTemplateEdit,
+    copyInteractiveTemplate,
     saveInteractiveTemplate,
     setPanelContext,
     submitInteractiveNameDialog,
@@ -74,11 +70,6 @@
   );
   let nameDialog = $derived(authoringDisplay.nameDialog);
   let authoringBusy = $derived(!!authoringDisplay.loadingAction);
-  let nameDialogTitle = $derived(
-    nameDialog.action === "new"
-      ? interactiveInputDisplay.nameDialogNewTitle
-      : interactiveInputDisplay.nameDialogSaveAsTitle,
-  );
   let studioLabels = $derived.by(() => {
     $currentLanguageState;
     return {
@@ -87,16 +78,6 @@
       sequence: t("interactiveStudioSequence"),
     };
   });
-  function handleNameDialogOpenChange(open: boolean) {
-    if (!open) closeInteractiveNameDialog();
-  }
-
-  function handleNameDialogKeydown(event: KeyboardEvent) {
-    if (event.key !== "Enter" || event.isComposing) return;
-    event.preventDefault();
-    void submitInteractiveNameDialog();
-  }
-
   $effect(() => {
     setPanelContext({ active, interactivePanelDisplay });
   });
@@ -111,59 +92,31 @@
     <BatchDeliveryTargets workspace={batchWorkspace} />
   {/if}
 
-  <div class="grid min-w-0 gap-2">
-    <div class="flex min-w-0 flex-wrap items-center gap-2">
-      <div class="min-w-0 basis-full">
-        <TemplateSourceField
-          value={interactiveTemplateFields.templateName}
-          optionValues={interactiveInputDisplay.templateOptionRows}
-          disabled={authoringBusy}
-          onValueChange={changeInteractiveTemplateName}
-        />
-      </div>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={authoringBusy}
-        onclick={openNewInteractiveDialog}
-      >
-        <FilePlusIcon
-          data-icon="inline-start"
-        />{interactiveInputDisplay.newButtonLabel}
-      </Button>
-      <div class="ml-auto flex flex-wrap items-center gap-2">
-        <LoadingButton
-          variant="outline"
-          size="sm"
-          loading={authoringDisplay.loadingAction === "save"}
-          disabled={!authoringDisplay.canSave || authoringBusy}
-          onclick={saveInteractiveTemplate}
-        >
-          <SaveIcon
-            data-icon="inline-start"
-          />{interactiveInputDisplay.saveButtonLabel}
-        </LoadingButton>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={!authoringDisplay.canSaveAs || authoringBusy}
-          onclick={openSaveAsInteractiveDialog}
-        >
-          <CopyPlusIcon
-            data-icon="inline-start"
-          />{interactiveInputDisplay.saveAsButtonLabel}
-        </Button>
-      </div>
-    </div>
-  </div>
+  <TemplateSourceField
+    value={interactiveTemplateFields.templateName}
+    optionValues={interactiveInputDisplay.templateOptionRows}
+    optionDetails={interactiveInputDisplay.templateOptionDetails}
+    disabled={authoringBusy}
+    onValueChange={changeInteractiveTemplateName}
+  >
+    {#snippet actions()}
+      <TemplateSourceActions
+        readonly={authoringDisplay.readonly}
+        editing={authoringDisplay.editing}
+        builtin={authoringDisplay.selection.kind === "builtin"}
+        busy={authoringBusy}
+        saving={authoringDisplay.loadingAction.startsWith("save")}
+        canSave={authoringDisplay.canSave}
+        onEdit={editInteractiveTemplate}
+        onCopy={copyInteractiveTemplate}
+        onSave={saveInteractiveTemplate}
+        onCancel={cancelInteractiveTemplateEdit}
+      />
+    {/snippet}
+  </TemplateSourceField>
 
   {#if authoringDisplay.errorMessage}
     <StatusCard message={authoringDisplay.errorMessage} tone="error" />
-  {:else if authoringDisplay.inspecting}
-    <StatusCard
-      message={interactiveInputDisplay.inspectingText}
-      tone="running"
-    />
   {/if}
   {#if authoringDisplay.statusMessage}
     <StatusCard
@@ -189,6 +142,8 @@
       >
         <InteractiveAuthoringViews
           studio={true}
+          loading={authoringDisplay.inspecting}
+          disabled={authoringDisplay.readonly || authoringBusy}
           activeTab={authoringDisplay.activeTab}
           ariaLabel={interactiveInputDisplay.workbenchTitleText}
           model={authoringDisplay.model}
@@ -203,7 +158,8 @@
       </section>
     </div>
 
-    <aside
+    <fieldset
+      disabled={authoringDisplay.readonly || authoringBusy}
       class="grid min-w-0 gap-4 rounded-2xl border border-border/80 bg-muted/20 p-4"
       aria-label={studioLabels.options}
     >
@@ -234,7 +190,7 @@
           onChange={changeInteractiveRetry}
         />
       {/if}
-    </aside>
+    </fieldset>
   </div>
 
   <ExecutionRunBar
@@ -250,42 +206,15 @@
   />
 </div>
 
-<Dialog.Root open={nameDialog.open} onOpenChange={handleNameDialogOpenChange}>
-  <Dialog.Content>
-    <Dialog.Header>
-      <Dialog.Title>{nameDialogTitle}</Dialog.Title>
-      <Dialog.Description>
-        {interactiveInputDisplay.nameDialogDescription}
-      </Dialog.Description>
-    </Dialog.Header>
-
-    <PlainInputField
-      value={nameDialog.value}
-      placeholderText={interactiveInputDisplay.templateField.placeholder}
-      aria-label={nameDialogTitle}
-      focus-request-version={nameDialog.open ? 1 : 0}
-      select-on-focus-request={true}
-      onValueInput={changeInteractiveNameDialogValue}
-      onKeydown={handleNameDialogKeydown}
-    />
-    {#if nameDialog.errorMessage}
-      <StatusCard message={nameDialog.errorMessage} tone="error" />
-    {/if}
-
-    <Dialog.Footer>
-      <Button variant="outline" onclick={closeInteractiveNameDialog}>
-        {interactiveInputDisplay.cancelButtonLabel}
-      </Button>
-      <LoadingButton
-        loading={authoringDisplay.loadingAction === "saveAs"}
-        disabled={authoringDisplay.loadingAction === "saveAs"}
-        onclick={submitInteractiveNameDialog}
-      >
-        {interactiveInputDisplay.nameDialogSubmitLabel}
-      </LoadingButton>
-    </Dialog.Footer>
-  </Dialog.Content>
-</Dialog.Root>
+<TemplateSaveDialog
+  open={nameDialog.open}
+  value={nameDialog.value}
+  error={nameDialog.error}
+  busy={authoringBusy}
+  onChange={changeInteractiveNameDialogValue}
+  onClose={closeInteractiveNameDialog}
+  onSave={submitInteractiveNameDialog}
+/>
 
 <style>
   .interactive-studio {

@@ -46,9 +46,6 @@ import {
 } from "./transactionJsonTemplateState.js";
 import {
   transactionFallbackDisplay,
-  txBlockRunDisplayPresentation,
-  txBlockRunPanelDisplay,
-  txBlockStageDisplay,
   txWorkflowExecutionPresentation,
   txWorkflowOutputDisplayPresentation,
   txWorkflowOutputPanelDisplay,
@@ -101,11 +98,6 @@ interface TxBlockPreviewState {
 interface OrchestrationPreviewState {
   plan: OrchestrationPlan | null;
   result: OrchestrationExecutionResult | null;
-}
-
-interface TxBlockStageContext {
-  active?: boolean;
-  onExecute?: AsyncCommand | null;
 }
 
 interface TxWorkflowStageContext {
@@ -218,118 +210,6 @@ export function setTxExecutionModes(
       currentModes.txWorkflow,
     ),
   }));
-}
-
-export function createTxBlockStageWorkspace(
-  inputState: TxBlockStageContext = {},
-) {
-  const dependencyState = {
-    onExecute: inputState.onExecute ?? null,
-  };
-  const activeStateStore = writable(false);
-  const loadingKeysStore = writable<string[]>([]);
-  const txBlockPlanStatusStateStore = transactionOutputState(
-    TX_OUTPUT.txBlockPlan,
-  );
-  const txBlockExecStatusStateStore = transactionOutputState(
-    TX_OUTPUT.txBlockExec,
-  );
-  const txBlockPreviewFallbackStateStore = visualOutputState(
-    TX_VISUAL.txBlockPreview,
-  );
-  const loadingRunner = createLoadingRunner<string>(
-    () => getStore(loadingKeysStore),
-    (nextKeys) => loadingKeysStore.set(nextKeys),
-  );
-  const txBlockStageDisplayStateStore = deriveStore(
-    [
-      txExecutionModes,
-      txBlockPlanStatusStateStore,
-      txBlockExecStatusStateStore,
-    ],
-    ([$txExecutionModes, $planStatus, $execStatus]) =>
-      txBlockStageDisplay($txExecutionModes, $planStatus, $execStatus),
-  );
-  let lastTxBlockRunDisplay = txBlockRunDisplayPresentation(
-    txBlockStageDisplay({}, {}, {}),
-    [],
-    {
-      message: "",
-      mode: "empty",
-      text: "",
-      tone: "info",
-      txBlock: null,
-      txResult: null,
-    },
-  );
-  const txBlockRunDisplayStateStore = deriveStore(
-    [
-      activeStateStore,
-      txBlockStageDisplayStateStore,
-      loadingKeysStore,
-      txBlockPreviewState,
-      txBlockPreviewFallbackStateStore,
-    ],
-    ([
-      $active,
-      $txBlockStageDisplay,
-      $loadingKeys,
-      $txBlockPreviewState,
-      $previewFallbackState,
-    ]) => {
-      if (!$active) {
-        return lastTxBlockRunDisplay;
-      }
-
-      const previewFallback = transactionFallbackDisplay($previewFallbackState);
-      let previewMode = "block";
-      let previewText = "";
-      let previewMessage = "";
-      let previewTone = "info";
-      const txBlock = $txBlockPreviewState.txBlock ?? null;
-      const txResult = $txBlockPreviewState.txResult ?? null;
-
-      if (previewFallback) {
-        previewMode = previewFallback.mode;
-        previewText = previewFallback.text;
-        previewMessage = previewFallback.message;
-        previewTone = previewFallback.tone;
-      }
-
-      lastTxBlockRunDisplay = txBlockRunDisplayPresentation(
-        $txBlockStageDisplay,
-        $loadingKeys,
-        {
-          message: previewMessage,
-          mode: previewMode,
-          text: previewText,
-          tone: previewTone,
-          txBlock,
-          txResult,
-        },
-      );
-      return lastTxBlockRunDisplay;
-    },
-  );
-  const txBlockRunPanelDisplayStateStore = deriveStore(
-    [txBlockRunDisplayStateStore, currentLanguageState],
-    ([$txBlockRunDisplayStateStore]) =>
-      txBlockRunPanelDisplay($txBlockRunDisplayStateStore),
-  );
-
-  return {
-    execute: () =>
-      loadingRunner.run("execute", () => dependencyState.onExecute?.()),
-    setTxBlockStageContext({
-      active = false,
-      onExecute = null,
-    }: TxBlockStageContext = {}) {
-      activeStateStore.set(!!active);
-      dependencyState.onExecute = onExecute;
-    },
-    txBlockRunDisplayStateStore,
-    txBlockRunPanelDisplayStateStore,
-  };
 }
 
 export function createTxWorkflowStageWorkspace(

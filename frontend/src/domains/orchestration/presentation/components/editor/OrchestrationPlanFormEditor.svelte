@@ -9,6 +9,7 @@
   } from "$domains/orchestration/index.js";
 
   interface Props {
+    readonly?: boolean;
     active?: boolean;
     model: OrchestrationPlanFormModel;
     onChange?: OrchestrationPlanChangeHandler | null;
@@ -18,6 +19,7 @@
   }
 
   let {
+    readonly = false,
     active = false,
     model,
     visualDisplay,
@@ -28,6 +30,7 @@
 </script>
 
 <OrchestrationFlowCanvas
+  {readonly}
   {active}
   {model}
   {visualDisplay}

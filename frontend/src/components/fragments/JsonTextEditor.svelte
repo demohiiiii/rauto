@@ -7,7 +7,10 @@
   import { json } from "@codemirror/lang-json";
   import { Skeleton } from "$lib/components/ui/skeleton/index.js";
   import { jsonTextEditorBindings } from "../../lib/events.js";
-  import { dashboardThemeContextKey } from "../../lib/svelte.js";
+  import {
+    dashboardThemeContextKey,
+    readonlyFieldsContextKey,
+  } from "../../lib/svelte.js";
   import { classNames } from "../../lib/ui.js";
 
   type EditorTheme = "dark" | "light";
@@ -17,6 +20,7 @@
   }
 
   interface Props {
+    readonly?: boolean;
     active?: boolean;
     "aria-label"?: string;
     class?: string;
@@ -31,6 +35,7 @@
   }
 
   let {
+    readonly = false,
     active = true,
     class: cssClass = "",
     "aria-label": ariaLabel,
@@ -44,6 +49,10 @@
     value = "",
   }: Props = $props();
 
+  const inheritedReadonly = getContext<(() => boolean) | undefined>(
+    readonlyFieldsContextKey,
+  );
+  let editorReadonly = $derived(readonly || !!inheritedReadonly?.());
   const jsonLanguage = json();
   const dashboardThemeState: Readable<DashboardThemeContext> =
     getContext<Readable<DashboardThemeContext>>(dashboardThemeContextKey) ||
@@ -60,7 +69,7 @@
   let editorText = $state(untrack(() => (value == null ? "" : String(value))));
   let editorBindings = $derived(
     jsonTextEditorBindings({
-      onChange,
+      onChange: editorReadonly ? undefined : onChange,
       onSetText: (nextText) => {
         editorText = nextText;
       },
@@ -129,6 +138,8 @@
   {#if active}
     {#key editorTheme}
       <CodeMirror
+        readonly={editorReadonly}
+        editable={!editorReadonly}
         value={editorText}
         lang={jsonLanguage}
         lineWrapping={true}

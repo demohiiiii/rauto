@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { onDestroy } from "svelte";
+  import { get } from "svelte/store";
   import { listInventoryGroups, listInventoryLabels } from "$api/client.js";
   import { browserConfirm } from "$lib/browser.js";
   import { t } from "$lib/i18n.js";
@@ -9,15 +10,13 @@
   } from "$domains/orchestration/index.js";
   import { orchestrationPlanFormModelFromJsonText } from "$domains/orchestration/index.js";
   import { setConnectionInventorySnapshots } from "$domains/connections/index.js";
-  import { createOrchestrationTemplateWorkspace } from "$domains/orchestration/index.js";
+  import { createExecutionTemplateWorkspace } from "$domains/templates/index.js";
   import OrchestrationEditorSurface from "$domains/orchestration/presentation/components/editor/OrchestrationEditorSurface.svelte";
 
   import type {
-    OrchestrationEditorActionContext,
     OrchestrationEditorTextFile,
     OrchestrationPlanFormModel,
     OrchestrationRunButtonDisplay,
-    OrchestrationTemplateReplacementReason,
   } from "$domains/orchestration/index.js";
 
   interface Props {
@@ -25,10 +24,6 @@
     editorSyncVersion?: number;
     onEditorInput?: (text: string) => void;
     onExecute?: () => Promise<void> | void;
-    onImportFile?: (
-      file: OrchestrationEditorTextFile,
-      actionContext: OrchestrationEditorActionContext,
-    ) => Promise<void> | void;
     orchestrationEditorRunButtonDisplay: OrchestrationRunButtonDisplay;
   }
 
@@ -36,7 +31,6 @@
     active,
     onEditorInput,
     onExecute,
-    onImportFile,
     orchestrationEditorRunButtonDisplay,
     editorSyncVersion = 0,
   }: Props = $props();
@@ -51,7 +45,6 @@
     formErrorStateStore,
     formModelStateStore,
     handleEditorJsonInput,
-    importFile,
     jsonTextStateStore,
     setEditorPanelContext,
     setFormError,
@@ -76,55 +69,42 @@
     });
   }
 
-  function confirmTemplateReplacement({
-    reason,
-  }: {
-    reason?: OrchestrationTemplateReplacementReason;
-  } = {}): boolean {
-    return browserConfirm(
-      t(
-        reason === "delete"
-          ? "orchestrationTemplateDeleteConfirm"
-          : "orchestrationDiscardChangesConfirm",
-      ),
-    );
-  }
-
   function changeCurrentFormModel(
     nextModel: OrchestrationPlanFormModel,
     options?: { notify?: boolean },
   ): void {
+    if (!orchestrationTemplateWorkspace.canEdit()) return;
     changeFormModel(nextModel, options);
     orchestrationTemplateWorkspace.markEdited();
   }
 
   function handleCurrentEditorInput(jsonText: string): void {
+    if (!orchestrationTemplateWorkspace.canEdit()) return;
     handleEditorJsonInput(jsonText);
     orchestrationTemplateWorkspace.markEdited();
   }
 
-  function replaceTemplateJson(jsonText: string): void {
-    const parsed = orchestrationPlanFormModelFromJsonText(jsonText);
-    if (parsed.error || !parsed.model) {
-      throw new Error(parsed.error || t("orchestrationJsonRequired"));
-    }
-    handleCurrentEditorInput(jsonText);
-  }
-
-  const orchestrationTemplateWorkspace = createOrchestrationTemplateWorkspace({
-    confirmReplace: confirmTemplateReplacement,
+  const orchestrationTemplateWorkspace = createExecutionTemplateWorkspace({
+    apiBase: "/api/orchestration-templates",
+    confirmReplace: () =>
+      browserConfirm(t("orchestrationDiscardChangesConfirm")),
     createDraft: createJsonDraft,
-    getCurrentJson: () => orchestrationJsonText,
-    replaceJson: replaceTemplateJson,
+    getCurrentJson: () => get(jsonTextStateStore),
+    replaceJson: handleEditorJsonInput,
+    validateContent: (text) => {
+      const parsed = orchestrationPlanFormModelFromJsonText(text);
+      if (parsed.error || !parsed.model)
+        throw new Error(parsed.error || t("orchestrationJsonRequired"));
+    },
   });
   const {
-    adoptManualSnapshot,
     changeNameDialogValue,
     closeNameDialog,
     displayStateStore: templateDisplayStateStore,
     initialize: initializeTemplates,
-    openNewDialog,
-    openSaveAsDialog,
+    startEditing,
+    copyToManual,
+    cancelEditing,
     saveTemplate,
     selectTemplate,
     submitNameDialog,
@@ -133,16 +113,8 @@
 
   async function importManualFile(
     file: OrchestrationEditorTextFile,
-  ): Promise<boolean | void> {
-    if (
-      templateDisplay.dirty &&
-      !browserConfirm(t("orchestrationDiscardChangesConfirm"))
-    ) {
-      return false;
-    }
-    await importFile(file);
-    await tick();
-    adoptManualSnapshot({ statusKind: "imported" });
+  ): Promise<boolean> {
+    return orchestrationTemplateWorkspace.importContent(() => file.text());
   }
 
   $effect(() => {
@@ -151,7 +123,6 @@
       jsonPlaceholder: orchestrationJsonPlaceholder,
       onCreateDraft: null,
       onEditorInput,
-      onImportFile,
     });
     ensureInitialized();
   });
@@ -167,6 +138,7 @@
     targetOptionsInitialized = true;
     void initializeTargetOptions();
   });
+  onDestroy(orchestrationTemplateWorkspace.destroy);
 </script>
 
 <OrchestrationEditorSurface
@@ -183,9 +155,10 @@
   onImportFile={importManualFile}
   {templateDisplay}
   onTemplateChange={selectTemplate}
-  {openNewDialog}
+  {startEditing}
+  {copyToManual}
+  {cancelEditing}
   {saveTemplate}
-  {openSaveAsDialog}
   {changeNameDialogValue}
   {closeNameDialog}
   {submitNameDialog}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
   import BracesIcon from "@lucide/svelte/icons/braces";
@@ -49,6 +50,7 @@
     { blockIndex: number; kind: "block" } | { blockIndex: null; kind: "none" };
 
   interface Props {
+    readonly?: boolean;
     embedded?: boolean;
     model: TxWorkflowFormModel;
     onChange?: ((model: TxWorkflowFormModel) => void) | null;
@@ -58,6 +60,7 @@
   }
 
   let {
+    readonly = false,
     model,
     onChange,
     onOpenView,
@@ -143,6 +146,7 @@
           ? { x: 0, y: 340 + blockRow.blockIndex * 250 }
           : { x: 100 + blockRow.blockIndex * 390, y: 300 },
         data: {
+          readonly,
           kind: "block",
           blockIndex: blockRow.blockIndex,
           titleText,
@@ -332,7 +336,12 @@
   }
 
   $effect(() => {
-    setVisualEditorContext({ model, onChange });
+    setVisualEditorContext({
+      model,
+      onChange: (nextModel) => {
+        if (!readonly) onChange?.(nextModel);
+      },
+    });
   });
 
   $effect(() => {
@@ -382,6 +391,7 @@
           <Badge variant="secondary">{canvasBlockCountText}</Badge>
           {#if settingsOnly}
             <Button
+              disabled={readonly}
               variant="outline"
               size="sm"
               type="button"
@@ -394,14 +404,16 @@
         </div>
       </header>
       <div class="p-3">
-        <PresenceFieldGrid
-          fieldRows={workflowRootFieldRows}
-          valueHandlerMode="event"
-          hostClass="grid min-w-0 gap-3"
-          presenceControlsMode="hidden"
-          onValueChangeForKey={workflowActionHandlers.valueHandler}
-          onPresenceChangeForKey={workflowActionHandlers.presenceToggle}
-        />
+        <ReadonlyFields disabled={readonly} class="min-w-0">
+          <PresenceFieldGrid
+            fieldRows={workflowRootFieldRows}
+            valueHandlerMode="event"
+            hostClass="grid min-w-0 gap-3"
+            presenceControlsMode="hidden"
+            onValueChangeForKey={workflowActionHandlers.valueHandler}
+            onPresenceChangeForKey={workflowActionHandlers.presenceToggle}
+          />
+        </ReadonlyFields>
       </div>
     </section>
 
@@ -420,7 +432,13 @@
               {canvasBlockCountText}
             </p>
           </div>
-          <Button variant="outline" size="sm" type="button" onclick={addBlock}>
+          <Button
+            disabled={readonly}
+            variant="outline"
+            size="sm"
+            type="button"
+            onclick={addBlock}
+          >
             <PlusIcon data-icon="inline-start" />
             {t("txWorkflowFormAddBlock")}
           </Button>
@@ -466,7 +484,7 @@
                     type="button"
                     title={t("txWorkflowMoveBlockLeft")}
                     aria-label={t("txWorkflowMoveBlockLeft")}
-                    disabled={blockRow.blockIndex === 0}
+                    disabled={readonly || blockRow.blockIndex === 0}
                     onclick={() =>
                       moveBlock(blockRow.blockIndex, blockRow.blockIndex - 1)}
                   >
@@ -478,13 +496,15 @@
                     type="button"
                     title={t("txWorkflowMoveBlockRight")}
                     aria-label={t("txWorkflowMoveBlockRight")}
-                    disabled={blockRow.blockIndex === blockRows.length - 1}
+                    disabled={readonly ||
+                      blockRow.blockIndex === blockRows.length - 1}
                     onclick={() =>
                       moveBlock(blockRow.blockIndex, blockRow.blockIndex + 1)}
                   >
                     <ArrowRightIcon />
                   </Button>
                   <Button
+                    disabled={readonly}
                     variant="ghost"
                     size="icon-sm"
                     type="button"
@@ -495,6 +515,7 @@
                     <CopyIcon />
                   </Button>
                   <Button
+                    disabled={readonly}
                     class="text-destructive hover:text-destructive"
                     variant="ghost"
                     size="icon-sm"
@@ -512,7 +533,12 @@
         {:else}
           <div class="grid gap-3 p-3">
             <StatusCard message={t("txWorkflowInspectorNoSelectionHint")} />
-            <Button variant="outline" type="button" onclick={addBlock}>
+            <Button
+              disabled={readonly}
+              variant="outline"
+              type="button"
+              onclick={addBlock}
+            >
               <PlusIcon data-icon="inline-start" />
               {t("txWorkflowFormAddBlock")}
             </Button>
@@ -522,26 +548,28 @@
 
       {#key currentLanguage}
         {#if selectedBlockRow}
-          <TxWorkflowBlockEditor
-            blockRow={selectedBlockRow}
-            {editorDisplay}
-            embedded={true}
-            blockActionHandlers={workflowActionHandlers.blockBindings(
-              selectedBlockRow.blockIndex,
-            )}
-            showRemoveAction={false}
-            onSaveAsTemplate={selectedBlockRow.showInlineBlock &&
-            onSaveBlockTemplate
-              ? () =>
-                  onSaveBlockTemplate(
-                    JSON.parse(
-                      txBlockFormModelToJsonText(
-                        selectedBlockRow.block.inlineBlock,
-                      ),
-                    ) as JsonObject,
-                  )
-              : undefined}
-          />
+          <ReadonlyFields disabled={readonly} scopeOnly class="min-w-0">
+            <TxWorkflowBlockEditor
+              blockRow={selectedBlockRow}
+              {editorDisplay}
+              embedded={true}
+              blockActionHandlers={workflowActionHandlers.blockBindings(
+                selectedBlockRow.blockIndex,
+              )}
+              showRemoveAction={false}
+              onSaveAsTemplate={selectedBlockRow.showInlineBlock &&
+              onSaveBlockTemplate
+                ? () =>
+                    onSaveBlockTemplate(
+                      JSON.parse(
+                        txBlockFormModelToJsonText(
+                          selectedBlockRow.block.inlineBlock,
+                        ),
+                      ) as JsonObject,
+                    )
+                : undefined}
+            />
+          </ReadonlyFields>
         {/if}
       {/key}
     {/if}
@@ -631,6 +659,7 @@
                   <div class="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{canvasBlockCountText}</Badge>
                     <Button
+                      disabled={readonly}
                       variant="outline"
                       size="sm"
                       type="button"
@@ -651,14 +680,16 @@
                     </Button>
                   </div>
                 </div>
-                <PresenceFieldGrid
-                  fieldRows={workflowRootFieldRows}
-                  valueHandlerMode="event"
-                  hostClass="grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_minmax(10rem,12rem)]"
-                  presenceControlsMode="hidden"
-                  onValueChangeForKey={workflowActionHandlers.valueHandler}
-                  onPresenceChangeForKey={workflowActionHandlers.presenceToggle}
-                />
+                <ReadonlyFields disabled={readonly} class="min-w-0">
+                  <PresenceFieldGrid
+                    fieldRows={workflowRootFieldRows}
+                    valueHandlerMode="event"
+                    hostClass="grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_minmax(10rem,12rem)]"
+                    presenceControlsMode="hidden"
+                    onValueChangeForKey={workflowActionHandlers.valueHandler}
+                    onPresenceChangeForKey={workflowActionHandlers.presenceToggle}
+                  />
+                </ReadonlyFields>
               </div>
             {/if}
           </Panel>
@@ -756,7 +787,7 @@
                   type="button"
                   title={t("txWorkflowMoveBlockLeft")}
                   aria-label={t("txWorkflowMoveBlockLeft")}
-                  disabled={selectedBlockRow.blockIndex === 0}
+                  disabled={readonly || selectedBlockRow.blockIndex === 0}
                   onclick={() =>
                     moveBlock(
                       selectedBlockRow.blockIndex,
@@ -771,8 +802,8 @@
                   type="button"
                   title={t("txWorkflowMoveBlockRight")}
                   aria-label={t("txWorkflowMoveBlockRight")}
-                  disabled={selectedBlockRow.blockIndex ===
-                    blockRows.length - 1}
+                  disabled={readonly ||
+                    selectedBlockRow.blockIndex === blockRows.length - 1}
                   onclick={() =>
                     moveBlock(
                       selectedBlockRow.blockIndex,
@@ -782,6 +813,7 @@
                   <ArrowRightIcon />
                 </Button>
                 <Button
+                  disabled={readonly}
                   variant="ghost"
                   size="icon-sm"
                   type="button"
@@ -792,6 +824,7 @@
                   <CopyIcon />
                 </Button>
                 <Button
+                  disabled={readonly}
                   variant="ghost"
                   size="icon-sm"
                   type="button"
@@ -820,29 +853,36 @@
         <div class="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
           {#key currentLanguage}
             {#if selectedBlockRow}
-              <TxWorkflowBlockEditor
-                blockRow={selectedBlockRow}
-                {editorDisplay}
-                blockActionHandlers={workflowActionHandlers.blockBindings(
-                  selectedBlockRow.blockIndex,
-                )}
-                showRemoveAction={false}
-                onSaveAsTemplate={selectedBlockRow.showInlineBlock &&
-                onSaveBlockTemplate
-                  ? () =>
-                      onSaveBlockTemplate(
-                        JSON.parse(
-                          txBlockFormModelToJsonText(
-                            selectedBlockRow.block.inlineBlock,
-                          ),
-                        ) as JsonObject,
-                      )
-                  : undefined}
-              />
+              <ReadonlyFields disabled={readonly} scopeOnly class="min-w-0">
+                <TxWorkflowBlockEditor
+                  blockRow={selectedBlockRow}
+                  {editorDisplay}
+                  blockActionHandlers={workflowActionHandlers.blockBindings(
+                    selectedBlockRow.blockIndex,
+                  )}
+                  showRemoveAction={false}
+                  onSaveAsTemplate={selectedBlockRow.showInlineBlock &&
+                  onSaveBlockTemplate
+                    ? () =>
+                        onSaveBlockTemplate(
+                          JSON.parse(
+                            txBlockFormModelToJsonText(
+                              selectedBlockRow.block.inlineBlock,
+                            ),
+                          ) as JsonObject,
+                        )
+                    : undefined}
+                />
+              </ReadonlyFields>
             {:else}
               <div class="grid gap-3">
                 <StatusCard message={t("txWorkflowInspectorNoSelectionHint")} />
-                <Button variant="outline" type="button" onclick={addBlock}>
+                <Button
+                  disabled={readonly}
+                  variant="outline"
+                  type="button"
+                  onclick={addBlock}
+                >
                   <PlusIcon data-icon="inline-start" />
                   {t("txWorkflowFormAddBlock")}
                 </Button>

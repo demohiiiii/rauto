@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
   import ListChecksIcon from "@lucide/svelte/icons/list-checks";
   import * as Card from "$lib/components/ui/card";
   import PlainCheckboxField from "$components/fragments/PlainCheckboxField.svelte";
@@ -90,28 +91,31 @@
     <Separator />
 
     {#if perStepRollbackEnabled}
-      <TxFormSection
-        icon={ListChecksIcon}
-        title={t("txBlockFormStepOptions")}
-        description={t("txBlockFormStepOptionsHint")}
-      >
-        <PlainCheckboxField
-          controlKind="switch"
-          checked={rollbackEnabled}
-          labelText={t("txBlockFormEnableStepRollback")}
-          onCheckedChange={onRollbackEnabledChange}
-        />
-        {#if rollbackEnabled}
-          <PresenceFieldGrid
-            fieldRows={stepFieldRows}
-            valueHandlerMode="event"
-            hostClass="grid gap-3 md:grid-cols-2"
-            presenceControlsMode="hidden"
-            onValueChangeForKey={stepActionHandlers.fieldValueHandler}
-            onPresenceChangeForKey={stepActionHandlers.fieldPresenceHandler}
+      <ReadonlyFields>
+        <TxFormSection
+          icon={ListChecksIcon}
+          title={t("txBlockFormStepOptions")}
+          description={t("txBlockFormStepOptionsHint")}
+        >
+          <PlainCheckboxField
+            controlKind="switch"
+            checked={rollbackEnabled}
+            labelText={t("txBlockFormEnableStepRollback")}
+            onCheckedChange={onRollbackEnabledChange}
           />
-        {/if}
-      </TxFormSection>
+
+          {#if rollbackEnabled}
+            <PresenceFieldGrid
+              fieldRows={stepFieldRows}
+              valueHandlerMode="event"
+              hostClass="grid gap-3 md:grid-cols-2"
+              presenceControlsMode="hidden"
+              onValueChangeForKey={stepActionHandlers.fieldValueHandler}
+              onPresenceChangeForKey={stepActionHandlers.fieldPresenceHandler}
+            />
+          {/if}
+        </TxFormSection>
+      </ReadonlyFields>
     {/if}
 
     {#if perStepRollbackEnabled && rollbackEnabled && step.rollback}

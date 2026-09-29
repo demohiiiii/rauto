@@ -11,6 +11,7 @@
   import type { OrchestrationWorkflowBlockFlowNode } from "$domains/orchestration/index.js";
 
   type WorkflowBlockNodeData = OrchestrationWorkflowBlockFlowNode["data"] & {
+    readonly?: boolean;
     canMoveNext: boolean;
     canMovePrevious: boolean;
     deleteLabel: string;
@@ -82,7 +83,7 @@
         type="button"
         title={data.movePreviousLabel}
         aria-label={data.movePreviousLabel}
-        disabled={!data.canMovePrevious}
+        disabled={data.readonly || !data.canMovePrevious}
         onclick={(event) => runAction(event, data.onMovePrevious)}
         ><ArrowUpIcon /></Button
       >
@@ -92,11 +93,12 @@
         type="button"
         title={data.moveNextLabel}
         aria-label={data.moveNextLabel}
-        disabled={!data.canMoveNext}
+        disabled={data.readonly || !data.canMoveNext}
         onclick={(event) => runAction(event, data.onMoveNext)}
         ><ArrowDownIcon /></Button
       >
       <Button
+        disabled={data.readonly}
         variant="ghost"
         size="icon-xs"
         type="button"
@@ -106,6 +108,7 @@
         ><CopyIcon /></Button
       >
       <Button
+        disabled={data.readonly}
         class="text-destructive hover:text-destructive"
         variant="ghost"
         size="icon-xs"

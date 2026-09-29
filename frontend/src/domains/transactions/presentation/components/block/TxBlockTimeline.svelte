@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { getContext } from "svelte";
+  import { readonlyFieldsContextKey } from "$lib/svelte.js";
   import ArrowDownIcon from "@lucide/svelte/icons/arrow-down";
   import ArrowUpIcon from "@lucide/svelte/icons/arrow-up";
   import CopyIcon from "@lucide/svelte/icons/copy";
@@ -91,6 +93,10 @@
     await tick();
     requestAnimationFrame(() => deleteButton?.focus());
   }
+  const inheritedReadonly = getContext<(() => boolean) | undefined>(
+    readonlyFieldsContextKey,
+  );
+  let readonly = $derived(!!inheritedReadonly?.());
 </script>
 
 <section
@@ -108,6 +114,7 @@
       </p>
     </div>
     <Button
+      disabled={readonly}
       variant="outline"
       size="icon-sm"
       type="button"
@@ -215,6 +222,7 @@
                 {t("txBlockTimelineDeletePrompt")}
               </span>
               <Button
+                disabled={readonly}
                 variant="ghost"
                 size="xs"
                 type="button"
@@ -224,6 +232,7 @@
                 {t("txBlockTimelineCancelDelete")}
               </Button>
               <Button
+                disabled={readonly}
                 variant="destructive"
                 size="xs"
                 type="button"
@@ -241,7 +250,7 @@
                 class="min-h-11 min-w-11"
                 title={t("txBlockTimelineMoveUp")}
                 aria-label={t("txBlockTimelineMoveUp")}
-                disabled={!stepRow.canMoveUp}
+                disabled={readonly || !stepRow.canMoveUp}
                 onclick={() => moveSelectedStep(-1)}
               >
                 <ArrowUpIcon />
@@ -253,12 +262,13 @@
                 class="min-h-11 min-w-11"
                 title={t("txBlockTimelineMoveDown")}
                 aria-label={t("txBlockTimelineMoveDown")}
-                disabled={!stepRow.canMoveDown}
+                disabled={readonly || !stepRow.canMoveDown}
                 onclick={() => moveSelectedStep(1)}
               >
                 <ArrowDownIcon />
               </Button>
               <Button
+                disabled={readonly}
                 variant="ghost"
                 size="icon-sm"
                 type="button"
@@ -270,6 +280,7 @@
                 <CopyIcon />
               </Button>
               <Button
+                disabled={readonly}
                 variant="ghost"
                 size="icon-sm"
                 type="button"

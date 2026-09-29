@@ -1,3 +1,4 @@
+import type { TemplateNameDialogState } from "$domains/templates/index.js";
 import type { Readable, Writable } from "svelte/store";
 import type {
   InteractiveDraftWorkspace,
@@ -109,6 +110,9 @@ export interface StandardTaskResultSummary {
 }
 
 export interface StandardCommandWorkspaceState {
+  editing: boolean;
+  readonly: boolean;
+  nameDialog: TemplateNameDialogState;
   baselineContent: string;
   content: string;
   dirty: boolean;
@@ -156,6 +160,14 @@ export interface StandardCommandExecutionPayload {
 }
 
 export interface StandardCommandApi {
+  createTemplate(
+    name: string,
+    content: string,
+  ): Promise<StandardTemplateDetail>;
+  updateTemplate(
+    name: string,
+    content: string,
+  ): Promise<StandardTemplateDetail>;
   executeTemplate(
     payload: StandardCommandExecutionPayload,
   ): Promise<StandardCommandExecutionResponse>;
@@ -195,6 +207,13 @@ export interface StandardCommandWorkspaceOptions {
 }
 
 export interface StandardCommandExecutionWorkspace {
+  startEditing(): void;
+  cancelEditing(): Promise<boolean>;
+  copyToManual(): void;
+  saveTemplate(): Promise<boolean>;
+  changeNameDialogValue(value: string): void;
+  closeNameDialog(): void;
+  submitNameDialog(): Promise<boolean>;
   changeContent(content?: string): Promise<boolean>;
   changeMode(mode?: string): void;
   changeMultilineMode(multilineMode?: StandardCommandMultilineMode): void;
@@ -210,7 +229,6 @@ export interface StandardCommandExecutionWorkspace {
 }
 
 export type StandardInteractiveSelectionKind = "builtin" | "custom" | "new";
-export type StandardInteractiveNameDialogAction = "new" | "saveAs";
 
 export interface StandardInteractiveSelection {
   kind: StandardInteractiveSelectionKind;
@@ -224,17 +242,15 @@ export interface StandardInteractiveAuthoringOperationState {
   statusTone: StandardCommandStatusTone;
 }
 
-export interface StandardInteractiveNameDialogState {
-  action: StandardInteractiveNameDialogAction;
-  errorMessage: string;
-  open: boolean;
-  value: string;
-}
+export type StandardInteractiveNameDialogState = TemplateNameDialogState;
 
 export interface StandardInteractiveAuthoringActionState extends StandardInteractiveAuthoringOperationState {
   canRun: boolean;
   canSave: boolean;
   canSaveAs: boolean;
+  canEditTemplate: boolean;
+  editing: boolean;
+  readonly: boolean;
   dirty: boolean;
 }
 
@@ -269,14 +285,14 @@ export interface StandardInteractiveExecutionSource {
 
 export interface StandardInteractiveAuthoringState {
   actionStateStore: Readable<StandardInteractiveAuthoringActionState>;
+  startEditing(): void;
+  cancelEditing(): void;
+  copyToManual(): boolean;
   closeNameDialog(): void;
-  createNewDraft(name?: string): boolean;
   draft: InteractiveDraftWorkspace;
   executeSource(): StandardInteractiveExecutionSource;
   inspectCurrent(): Promise<boolean>;
   nameDialogStateStore: Writable<StandardInteractiveNameDialogState>;
-  openNewDialog(): void;
-  openSaveAsDialog(): void;
   operationStateStore: Writable<StandardInteractiveAuthoringOperationState>;
   save(): Promise<boolean>;
   saveAs(name?: string): Promise<boolean>;

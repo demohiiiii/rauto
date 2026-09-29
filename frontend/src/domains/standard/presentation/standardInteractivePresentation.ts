@@ -1,6 +1,7 @@
 import { t } from "../../../lib/i18n.js";
 import { safeString, selectOptionsWithCurrent } from "../../../lib/ui.js";
 import type { ModeSelectState } from "$domains/profiles/index.js";
+import { parseBuiltinInteractiveTemplateValue } from "$domains/templates/index.js";
 import type { InteractiveTemplateSelectState } from "$domains/templates/index.js";
 
 export function standardModeSelectPresentation(modeState: ModeSelectState) {
@@ -87,11 +88,21 @@ export function interactiveExecutionInputPresentation({
     newSourceLabel: t("interactiveNewSourceLabel"),
     saveButtonLabel: t("interactiveTemplateSaveBtn"),
     saveAsButtonLabel: t("interactiveSaveAsButton"),
-    inspectingText: t("interactiveInspecting"),
     interactiveVariableCountLabel: t("interactiveVariableCountLabel"),
     templateDescriptionText: t("interactiveTemplateSourceHint"),
     templateField: standardInputField(templateName, templatePlaceholder),
     templateOptionRows: selectOptionsWithCurrent(templateOptions, templateName),
+    templateOptionDetails: Object.fromEntries(
+      selectOptionsWithCurrent(templateOptions, templateName).map((value) => {
+        const builtinName = parseBuiltinInteractiveTemplateValue(value);
+        return [
+          value,
+          builtinName
+            ? { label: builtinName, badge: t("builtinLabel") }
+            : { label: value },
+        ];
+      }),
+    ),
     templateTitleText: t("interactiveTemplateSourceTitle"),
     tomlTabLabel: t("interactiveTomlTab"),
     tomlFieldLabel: t("interactiveTomlLabel"),

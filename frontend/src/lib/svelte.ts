@@ -10,6 +10,8 @@ import {
 } from "./events.js";
 import { classNames, textfsmControlsDisplay } from "./ui.js";
 
+export const readonlyFieldsContextKey = Symbol("readonlyFields");
+
 export const dashboardThemeContextKey = Symbol("dashboardTheme");
 
 type OptionalTask<TArgs extends unknown[], TResult = unknown> =

@@ -6,6 +6,7 @@
   import CommandTextAreaField from "./CommandTextAreaField.svelte";
 
   interface Props {
+    loading?: boolean;
     children?: Snippet;
     modeField?: Snippet;
     command?: string;
@@ -18,6 +19,7 @@
   }
 
   let {
+    loading = undefined,
     children,
     modeField,
     command = "",
@@ -36,6 +38,7 @@
       {commandLabel || t("txBlockFormCommand")}
     </span>
     <CommandTextAreaField
+      {loading}
       value={command}
       {readonly}
       {placeholderText}

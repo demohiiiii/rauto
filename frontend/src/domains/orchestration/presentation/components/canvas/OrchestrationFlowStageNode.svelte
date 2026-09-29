@@ -12,6 +12,7 @@
   import type { OrchestrationStageFlowNode } from "$domains/orchestration/index.js";
 
   type StageNodeData = OrchestrationStageFlowNode["data"] & {
+    readonly?: boolean;
     addJobLabel: string;
     canMoveNext: boolean;
     canMovePrevious: boolean;
@@ -81,7 +82,7 @@
       type="button"
       title={data.movePreviousLabel}
       aria-label={data.movePreviousLabel}
-      disabled={!data.canMovePrevious}
+      disabled={data.readonly || !data.canMovePrevious}
       onclick={(event) => runAction(event, data.onMovePrevious)}
       ><ArrowLeftIcon /></Button
     >
@@ -91,11 +92,12 @@
       type="button"
       title={data.moveNextLabel}
       aria-label={data.moveNextLabel}
-      disabled={!data.canMoveNext}
+      disabled={data.readonly || !data.canMoveNext}
       onclick={(event) => runAction(event, data.onMoveNext)}
       ><ArrowRightIcon /></Button
     >
     <Button
+      disabled={data.readonly}
       variant="ghost"
       size="icon-sm"
       type="button"
@@ -104,6 +106,7 @@
       onclick={(event) => runAction(event, data.onAddJob)}><PlusIcon /></Button
     >
     <Button
+      disabled={data.readonly}
       variant="ghost"
       size="icon-sm"
       type="button"
@@ -113,6 +116,7 @@
       ><CopyIcon /></Button
     >
     <Button
+      disabled={data.readonly}
       class="text-destructive hover:text-destructive"
       variant="ghost"
       size="icon-sm"
@@ -162,6 +166,7 @@
   {/if}
 
   <Button
+    disabled={data.readonly}
     class="orchestration-stage-add-job nodrag nopan absolute bottom-3 left-3 right-3 w-[calc(100%-1.5rem)] border-dashed"
     variant="outline"
     size="sm"

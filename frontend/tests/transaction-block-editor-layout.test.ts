@@ -3,36 +3,9 @@ import test from "node:test";
 import { get } from "svelte/store";
 
 import {
-  createTxBlockRunPanelWorkspace,
   createTxWorkflowBlockResultPanelWorkspace,
   txWorkflowExecutionPresentation,
 } from "../src/domains/transactions/index.js";
-
-test("execution panel workspaces expose stable mapped display stores", () => {
-  const blockRun = createTxBlockRunPanelWorkspace();
-  const blockDisplay = get(blockRun.panelDisplayStateStore);
-  blockRun.setPanelDisplay({
-    ...blockDisplay,
-    execStatusDisplay: {
-      ...blockDisplay.execStatusDisplay,
-      message: "executed",
-    },
-    loadingDisplay: { ...blockDisplay.loadingDisplay, execute: true },
-    previewDisplay: {
-      ...blockDisplay.previewDisplay,
-      previewPresentation: {
-        ...blockDisplay.previewDisplay.previewPresentation,
-        hasSteps: true,
-      },
-    },
-  });
-  assert.equal(get(blockRun.execStatusDisplayStateStore).message, "executed");
-  assert.equal(get(blockRun.loadingDisplayStateStore).execute, true);
-  assert.equal(
-    get(blockRun.previewDisplayStateStore).previewPresentation.hasSteps,
-    true,
-  );
-});
 
 test("workflow block results reuse the transaction result presentation", () => {
   const display = txWorkflowExecutionPresentation({

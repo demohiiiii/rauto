@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
   import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
   import JsonObjectFieldsEditor from "$components/fragments/JsonObjectFieldsEditor.svelte";
   import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
@@ -60,30 +61,35 @@
 </script>
 
 <section class="grid min-w-0 gap-3">
-  <TxFormSection
-    icon={RotateCcwIcon}
-    title={t("txBlockFormRollbackPolicy")}
-    description={t("txBlockFormRollbackPolicyHint")}
-  >
-    <label class="flex flex-col gap-2">
-      <span class="text-sm font-medium text-foreground">
-        {t("txBlockFormRollbackPolicy")}
-      </span>
-      <StringSelectField
-        value={rollbackKindValue}
-        optionValues={[...rollbackKindRows]}
-        onChange={onRollbackKindChange}
-      />
-    </label>
-  </TxFormSection>
+  <ReadonlyFields>
+    <TxFormSection
+      icon={RotateCcwIcon}
+      title={t("txBlockFormRollbackPolicy")}
+      description={t("txBlockFormRollbackPolicyHint")}
+    >
+      <label class="flex flex-col gap-2">
+        <span class="text-sm font-medium text-foreground">
+          {t("txBlockFormRollbackPolicy")}
+        </span>
+        <StringSelectField
+          value={rollbackKindValue}
+          optionValues={[...rollbackKindRows]}
+          onChange={onRollbackKindChange}
+        />
+      </label>
+    </TxFormSection>
+  </ReadonlyFields>
   {#if showWholeResource}
-    <PresenceFieldGrid
-      fieldRows={wholeResourceFieldRows}
-      valueHandlerMode="event"
-      presenceControlsMode="hidden"
-      onValueChangeForKey={onWholeResourceFieldInput}
-      onPresenceChangeForKey={onWholeResourceFieldPresenceChange}
-    />
+    <ReadonlyFields>
+      <PresenceFieldGrid
+        fieldRows={wholeResourceFieldRows}
+        valueHandlerMode="event"
+        presenceControlsMode="hidden"
+        onValueChangeForKey={onWholeResourceFieldInput}
+        onPresenceChangeForKey={onWholeResourceFieldPresenceChange}
+      />
+    </ReadonlyFields>
+
     <TxBlockOperationEditor
       operation={wholeResourceRollback}
       title={t("txBlockFormWholeRollback")}
@@ -93,11 +99,14 @@
       {validationErrors}
       pathPrefix={`${pathPrefix}.rollback`}
     />
-    <JsonObjectFieldsEditor
-      title={t("txBlockFormWholeRollbackExtra")}
-      source={wholeResourceExtra}
-      typeRows={[...jsonValueTypeRows]}
-      onChange={onWholeResourceExtraChange}
-    />
+
+    <ReadonlyFields>
+      <JsonObjectFieldsEditor
+        title={t("txBlockFormWholeRollbackExtra")}
+        source={wholeResourceExtra}
+        typeRows={[...jsonValueTypeRows]}
+        onChange={onWholeResourceExtraChange}
+      />
+    </ReadonlyFields>
   {/if}
 </section>

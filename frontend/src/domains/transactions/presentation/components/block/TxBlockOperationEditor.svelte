@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import TxBlockCommandEditor from "$domains/transactions/presentation/components/block/TxBlockCommandEditor.svelte";
   import TxBlockFlowEditor from "$domains/transactions/presentation/components/block/TxBlockFlowEditor.svelte";
@@ -58,17 +59,20 @@
 <div class="grid gap-4">
   <div class="grid gap-2">
     <h3 class="text-sm font-semibold text-foreground">{title}</h3>
-    <Tabs.Root
-      value={operation.kind}
-      onValueChange={setOperationKind}
-      class="w-full"
-    >
-      <Tabs.List class="grid w-full grid-cols-2" aria-label={title}>
-        <Tabs.Trigger value="command">{t("txBlockFormCommand")}</Tabs.Trigger>
-        <Tabs.Trigger value="flow">{t("txBlockOperationKindFlow")}</Tabs.Trigger
-        >
-      </Tabs.List>
-    </Tabs.Root>
+    <ReadonlyFields>
+      <Tabs.Root
+        value={operation.kind}
+        onValueChange={setOperationKind}
+        class="w-full"
+      >
+        <Tabs.List class="grid w-full grid-cols-2" aria-label={title}>
+          <Tabs.Trigger value="command">{t("txBlockFormCommand")}</Tabs.Trigger>
+          <Tabs.Trigger value="flow"
+            >{t("txBlockOperationKindFlow")}</Tabs.Trigger
+          >
+        </Tabs.List>
+      </Tabs.Root>
+    </ReadonlyFields>
   </div>
   <div>
     {#if operation.kind === "flow"}

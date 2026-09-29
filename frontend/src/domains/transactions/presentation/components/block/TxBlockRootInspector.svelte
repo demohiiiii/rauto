@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
   import * as Card from "$lib/components/ui/card";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { t } from "$lib/i18n.js";
@@ -54,11 +55,13 @@
     {#if stepsErrorText}
       <p class="text-xs text-destructive" role="alert">{stepsErrorText}</p>
     {/if}
-    <TxBlockRootSettingsEditor
-      fieldRows={rootPanel.fieldRows}
-      onValueChange={editorActionHandlers.rootValueHandler}
-      onPresenceChange={editorActionHandlers.rootPresenceHandler}
-    />
+    <ReadonlyFields>
+      <TxBlockRootSettingsEditor
+        fieldRows={rootPanel.fieldRows}
+        onValueChange={editorActionHandlers.rootValueHandler}
+        onPresenceChange={editorActionHandlers.rootPresenceHandler}
+      />
+    </ReadonlyFields>
 
     <Separator />
 

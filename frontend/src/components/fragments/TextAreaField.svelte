@@ -4,6 +4,7 @@
   import JsonTextEditor from "./JsonTextEditor.svelte";
 
   interface Props {
+    loading?: boolean;
     active?: boolean;
     "aria-label"?: string;
     class?: string;
@@ -20,6 +21,7 @@
   }
 
   let {
+    loading = undefined,
     active = true,
     "aria-label": ariaLabel = "",
     disabled = false,
@@ -51,6 +53,7 @@
     />
   {:else}
     <PlainTextAreaField
+      {loading}
       class={fieldClass}
       aria-label={ariaLabel || labelText || placeholderText}
       {placeholderText}

@@ -14,6 +14,7 @@
   import InteractivePromptsEditor from "./InteractivePromptsEditor.svelte";
 
   interface Props {
+    loading?: boolean;
     compact?: boolean;
     accentIndex?: number;
     modeOptions?: string[];
@@ -22,6 +23,7 @@
   }
 
   let {
+    loading = undefined,
     compact = false,
     modeOptions = [],
     onChange,
@@ -100,6 +102,7 @@
 
 <div class="grid gap-4">
   <CommandEditor
+    {loading}
     command={step.command || ""}
     multilineMode={step.multilineMode || "split_lines"}
     placeholderText={t("interactiveCommandPlaceholder")}

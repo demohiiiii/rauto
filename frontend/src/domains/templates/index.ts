@@ -1,3 +1,6 @@
+export type * from "./model/templateAuthoring.js";
+export * from "./application/createTemplateAuthoringSession.js";
+export * from "./application/createExecutionTemplateWorkspace.js";
 export { createInteractiveTemplateRuntime } from "./application/interactiveTemplateRuntime.js";
 export { createContentTemplateWorkspace } from "./application/createContentTemplateWorkspace.js";
 export { createShowObjectWorkspace } from "./application/createShowObjectWorkspace.js";

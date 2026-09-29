@@ -201,7 +201,10 @@ export function createInteractiveExecutionPanelWorkspace(
     interactiveTemplateName = "",
   ): Promise<boolean> {
     const changed = await authoring.selectTemplate(interactiveTemplateName);
-    if (changed) syncAuthoringSelection();
+    if (changed) {
+      editingSettings = null;
+      syncAuthoringSelection();
+    }
     return changed;
   }
 
@@ -222,6 +225,11 @@ export function createInteractiveExecutionPanelWorkspace(
   function changeInteractiveAutoDownloadExcel(
     autoDownloadExcel: boolean,
   ): void {
+    if (
+      get(authoring.actionStateStore).readonly ||
+      get(authoring.actionStateStore).loadingAction
+    )
+      return;
     interactiveTextfsmStateStore.update((state) => ({
       ...state,
       autoDownloadExcel,
@@ -238,12 +246,22 @@ export function createInteractiveExecutionPanelWorkspace(
   }
 
   function changeInteractiveTextfsmEnabled(textfsmEnabled = false): void {
+    if (
+      get(authoring.actionStateStore).readonly ||
+      get(authoring.actionStateStore).loadingAction
+    )
+      return;
     setStandardTextfsmEnabled(interactiveTextfsmStateStore, textfsmEnabled);
   }
 
   function changeInteractiveTextfsmStrictErrors(
     textfsmStrictErrors = false,
   ): void {
+    if (
+      get(authoring.actionStateStore).readonly ||
+      get(authoring.actionStateStore).loadingAction
+    )
+      return;
     setStandardTextfsmStrictErrors(
       interactiveTextfsmStateStore,
       textfsmStrictErrors,
@@ -251,12 +269,22 @@ export function createInteractiveExecutionPanelWorkspace(
   }
 
   function changeInteractiveTextfsmTemplate(textfsmTemplate = ""): void {
+    if (
+      get(authoring.actionStateStore).readonly ||
+      get(authoring.actionStateStore).loadingAction
+    )
+      return;
     setStandardTextfsmTemplate(interactiveTextfsmStateStore, textfsmTemplate);
   }
 
   function changeInteractiveRetry(
     retry: Partial<SessionRetryState> = {},
   ): void {
+    if (
+      get(authoring.actionStateStore).readonly ||
+      get(authoring.actionStateStore).loadingAction
+    )
+      return;
     interactiveRetryStateStore.set({
       ...createSessionRetryState(),
       ...retry,
@@ -288,16 +316,42 @@ export function createInteractiveExecutionPanelWorkspace(
 
   async function saveInteractiveTemplate(): Promise<boolean> {
     const saved = await authoring.save();
-    if (saved) syncAuthoringSelection();
+    if (saved) {
+      editingSettings = null;
+      syncAuthoringSelection();
+    }
     return saved;
   }
 
-  function openNewInteractiveDialog(): void {
-    authoring.openNewDialog();
+  let editingSettings: {
+    textfsm: ReturnType<typeof standardTextfsmFieldsPresentation>;
+    retry: SessionRetryState;
+  } | null = null;
+
+  function editInteractiveTemplate(): void {
+    if (!get(authoring.actionStateStore).canEditTemplate) return;
+    editingSettings = {
+      textfsm: { ...get(interactiveTextfsmStateStore) },
+      retry: { ...get(interactiveRetryStateStore) },
+    };
+    authoring.startEditing();
   }
 
-  function openSaveAsInteractiveDialog(): void {
-    authoring.openSaveAsDialog();
+  function cancelInteractiveTemplateEdit(): void {
+    if (get(authoring.actionStateStore).loadingAction) return;
+    authoring.cancelEditing();
+    if (editingSettings) {
+      interactiveTextfsmStateStore.set(editingSettings.textfsm);
+      interactiveRetryStateStore.set(editingSettings.retry);
+      editingSettings = null;
+    }
+  }
+
+  function copyInteractiveTemplate(): void {
+    if (authoring.copyToManual()) {
+      editingSettings = null;
+      syncAuthoringSelection();
+    }
   }
 
   function closeInteractiveNameDialog(): void {
@@ -310,7 +364,10 @@ export function createInteractiveExecutionPanelWorkspace(
 
   async function submitInteractiveNameDialog(): Promise<boolean> {
     const saved = await authoring.submitNameDialog();
-    if (saved) syncAuthoringSelection();
+    if (saved) {
+      editingSettings = null;
+      syncAuthoringSelection();
+    }
     return saved;
   }
 
@@ -348,6 +405,9 @@ export function createInteractiveExecutionPanelWorkspace(
 
   return {
     authoring,
+    editInteractiveTemplate,
+    cancelInteractiveTemplateEdit,
+    copyInteractiveTemplate,
     changeInteractiveEditorTab,
     changeInteractiveModel,
     changeInteractiveNameDialogValue,
@@ -364,10 +424,7 @@ export function createInteractiveExecutionPanelWorkspace(
     closeInteractiveNameDialog,
     executeInteractiveExecution,
     interactivePanelDisplayStateStore,
-    openNewInteractiveDialog,
-    openSaveAsInteractiveDialog,
     saveInteractiveTemplate,
-    saveInteractiveTemplateAs: authoring.saveAs,
     setPanelContext,
     submitInteractiveNameDialog,
   };

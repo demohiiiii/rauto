@@ -184,6 +184,7 @@ export interface TxWorkflowFlowCommandRow {
 }
 
 export interface TxWorkflowFlowNodeData extends JsonObject {
+  readonly?: boolean;
   blockIndex: number;
   canMoveLeft: boolean;
   canMoveRight: boolean;

@@ -1,16 +1,14 @@
 <script lang="ts">
   import BracesIcon from "@lucide/svelte/icons/braces";
   import EyeIcon from "@lucide/svelte/icons/eye";
-  import { Badge } from "$lib/components/ui/badge/index.js";
-  import { Button } from "$lib/components/ui/button/index.js";
   import * as Card from "$lib/components/ui/card/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
-  import LoadingButton from "$components/fragments/LoadingButton.svelte";
-  import PlainInputField from "$components/fragments/PlainInputField.svelte";
+  import TemplateSourceActions from "$components/fragments/TemplateSourceActions.svelte";
+  import TemplateSaveDialog from "$components/fragments/TemplateSaveDialog.svelte";
+  import FilePickerButton from "$components/fragments/FilePickerButton.svelte";
   import TemplateSourceField from "$components/fragments/TemplateSourceField.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
   import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
-  import WorkspaceTemplateActions from "$components/fragments/WorkspaceTemplateActions.svelte";
   import NetworkIcon from "@lucide/svelte/icons/network";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import { orchestrationPlanFormModelToJsonText } from "$domains/orchestration/index.js";
@@ -28,9 +26,10 @@
     OrchestrationPlanChangeHandler,
     OrchestrationPlanFormModel,
     OrchestrationRunButtonDisplay,
-    OrchestrationTemplateDisplayState,
     OrchestrationVisualEditorDisplay,
   } from "$domains/orchestration/index.js";
+
+  import type { ExecutionTemplateDisplayState } from "$domains/templates/index.js";
 
   type TemplateAction = () => Promise<boolean> | boolean | void;
 
@@ -48,14 +47,15 @@
       file: OrchestrationEditorTextFile,
     ) => Promise<boolean | void> | boolean | void;
     onTemplateChange: (templateName: string) => Promise<boolean> | boolean;
-    openNewDialog: () => void;
-    openSaveAsDialog: () => void;
+    startEditing: () => void;
+    copyToManual: () => void;
+    cancelEditing: TemplateAction;
     orchestrationFormError: string;
     orchestrationFormModel: OrchestrationPlanFormModel;
     runButtonDisplay?: OrchestrationRunButtonDisplay;
     saveTemplate: TemplateAction;
     submitNameDialog: TemplateAction;
-    templateDisplay: OrchestrationTemplateDisplayState;
+    templateDisplay: ExecutionTemplateDisplayState;
     visualDisplay: OrchestrationVisualEditorDisplay;
   }
 
@@ -73,9 +73,10 @@
     onImportFile,
     templateDisplay,
     onTemplateChange,
-    openNewDialog,
+    startEditing,
+    copyToManual,
+    cancelEditing,
     saveTemplate,
-    openSaveAsDialog,
     changeNameDialogValue,
     closeNameDialog,
     submitNameDialog,
@@ -88,29 +89,7 @@
     open: boolean;
   }>({ open: false, mode: "json" });
   let templateBusy = $derived(!!templateDisplay?.loadingAction);
-  let nameDialog = $derived(
-    templateDisplay?.nameDialog || {
-      error: "",
-      mode: "new",
-      open: false,
-      value: "",
-    },
-  );
-  let templateOptions = $derived(
-    templateDisplay.templateOptions
-      .map((option) => option.value)
-      .filter(Boolean),
-  );
-  let selectionLabel = $derived.by(() => {
-    currentLanguage;
-    if (templateDisplay?.selectionKind === "new") {
-      return t("orchestrationTemplateUnsavedDraft");
-    }
-    if (templateDisplay?.selectionKind === "existing") {
-      return t("orchestrationTemplateSavedTemplate");
-    }
-    return "";
-  });
+  let nameDialog = $derived(templateDisplay.nameDialog);
   let templateStatusMessage = $derived.by(() => {
     currentLanguage;
     const statusKind = templateDisplay?.statusKind;
@@ -145,15 +124,6 @@
         : "orchestrationJsonDialogHint",
     );
   });
-  let nameDialogTitle = $derived.by(() => {
-    currentLanguage;
-    return t(
-      nameDialog.mode === "new"
-        ? "orchestrationTemplateNewDialogTitle"
-        : "orchestrationTemplateSaveAsDialogTitle",
-    );
-  });
-
   function openEditorDialog(mode: OrchestrationEditorView): void {
     if (mode !== "json" && mode !== "readonly") return;
     editorDialog = { open: true, mode };
@@ -161,16 +131,6 @@
 
   function setEditorDialogOpen(open: boolean): void {
     editorDialog = { ...editorDialog, open };
-  }
-
-  function handleNameDialogOpenChange(open: boolean): void {
-    if (!open) closeNameDialog();
-  }
-
-  function handleNameDialogKeydown(event: KeyboardEvent): void {
-    if (event.key !== "Enter" || event.isComposing) return;
-    event.preventDefault();
-    void submitNameDialog();
   }
 
   async function executeCurrentPlan(): Promise<void> {
@@ -184,27 +144,16 @@
     description={t("orchestrationWorkspaceHint")}
     icon={NetworkIcon}
   >
-    {#snippet status()}
-      {#if selectionLabel}
-        <Badge variant="secondary">{selectionLabel}</Badge>
-      {/if}
-      {#if templateDisplay?.selectedName}
-        <Badge variant="outline">{templateDisplay.selectedName}</Badge>
-      {/if}
-      {#if templateDisplay?.dirty}
-        <Badge variant="destructive">{t("orchestrationTemplateDirty")}</Badge>
-      {/if}
-    {/snippet}
     {#snippet actions()}
-      <WorkspaceTemplateActions
-        busy={templateBusy}
-        canSave={!!templateDisplay?.selectedName}
-        loadingAction={templateDisplay?.loadingAction}
-        onNew={openNewDialog}
-        onSave={saveTemplate}
-        onSaveAs={openSaveAsDialog}
-        onImport={onImportFile}
-      />
+      {#if !templateDisplay.selectedName}
+        <FilePickerButton
+          accept=".json,application/json"
+          disabled={templateBusy}
+          onFile={async (file) => {
+            if (file) await onImportFile?.(file);
+          }}>{t("orchestrationImportFileBtn")}</FilePickerButton
+        >
+      {/if}
     {/snippet}
   </WorkspaceActionHeader>
 
@@ -212,10 +161,24 @@
     <div class="grid min-w-0 gap-2">
       <TemplateSourceField
         value={templateDisplay.selectedName || ""}
-        optionValues={templateOptions}
+        optionValues={templateDisplay.templateNames}
         disabled={templateBusy}
         onValueChange={onTemplateChange}
-      />
+      >
+        {#snippet actions()}
+          <TemplateSourceActions
+            readonly={templateDisplay.readonly}
+            editing={templateDisplay.editing}
+            busy={templateBusy}
+            saving={templateDisplay.loadingAction.startsWith("save")}
+            canSave={!orchestrationFormError}
+            onEdit={startEditing}
+            onCopy={copyToManual}
+            onSave={saveTemplate}
+            onCancel={cancelEditing}
+          />
+        {/snippet}
+      </TemplateSourceField>
       <div class="min-w-0">
         {#if templateDisplay?.errorMessage}
           <StatusCard message={templateDisplay.errorMessage} tone="error" />
@@ -226,6 +189,7 @@
     </div>
 
     <OrchestrationPlanFormEditor
+      readonly={templateDisplay.readonly || templateBusy}
       {active}
       model={orchestrationFormModel}
       {visualDisplay}
@@ -236,46 +200,15 @@
   </Card.Content>
 </Card.Root>
 
-<Dialog.Root open={nameDialog.open} onOpenChange={handleNameDialogOpenChange}>
-  <Dialog.Content>
-    <Dialog.Header>
-      <Dialog.Title>{nameDialogTitle}</Dialog.Title>
-      <Dialog.Description>
-        {t("orchestrationTemplateNameDialogHint")}
-      </Dialog.Description>
-    </Dialog.Header>
-    <PlainInputField
-      value={nameDialog.value}
-      placeholderText={t("orchestrationTemplateNamePlaceholder")}
-      aria-label={nameDialogTitle}
-      aria-invalid={!!nameDialog.error}
-      focus-request-version={nameDialog.open ? 1 : 0}
-      select-on-focus-request={true}
-      onValueInput={changeNameDialogValue}
-      onKeydown={handleNameDialogKeydown}
-    />
-    {#if nameDialog.error}
-      <p class="text-sm text-destructive" role="alert">
-        {nameDialog.error === "name_required"
-          ? t("orchestrationTemplateNameRequired")
-          : nameDialog.error}
-      </p>
-    {/if}
-    <Dialog.Footer>
-      <Button variant="outline" onclick={closeNameDialog}>
-        {t("cancelBtn")}
-      </Button>
-      <LoadingButton
-        loading={templateDisplay?.loadingAction === "new" ||
-          templateDisplay?.loadingAction === "save_as"}
-        disabled={templateBusy}
-        onclick={submitNameDialog}
-      >
-        {t("confirmBtn")}
-      </LoadingButton>
-    </Dialog.Footer>
-  </Dialog.Content>
-</Dialog.Root>
+<TemplateSaveDialog
+  open={nameDialog.open}
+  value={nameDialog.value}
+  error={nameDialog.error || templateDisplay.errorMessage}
+  busy={templateBusy}
+  onChange={changeNameDialogValue}
+  onClose={closeNameDialog}
+  onSave={submitNameDialog}
+/>
 
 <Dialog.Root open={editorDialog.open} onOpenChange={setEditorDialogOpen}>
   <Dialog.Content
@@ -306,6 +239,7 @@
         : "min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6"}
     >
       <TxJsonFormSurface
+        readonly={templateDisplay.readonly || templateBusy}
         active={active && editorDialog.open}
         editorDisplayMode={editorDialog.mode}
         editorKind="inline"

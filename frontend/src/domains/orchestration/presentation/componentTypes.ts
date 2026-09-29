@@ -1,29 +1,11 @@
 import type { Component } from "svelte";
-import type { JsonTemplateActionContext } from "$domains/transactions/index.js";
-import type { TransactionTemplateResource } from "$domains/transactions/index.js";
-
-export interface OrchestratedStageTextFile {
-  text(): Promise<string>;
-}
+import type { JsonObject } from "$domains/transactions/index.js";
 
 export interface OrchestratedStageProps {
   active?: boolean;
-  newButtonLabelKey?: string;
-  onCreateJsonTemplateDraft?: (
-    actionContext?: JsonTemplateActionContext | null,
-  ) => void;
   onEditorInput?: (text: string) => void;
   onExecute?: () => void;
-  onImportFile?: (
-    file: OrchestratedStageTextFile,
-    actionContext?: JsonTemplateActionContext | null,
-  ) => void;
-  onLoadJsonTemplate?: (
-    templateName: string,
-    actionContext?: JsonTemplateActionContext | null,
-  ) => Promise<TransactionTemplateResource | null>;
-  onPreview?: () => void;
-  onSaveJsonTemplate?: () => void;
+  onSaveBlockTemplate?: (block: JsonObject) => void | Promise<void>;
 }
 
 export type OrchestratedStageComponent = Component<OrchestratedStageProps>;

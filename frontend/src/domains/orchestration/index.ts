@@ -1,5 +1,4 @@
 export * from "./application/createOrchestrationWorkflowPreviewWorkspace.js";
-export * from "./application/createOrchestrationTemplateWorkspace.js";
 export * from "./application/orchestrationEditorSourceState.js";
 export * from "./application/orchestrationEditorState.js";
 export * from "./application/orchestratedExecutionState.js";

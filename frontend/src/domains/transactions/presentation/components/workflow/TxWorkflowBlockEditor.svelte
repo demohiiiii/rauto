@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
   import * as Card from "$lib/components/ui/card";
   import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -47,44 +48,54 @@
     <Card.Title>{blockRow.titleText}</Card.Title>
     {#if showRemoveAction}
       <Card.Action>
-        <Button
-          variant="ghost"
-          size="sm"
-          type="button"
-          onclick={blockActionHandlers.remove}
-        >
-          {t("deleteBtn")}
-        </Button>
+        <ReadonlyFields>
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            onclick={blockActionHandlers.remove}
+          >
+            {t("deleteBtn")}
+          </Button>
+        </ReadonlyFields>
       </Card.Action>
     {/if}
     {#if onSaveAsTemplate}
       <Card.Action>
-        <Button
-          variant="outline"
-          size="sm"
-          type="button"
-          onclick={onSaveAsTemplate}
-        >
-          <SaveIcon data-icon="inline-start" />
-          {t("txWorkflowSaveBlockTemplate")}
-        </Button>
+        <ReadonlyFields>
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onclick={onSaveAsTemplate}
+          >
+            <SaveIcon data-icon="inline-start" />
+
+            {t("txWorkflowSaveBlockTemplate")}
+          </Button>
+        </ReadonlyFields>
       </Card.Action>
     {/if}
   </Card.Header>
   <Card.Content class="p-4 sm:p-5">
     <div class="grid gap-4">
-      <PresenceFieldGrid
-        fieldRows={blockRow.fieldRows}
-        itemClass="max-w-xs"
-        onValueChange={blockActionHandlers.setSource}
-      />
-      {#if blockRow.showTemplateRef}
-        <TxWorkflowTemplateRefEditor
-          templateRef={blockRow.block.templateRef}
-          booleanRows={editorDisplay.booleanRows}
-          jsonValueTypeRows={editorDisplay.jsonValueTypeRows}
-          bindings={editorActionHandlers.templateRefBindings}
+      <ReadonlyFields>
+        <PresenceFieldGrid
+          fieldRows={blockRow.fieldRows}
+          itemClass="max-w-xs"
+          onValueChange={blockActionHandlers.setSource}
         />
+      </ReadonlyFields>
+
+      {#if blockRow.showTemplateRef}
+        <ReadonlyFields>
+          <TxWorkflowTemplateRefEditor
+            templateRef={blockRow.block.templateRef}
+            booleanRows={editorDisplay.booleanRows}
+            jsonValueTypeRows={editorDisplay.jsonValueTypeRows}
+            bindings={editorActionHandlers.templateRefBindings}
+          />
+        </ReadonlyFields>
       {:else if blockRow.showInlineBlock}
         <TxBlockVisualEditor
           model={blockRow.block.inlineBlock}

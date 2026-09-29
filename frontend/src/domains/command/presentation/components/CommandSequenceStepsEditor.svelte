@@ -2,6 +2,8 @@
   lang="ts"
   generics="TStepRow extends { stepIndex: number; titleText: string }"
 >
+  import { getContext } from "svelte";
+  import { readonlyFieldsContextKey } from "$lib/svelte.js";
   import type { Snippet } from "svelte";
   import ArrowDownIcon from "@lucide/svelte/icons/arrow-down";
   import ArrowUpIcon from "@lucide/svelte/icons/arrow-up";
@@ -58,10 +60,15 @@
     surfaceVariant = "section",
     title = "",
   }: Props = $props();
+  const inheritedReadonly = getContext<(() => boolean) | undefined>(
+    readonlyFieldsContextKey,
+  );
+  let readonly = $derived(!!inheritedReadonly?.());
 </script>
 
 {#snippet addStepAction()}
   <Button
+    disabled={readonly}
     type="button"
     size="sm"
     variant={studio ? "outline" : "default"}
@@ -125,7 +132,7 @@
                   type="button"
                   aria-label={moveUpLabel}
                   title={moveUpLabel}
-                  disabled={stepPosition === 0}
+                  disabled={readonly || stepPosition === 0}
                   onclick={() =>
                     onMoveStep(stepRow.stepIndex, stepPosition - 1)}
                 >
@@ -138,7 +145,7 @@
                   type="button"
                   aria-label={moveDownLabel}
                   title={moveDownLabel}
-                  disabled={stepPosition === stepRows.length - 1}
+                  disabled={readonly || stepPosition === stepRows.length - 1}
                   onclick={() =>
                     onMoveStep(stepRow.stepIndex, stepPosition + 1)}
                 >
@@ -147,6 +154,7 @@
               {/if}
               {#if onDuplicateStep}
                 <Button
+                  disabled={readonly}
                   class="min-h-11 min-w-11"
                   variant="ghost"
                   size="icon-sm"
@@ -159,6 +167,7 @@
                 </Button>
               {/if}
               <Button
+                disabled={readonly}
                 class={studio
                   ? "min-h-11 min-w-11 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                   : "min-h-11 min-w-11"}

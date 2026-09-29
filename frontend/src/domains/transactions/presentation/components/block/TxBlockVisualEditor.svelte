@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { getContext } from "svelte";
+  import { readonlyFieldsContextKey } from "$lib/svelte.js";
   import * as Card from "$lib/components/ui/card";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import TxBlockRootInspector from "$domains/transactions/presentation/components/block/TxBlockRootInspector.svelte";
@@ -69,8 +71,16 @@
       : null,
   );
 
+  const inheritedReadonly = getContext<(() => boolean) | undefined>(
+    readonlyFieldsContextKey,
+  );
   $effect(() => {
-    setVisualEditorContext({ model, onChange });
+    setVisualEditorContext({
+      model,
+      onChange: (nextModel) => {
+        if (!inheritedReadonly?.()) onChange?.(nextModel);
+      },
+    });
   });
 </script>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
   import TemplateSourceField from "$components/fragments/TemplateSourceField.svelte";
   import { MANUAL_COMMAND_SOURCE } from "$domains/command/index.js";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
@@ -80,49 +81,52 @@
 </script>
 
 <div class="grid gap-3">
-  <TxFormSection
-    icon={TerminalIcon}
-    title={t("txBlockFormCommand")}
-    description={t("txBlockFormCommandHint")}
-  >
-    <TemplateSourceField
-      manualValue={MANUAL_COMMAND_SOURCE}
-      value={commandTemplateSource.selection}
-      optionValues={commandTemplateSource.optionValues}
-      disabled={commandTemplateSource.loading}
-      onValueChange={selectCommandTemplate}
-    />
-    {#if commandTemplateSource.statusMessage}
-      <StatusCard
-        message={commandTemplateSource.statusMessage}
-        tone={commandTemplateSource.statusTone}
-      />
-    {/if}
-    <CommandEditor
-      command={command.command || ""}
-      multilineMode={command.multilineMode || "split_lines"}
-      placeholderText={t("txBlockFormCommandPlaceholder")}
-      onCommandChange={(commandText) => onChange?.({ command: commandText })}
-      onMultilineModeChange={(multilineMode) => onChange?.({ multilineMode })}
+  <ReadonlyFields>
+    <TxFormSection
+      icon={TerminalIcon}
+      title={t("txBlockFormCommand")}
+      description={t("txBlockFormCommandHint")}
     >
-      <PresenceFieldGrid
-        fieldRows={compactFieldRows}
-        valueHandlerMode="event"
-        hostClass="grid gap-3 md:grid-cols-2"
-        presenceControlsMode="hidden"
-        onValueChangeForKey={commandActionHandlers.fieldValueHandler}
-        onPresenceChangeForKey={commandActionHandlers.fieldPresenceHandler}
+      <TemplateSourceField
+        manualValue={MANUAL_COMMAND_SOURCE}
+        value={commandTemplateSource.selection}
+        optionValues={commandTemplateSource.optionValues}
+        disabled={commandTemplateSource.loading}
+        onValueChange={selectCommandTemplate}
       />
-      <PresenceFieldGrid
-        fieldRows={metadataFieldRows}
-        valueHandlerMode="event"
-        hostClass="grid gap-3 md:grid-cols-2"
-        presenceControlsMode="hidden"
-        onValueChangeForKey={commandActionHandlers.metadataValueHandler}
-        onPresenceChangeForKey={commandActionHandlers.metadataPresenceHandler}
-      />
-    </CommandEditor>
-  </TxFormSection>
+
+      {#if commandTemplateSource.statusMessage}
+        <StatusCard
+          message={commandTemplateSource.statusMessage}
+          tone={commandTemplateSource.statusTone}
+        />
+      {/if}
+      <CommandEditor
+        command={command.command || ""}
+        multilineMode={command.multilineMode || "split_lines"}
+        placeholderText={t("txBlockFormCommandPlaceholder")}
+        onCommandChange={(commandText) => onChange?.({ command: commandText })}
+        onMultilineModeChange={(multilineMode) => onChange?.({ multilineMode })}
+      >
+        <PresenceFieldGrid
+          fieldRows={compactFieldRows}
+          valueHandlerMode="event"
+          hostClass="grid gap-3 md:grid-cols-2"
+          presenceControlsMode="hidden"
+          onValueChangeForKey={commandActionHandlers.fieldValueHandler}
+          onPresenceChangeForKey={commandActionHandlers.fieldPresenceHandler}
+        />
+        <PresenceFieldGrid
+          fieldRows={metadataFieldRows}
+          valueHandlerMode="event"
+          hostClass="grid gap-3 md:grid-cols-2"
+          presenceControlsMode="hidden"
+          onValueChangeForKey={commandActionHandlers.metadataValueHandler}
+          onPresenceChangeForKey={commandActionHandlers.metadataPresenceHandler}
+        />
+      </CommandEditor>
+    </TxFormSection>
+  </ReadonlyFields>
   <CollapsibleGroup
     variant="section"
     class=""
@@ -138,7 +142,10 @@
         <div class="text-xs text-muted-foreground">{dynParamCount}</div>
       </div>
     {/snippet}
-    <TxBlockCommandDynParamsEditor {command} {commandDisplay} {onChange} />
+
+    <ReadonlyFields>
+      <TxBlockCommandDynParamsEditor {command} {commandDisplay} {onChange} />
+    </ReadonlyFields>
   </CollapsibleGroup>
   <CollapsibleGroup
     variant="section"
@@ -159,13 +166,16 @@
         </div>
       </div>
     {/snippet}
-    <TxBlockCommandInteractionEditor
-      {command}
-      {commandDisplay}
-      {jsonValueTypeRows}
-      {onChange}
-      {validationErrors}
-      pathPrefix={`${pathPrefix}.interaction`}
-    />
+
+    <ReadonlyFields>
+      <TxBlockCommandInteractionEditor
+        {command}
+        {commandDisplay}
+        {jsonValueTypeRows}
+        {onChange}
+        {validationErrors}
+        pathPrefix={`${pathPrefix}.interaction`}
+      />
+    </ReadonlyFields>
   </CollapsibleGroup>
 </div>

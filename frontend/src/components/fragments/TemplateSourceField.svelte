@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, type Snippet } from "svelte";
   import ArrowUpRightIcon from "@lucide/svelte/icons/arrow-up-right";
   import CornerDownLeftIcon from "@lucide/svelte/icons/corner-down-left";
   import ArrowDownUpIcon from "@lucide/svelte/icons/arrow-down-up";
+  import { Badge } from "$lib/components/ui/badge/index.js";
   import { Combobox } from "bits-ui";
   import * as Popover from "$lib/components/ui/popover/index.js";
   import PencilLineIcon from "@lucide/svelte/icons/pencil-line";
@@ -15,9 +16,11 @@
   import { currentLanguageState, t } from "$lib/i18n.js";
 
   interface Props {
+    actions?: Snippet;
     value?: string;
     manualValue?: string;
     optionValues?: readonly string[];
+    optionDetails?: Record<string, { label: string; badge?: string }>;
     disabled?: boolean;
     showLabel?: boolean;
     labelText?: string;
@@ -25,9 +28,11 @@
     onValueChange?: (value: string) => void | boolean | Promise<void | boolean>;
   }
   let {
+    actions,
     value = "",
     manualValue = "",
     optionValues = [],
+    optionDetails = {},
     disabled = false,
     showLabel = true,
     labelText = "",
@@ -62,13 +67,31 @@
   let error = $state("");
   let manual = $derived(value === manualValue || !value);
   let selectedTemplate = $derived(manual ? "" : value);
+  let selectedDetail = $derived(
+    Object.hasOwn(optionDetails, selectedTemplate)
+      ? optionDetails[selectedTemplate]
+      : { label: selectedTemplate, badge: undefined },
+  );
+  let selectedLabel = $derived(
+    [selectedDetail.badge, selectedDetail.label].filter(Boolean).join(" "),
+  );
   let busy = $derived(disabled || pending);
   let options = $derived(
-    [...new Set(optionValues)].filter((name) => name && name !== manualValue),
+    [...new Set(optionValues)]
+      .filter((name) => name && name !== manualValue)
+      .map((value) => ({
+        value,
+        label: optionDetails[value]?.label ?? value,
+        badge: optionDetails[value]?.badge,
+      })),
   );
   let filtered = $derived(
-    options.filter((name) =>
-      name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+    options.filter((option) =>
+      [option.label, option.badge, option.value]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase()
+        .includes(query.trim().toLocaleLowerCase()),
     ),
   );
 
@@ -189,13 +212,20 @@
               type="button"
               disabled={busy}
               onclick={() => setOpen(true)}
-              aria-label={`${labels.browse}: ${selectedTemplate}`}
+              aria-label={`${labels.browse}: ${selectedLabel}`}
             >
               <span class="source-document-icon" aria-hidden="true"
                 ><FileTextIcon class="size-4" /></span
               >
-              <span class="source-document-name" title={selectedTemplate}
-                >{selectedTemplate}</span
+              {#if selectedDetail.badge}
+                <Badge
+                  variant="secondary"
+                  class="shrink-0 border-primary/15 bg-primary/10 px-1.5 py-0 text-[10px] text-primary"
+                  >{selectedDetail.badge}</Badge
+                >
+              {/if}
+              <span class="source-document-name" title={selectedDetail.label}
+                >{selectedDetail.label}</span
               >
               <span class="source-document-check" aria-hidden="true"
                 ><CheckIcon class="size-3" /></span
@@ -213,6 +243,11 @@
               class="size-4 shrink-0 animate-spin text-primary motion-reduce:animate-none"
               aria-label={t("loading")}
             />{/if}
+          {#if actions}
+            <div class="flex shrink-0 items-center gap-1.5">
+              {@render actions()}
+            </div>
+          {/if}
         </div>
       </div>
       <Popover.Content
@@ -245,13 +280,26 @@
         </div>
         <Combobox.ContentStatic class="outline-none">
           <Combobox.Viewport class="source-viewport">
-            {#each filtered as name (name)}
-              <Combobox.Item value={name} label={name} class="source-option">
+            {#each filtered as option (option.value)}
+              <Combobox.Item
+                value={option.value}
+                label={[option.badge, option.label].filter(Boolean).join(" ")}
+                class="source-option"
+              >
                 <span class="source-option-icon" aria-hidden="true"
                   ><FileTextIcon class="size-4" /></span
                 >
-                <span class="min-w-0 flex-1 truncate" title={name}>{name}</span>
-                {#if name === selectedTemplate}<span
+                {#if option.badge}
+                  <Badge
+                    variant="secondary"
+                    class="shrink-0 border-primary/15 bg-primary/10 px-1.5 py-0 text-[10px] text-primary"
+                    >{option.badge}</Badge
+                  >
+                {/if}
+                <span class="min-w-0 flex-1 truncate" title={option.label}
+                  >{option.label}</span
+                >
+                {#if option.value === selectedTemplate}<span
                     class="source-document-check"
                     aria-hidden="true"><CheckIcon class="size-3" /></span
                   >
@@ -352,6 +400,7 @@
   }
   .source-summary {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.625rem;
     min-width: 0;
@@ -389,7 +438,7 @@
   }
   .source-document {
     display: flex;
-    flex: 1;
+    flex: 1 1 8rem;
     align-items: center;
     gap: 0.625rem;
     min-width: 0;

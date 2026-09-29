@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
   import BracesIcon from "@lucide/svelte/icons/braces";
   import EyeIcon from "@lucide/svelte/icons/eye";
   import GripVerticalIcon from "@lucide/svelte/icons/grip-vertical";
@@ -125,6 +126,7 @@
   }
 
   interface Props {
+    readonly?: boolean;
     active?: boolean;
     model: OrchestrationPlanFormModel;
     onChange?: OrchestrationPlanChangeHandler | null;
@@ -134,6 +136,7 @@
   }
 
   let {
+    readonly = false,
     active,
     model,
     visualDisplay,
@@ -262,6 +265,7 @@
             selection?.kind === "stage" && selection.stageIndex === stageIndex,
           data: {
             ...node.data,
+            readonly,
             vertical: compactCanvas,
             sequenceText: t("orchestrationFlowStageSequence").replace(
               "{index}",
@@ -299,6 +303,7 @@
           position: compactStagePositions.get(node.id) || node.position,
           data: {
             ...node.data,
+            readonly,
             vertical: compactCanvas,
             labelText: t("orchestrationFlowInsertStage"),
             onInsertStage: () => insertStage(insertIndex),
@@ -314,7 +319,7 @@
                 candidate.parentId === node.parentId,
             ).length
           : 0;
-        const editable = node.data.sourceKind === "manual";
+        const editable = !readonly && node.data.sourceKind === "manual";
         return {
           ...node,
           selected:
@@ -324,6 +329,7 @@
             selection.blockIndex === node.data.blockIndex,
           data: {
             ...node.data,
+            readonly,
             sequenceText: String(blockIndex + 1),
             editable,
             canMovePrevious: editable && blockIndex > 0,
@@ -363,6 +369,7 @@
           selection.jobIndex === jobIndex,
         data: {
           ...node.data,
+          readonly,
           workflowName:
             node.data.previewStatus === "loading"
               ? t("orchestrationFlowTemplatePreview")
@@ -488,7 +495,7 @@
   );
 
   function applyModel(nextModel: OrchestrationPlanFormModel): void {
-    onChange?.(nextModel);
+    if (!readonly) onChange?.(nextModel);
   }
 
   function selectGraphNode({ node }: { node: OrchestrationGraphNode }): void {
@@ -926,11 +933,13 @@
                     prefix="orchestration-direct"
                     varsKey={directVarsKey}
                   />
-                  <OrchestrationPlanSettingsEditor
-                    {model}
-                    {visualDisplay}
-                    {onChange}
-                  />
+                  <ReadonlyFields disabled={readonly} class="min-w-0">
+                    <OrchestrationPlanSettingsEditor
+                      {model}
+                      {visualDisplay}
+                      onChange={applyModel}
+                    />
+                  </ReadonlyFields>
                 </div>
               {/if}
             </div>
@@ -974,6 +983,7 @@
         type="button"
         title={t("orchestrationFormAddStage")}
         aria-label={t("orchestrationFormAddStage")}
+        disabled={readonly}
         onclick={addStage}
       >
         <PlusIcon data-icon="inline-start" />
@@ -1034,10 +1044,11 @@
         onkeydown={resizeInspectorWithKeyboard}><GripVerticalIcon /></button
       >
       <OrchestrationFlowInspector
+        {readonly}
         {model}
         {selection}
         {visualDisplay}
-        {onChange}
+        onChange={applyModel}
         {onErrorChange}
         {canMovePrevious}
         {canMoveNext}

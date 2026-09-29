@@ -1,12 +1,19 @@
 <script lang="ts">
   import BracesIcon from "@lucide/svelte/icons/braces";
   import EyeIcon from "@lucide/svelte/icons/eye";
-  import { Badge } from "$lib/components/ui/badge/index.js";
+  import { get } from "svelte/store";
+  import { onDestroy } from "svelte";
+  import { browserConfirm } from "$lib/browser.js";
+  import { createExecutionTemplateWorkspace } from "$domains/templates/index.js";
+  import { txWorkflowEditorFormStateFromJsonText } from "$domains/transactions/index.js";
+  import TemplateSourceActions from "$components/fragments/TemplateSourceActions.svelte";
+  import TemplateSaveDialog from "$components/fragments/TemplateSaveDialog.svelte";
+  import StatusCard from "$components/fragments/StatusCard.svelte";
+  import FilePickerButton from "$components/fragments/FilePickerButton.svelte";
   import * as Card from "$lib/components/ui/card";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import TemplateSourceField from "$components/fragments/TemplateSourceField.svelte";
   import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
-  import WorkspaceTemplateActions from "$components/fragments/WorkspaceTemplateActions.svelte";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import { MANUAL_COMMAND_SOURCE } from "$domains/command/index.js";
   import {
@@ -21,8 +28,6 @@
   import { txWorkflowFormModelToJsonText } from "$domains/transactions/index.js";
   import { txWorkflowPreviewPresentation } from "$domains/transactions/index.js";
   import type {
-    JsonTemplateActionContext,
-    TransactionTemplateResource,
     TxWorkflowFormModel,
     JsonObject,
   } from "$domains/transactions/index.js";
@@ -31,64 +36,30 @@
   import {
     TX_TEMPLATE_KIND,
     TX_VARS,
-    jsonTemplateSelectStateFor,
     setJsonTemplateSelectValue,
   } from "$domains/transactions/index.js";
 
   type CanvasViewMode = "json" | "readonly";
-  type TemplateAction = () => Promise<void> | void;
 
   interface Props {
     active?: boolean;
-    jsonNewLoading?: boolean;
-    onCreateDirectDraft?: (
-      actionContext?: JsonTemplateActionContext | null,
-    ) => Promise<void> | void;
-    onCreateJsonTemplateDraft?: (
-      actionContext?: JsonTemplateActionContext | null,
-    ) => Promise<void> | void;
     onEditorInput?: (text: string) => void;
-    onImportFile?: (
-      file: File,
-      actionContext?: JsonTemplateActionContext | null,
-    ) => Promise<void> | void;
-    onLoadJsonTemplate?: (
-      templateName: string,
-      actionContext?: JsonTemplateActionContext | null,
-    ) => Promise<TransactionTemplateResource | null>;
-    onSaveJsonTemplate?: TemplateAction;
     onSaveBlockTemplate?: (block: JsonObject) => void | Promise<void>;
   }
 
-  let {
-    active,
-    jsonNewLoading,
-    onCreateDirectDraft,
-    onCreateJsonTemplateDraft,
-    onEditorInput,
-    onImportFile,
-    onLoadJsonTemplate,
-    onSaveJsonTemplate,
-    onSaveBlockTemplate,
-  }: Props = $props();
+  let { active, onEditorInput, onSaveBlockTemplate }: Props = $props();
 
   const directVarsKey = TX_VARS.txWorkflowDirect;
-  const workflowTemplateSelectStateStore = jsonTemplateSelectStateFor(
-    TX_TEMPLATE_KIND.txWorkflow,
-  );
   const txWorkflowInputWorkspace = createTxWorkflowInputPanelWorkspace<File>();
   const {
     changeFormModel,
-    createDirectDraft,
     editorDisplayStateStore,
     ensureInitialized,
     formErrorDetailStateStore,
     formErrorStateStore,
     formModelStateStore,
     handleWorkflowEditorInput,
-    importFile,
     jsonTextStateStore,
-    loadJsonTemplate,
     panelDisplayStateStore,
     resetDraft,
     setWorkflowInputPanelContext,
@@ -102,15 +73,48 @@
   let txWorkflowFormErrorDetail = $derived($formErrorDetailStateStore);
   let txWorkflowJsonText = $derived($jsonTextStateStore);
   let txWorkflowSyncStatus = $derived($syncStatusStateStore);
-  let workflowTemplateSelectState = $derived($workflowTemplateSelectStateStore);
-  let workflowSourceSelection = $state<string>(MANUAL_COMMAND_SOURCE);
-  let workflowSourceLoading = $state(false);
-  let templateAction = $state<"" | "new" | "save" | "save_as">("");
-  let workflowSourceOptions = $derived(
-    Array.isArray(workflowTemplateSelectState?.names)
-      ? workflowTemplateSelectState.names
-      : [],
+  const templateWorkspace = createExecutionTemplateWorkspace({
+    apiBase: "/api/tx-workflow-templates",
+    confirmReplace: () =>
+      browserConfirm(t("orchestrationDiscardChangesConfirm")),
+    createDraft: () => {
+      resetDraft();
+    },
+    getCurrentJson: () => get(jsonTextStateStore),
+    validateContent: (text) => {
+      const parsed = txWorkflowEditorFormStateFromJsonText(text);
+      if (parsed.formError) throw new Error(parsed.formError);
+    },
+    replaceJson: handleWorkflowEditorInput,
+  });
+  const { displayStateStore: templateDisplayStateStore } = templateWorkspace;
+  let templateDisplay = $derived($templateDisplayStateStore);
+  let workflowSourceSelection = $derived(
+    templateDisplay.selectedName || MANUAL_COMMAND_SOURCE,
   );
+  let templateInitialized = false;
+  function changeCurrentFormModel(model: TxWorkflowFormModel): void {
+    if (!templateWorkspace.canEdit()) return;
+    changeFormModel(model);
+    templateWorkspace.markEdited();
+  }
+  function changeCurrentJson(text: string): void {
+    if (!templateWorkspace.canEdit()) return;
+    handleWorkflowEditorInput(text);
+    templateWorkspace.markEdited();
+  }
+  $effect(() => {
+    setJsonTemplateSelectValue(
+      TX_TEMPLATE_KIND.txWorkflow,
+      templateDisplay.selectedName,
+    );
+  });
+  $effect(() => {
+    if (!active || templateInitialized) return;
+    templateInitialized = true;
+    void templateWorkspace.initialize();
+  });
+  onDestroy(templateWorkspace.destroy);
   let txWorkflowSyncPresentation = $derived.by(() => {
     currentLanguage;
     return transactionEditorSyncPresentation(txWorkflowSyncStatus);
@@ -152,68 +156,18 @@
     canvasViewDialog = { ...canvasViewDialog, open };
   }
 
-  function resetWorkflowSourceSelection(): void {
-    setJsonTemplateSelectValue(TX_TEMPLATE_KIND.txWorkflow, "");
-    workflowSourceSelection = MANUAL_COMMAND_SOURCE;
+  async function importManualWorkflow(file: File | null): Promise<void> {
+    if (file) await templateWorkspace.importContent(() => file.text());
   }
 
-  async function createManualWorkflowDraft(): Promise<TxWorkflowFormModel> {
-    const result = resetDraft();
-    resetWorkflowSourceSelection();
-    return result;
-  }
-
-  async function importManualWorkflow(file: File): Promise<void> {
-    await importFile(file);
-    resetWorkflowSourceSelection();
-  }
-
-  async function runTemplateAction<TResult>(
-    action: "new" | "save" | "save_as",
-    operation?: () => Promise<TResult> | TResult,
-  ): Promise<TResult | false | undefined> {
-    if (templateAction) return false;
-    templateAction = action;
-    try {
-      const result = await operation?.();
-      await Promise.resolve();
-      const selectedName = String(
-        $workflowTemplateSelectStateStore?.selected || "",
-      ).trim();
-      if (selectedName) workflowSourceSelection = selectedName;
-      return result;
-    } finally {
-      templateAction = "";
-    }
-  }
-
-  async function selectWorkflowSource(sourceValue: string): Promise<boolean> {
-    const nextSource =
-      String(sourceValue || "").trim() || MANUAL_COMMAND_SOURCE;
-    if (nextSource === workflowSourceSelection) return true;
-    workflowSourceLoading = true;
-    try {
-      if (nextSource === MANUAL_COMMAND_SOURCE) {
-        await createManualWorkflowDraft();
-        return true;
-      }
-      const loadedTemplate = await loadJsonTemplate(nextSource);
-      if (!loadedTemplate || typeof loadedTemplate !== "object") return false;
-      workflowSourceSelection = nextSource;
-      return true;
-    } finally {
-      workflowSourceLoading = false;
-    }
+  function selectWorkflowSource(value: string): Promise<boolean> {
+    return templateWorkspace.selectTemplate(
+      value === MANUAL_COMMAND_SOURCE ? "" : value,
+    );
   }
 
   $effect(() => {
-    setWorkflowInputPanelContext({
-      onCreateDirectDraft,
-      onCreateJsonTemplateDraft,
-      onEditorInput,
-      onImportFile,
-      onLoadJsonTemplate,
-    });
+    setWorkflowInputPanelContext({ onEditorInput });
     ensureInitialized();
   });
 </script>
@@ -225,36 +179,44 @@
       description={txWorkflowInputDisplay.directHint}
       icon={Layers3Icon}
     >
-      {#snippet status()}
-        {#if workflowSourceSelection !== MANUAL_COMMAND_SOURCE}
-          <Badge variant="secondary">
-            {t("orchestrationTemplateSavedTemplate")}
-          </Badge>
-          <Badge variant="outline">{workflowSourceSelection}</Badge>
-        {/if}
-      {/snippet}
       {#snippet actions()}
-        <WorkspaceTemplateActions
-          busy={!!templateAction || workflowSourceLoading}
-          canSave={workflowSourceSelection !== MANUAL_COMMAND_SOURCE}
-          loadingAction={templateAction || (jsonNewLoading ? "new" : "")}
-          onNew={() => runTemplateAction("new", createManualWorkflowDraft)}
-          onSave={() => runTemplateAction("save", onSaveJsonTemplate)}
-          onSaveAs={() =>
-            runTemplateAction("save_as", onCreateJsonTemplateDraft)}
-          onImport={importManualWorkflow}
-        />
+        {#if !templateDisplay.selectedName}
+          <FilePickerButton
+            accept=".json,application/json"
+            disabled={!!templateDisplay.loadingAction}
+            onFile={importManualWorkflow}
+            >{t("orchestrationImportFileBtn")}</FilePickerButton
+          >
+        {/if}
       {/snippet}
     </WorkspaceActionHeader>
     <Card.Content class="grid gap-5 p-4 sm:p-5">
       <TemplateSourceField
         manualValue={MANUAL_COMMAND_SOURCE}
         value={workflowSourceSelection}
-        optionValues={workflowSourceOptions}
-        disabled={workflowSourceLoading}
+        optionValues={templateDisplay.templateNames}
+        disabled={!!templateDisplay.loadingAction}
         hintText={t("txWorkflowSourceHint")}
         onValueChange={selectWorkflowSource}
-      />
+      >
+        {#snippet actions()}
+          <TemplateSourceActions
+            readonly={templateDisplay.readonly}
+            editing={templateDisplay.editing}
+            busy={!!templateDisplay.loadingAction}
+            saving={templateDisplay.loadingAction.startsWith("save")}
+            canSave={!txWorkflowFormError}
+            onEdit={templateWorkspace.startEditing}
+            onCopy={templateWorkspace.copyToManual}
+            onSave={templateWorkspace.saveTemplate}
+            onCancel={templateWorkspace.cancelEditing}
+          />
+        {/snippet}
+      </TemplateSourceField>
+      {#if templateDisplay.errorMessage}<StatusCard
+          message={templateDisplay.errorMessage}
+          tone="error"
+        />{/if}
       <TxDirectVarsPanel
         {active}
         hidden-textarea={false}
@@ -265,6 +227,7 @@
         varsKey={directVarsKey}
       />
       <TxJsonFormSurface
+        readonly={templateDisplay.readonly || !!templateDisplay.loadingAction}
         {active}
         editorDisplayMode="form"
         editorKey={txWorkflowEditorDisplay.editorKey}
@@ -274,7 +237,7 @@
         formErrorDetail={txWorkflowFormErrorDetail}
         hostClass={txWorkflowEditorDisplay.hostClass}
         navigationMode="hidden"
-        onEditorInput={handleWorkflowEditorInput}
+        onEditorInput={changeCurrentJson}
         placeholder={txWorkflowEditorDisplay.placeholder}
         syncStatus={txWorkflowSyncStatus}
         syncStatusText={txWorkflowSyncPresentation.text}
@@ -282,8 +245,10 @@
       >
         {#snippet formContent()}
           <TxWorkflowVisualEditor
+            readonly={templateDisplay.readonly ||
+              !!templateDisplay.loadingAction}
             model={txWorkflowFormModel}
-            onChange={changeFormModel}
+            onChange={changeCurrentFormModel}
             onOpenView={openCanvasViewDialog}
             {onSaveBlockTemplate}
           />
@@ -331,6 +296,7 @@
         : "min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6"}
     >
       <TxJsonFormSurface
+        readonly={templateDisplay.readonly || !!templateDisplay.loadingAction}
         active={active && canvasViewDialog.open}
         editorDisplayMode={canvasViewDialog.mode}
         editorKind="inline"
@@ -343,8 +309,8 @@
         fillEditorHeight
         immediateEditorInput
         navigationMode="hidden"
-        onEditorInput={handleWorkflowEditorInput}
-        onInlineEditorChange={handleWorkflowEditorInput}
+        onEditorInput={changeCurrentJson}
+        onInlineEditorChange={changeCurrentJson}
         placeholder={txWorkflowEditorDisplay.placeholder}
         syncStatus={txWorkflowSyncStatus}
         syncStatusText={txWorkflowSyncPresentation.text}
@@ -360,3 +326,13 @@
     </div>
   </Dialog.Content>
 </Dialog.Root>
+
+<TemplateSaveDialog
+  open={templateDisplay.nameDialog.open}
+  value={templateDisplay.nameDialog.value}
+  error={templateDisplay.nameDialog.error || templateDisplay.errorMessage}
+  busy={!!templateDisplay.loadingAction}
+  onChange={templateWorkspace.changeNameDialogValue}
+  onClose={templateWorkspace.closeNameDialog}
+  onSave={templateWorkspace.submitNameDialog}
+/>

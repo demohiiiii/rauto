@@ -1,36 +1,25 @@
+import type { TemplateNameDialogState } from "../model/templateAuthoring.js";
+import { createTemplateAuthoringSession } from "./createTemplateAuthoringSession.js";
 import { writable } from "svelte/store";
-import { orchestrationTemplateApi } from "../infrastructure/orchestrationTemplateApi.js";
+import { templatesApi } from "../infrastructure/templatesApi.js";
 
-export type OrchestrationTemplateNameDialogMode = "new" | "save_as";
-export type OrchestrationTemplateSelectionKind = "existing" | "manual" | "new";
-export type OrchestrationTemplateReplacementReason =
-  "delete" | "new" | "replace" | "select";
+export type ExecutionTemplateSelectionKind = "existing" | "manual";
+export type ExecutionTemplateReplacementReason = "select";
 type MaybePromise<T> = Promise<T> | T;
 
-interface TemplateOption {
-  label: string;
-  value: string;
-}
-
-export interface OrchestrationTemplateNameDialogState {
-  error: string;
-  mode: OrchestrationTemplateNameDialogMode;
-  open: boolean;
-  value: string;
-}
-
-export interface OrchestrationTemplateDisplayState {
+export interface ExecutionTemplateDisplayState {
   dirty: boolean;
+  editing: boolean;
+  readonly: boolean;
   errorMessage: string;
   initialized: boolean;
   loadingAction: string;
-  nameDialog: OrchestrationTemplateNameDialogState;
+  nameDialog: TemplateNameDialogState;
   selectedName: string;
-  selectionKind: OrchestrationTemplateSelectionKind;
+  selectionKind: ExecutionTemplateSelectionKind;
   statusKind: string;
   statusName: string;
   templateNames: string[];
-  templateOptions: TemplateOption[];
 }
 
 interface TemplateAction {
@@ -53,7 +42,6 @@ interface TemplateApiPorts {
     name: string,
     content: string,
   ): Promise<TemplateResourceDetail>;
-  deleteTemplateResource(basePath: string, name: string): Promise<object>;
   getTemplateResource(
     basePath: string,
     name: string,
@@ -70,16 +58,17 @@ interface TemplateWorkspaceOptions extends Partial<TemplateApiPorts> {
   apiBase?: string;
   confirmReplace?: (input: {
     currentName: string;
-    reason: OrchestrationTemplateReplacementReason;
+    reason: ExecutionTemplateReplacementReason;
   }) => MaybePromise<boolean>;
   createDraft?: () => MaybePromise<boolean | void>;
   getCurrentJson?: () => string;
   replaceJson?: (content: string) => MaybePromise<void>;
+  validateContent?: (content: string) => void;
 }
 
 interface BaselineOptions {
   selectedName?: string;
-  selectionKind?: OrchestrationTemplateSelectionKind;
+  selectionKind?: ExecutionTemplateSelectionKind;
   statusKind?: string;
   statusName?: string;
 }
@@ -98,20 +87,19 @@ function templateNames(payload: readonly TemplateListItem[]): string[] {
     .sort((left, right) => left.localeCompare(right));
 }
 
-function nameDialogState(
-  mode: OrchestrationTemplateNameDialogMode = "new",
-): OrchestrationTemplateNameDialogState {
+function nameDialogState(): TemplateNameDialogState {
   return {
     error: "",
-    mode,
     open: false,
     value: "",
   };
 }
 
-function initialDisplayState(): OrchestrationTemplateDisplayState {
+function initialDisplayState(): ExecutionTemplateDisplayState {
   return {
     dirty: false,
+    editing: false,
+    readonly: false,
     errorMessage: "",
     initialized: false,
     loadingAction: "",
@@ -121,23 +109,22 @@ function initialDisplayState(): OrchestrationTemplateDisplayState {
     statusKind: "",
     statusName: "",
     templateNames: [],
-    templateOptions: [{ label: "", value: "" }],
   };
 }
 
-export function createOrchestrationTemplateWorkspace({
-  apiBase = "/api/orchestration-templates",
+export function createExecutionTemplateWorkspace({
+  apiBase = "/api/templates",
   confirmReplace = () => true,
   createDraft = () => undefined,
   getCurrentJson = () => "",
   replaceJson = () => undefined,
-  listTemplateResource = orchestrationTemplateApi.listTemplateResource,
-  getTemplateResource = orchestrationTemplateApi.getTemplateResource,
-  createTemplateResource = orchestrationTemplateApi.createTemplateResource,
-  updateTemplateResource = orchestrationTemplateApi.updateTemplateResource,
-  deleteTemplateResource = orchestrationTemplateApi.deleteTemplateResource,
+  validateContent = () => undefined,
+  listTemplateResource = templatesApi.listTemplateResource,
+  getTemplateResource = templatesApi.getTemplateResource,
+  createTemplateResource = templatesApi.createTemplateResource,
+  updateTemplateResource = templatesApi.updateTemplateResource,
 }: TemplateWorkspaceOptions = {}) {
-  const displayStateStore = writable<OrchestrationTemplateDisplayState>(
+  const displayStateStore = writable<ExecutionTemplateDisplayState>(
     initialDisplayState(),
   );
   let displayState = initialDisplayState();
@@ -145,10 +132,19 @@ export function createOrchestrationTemplateWorkspace({
   let requestVersion = 0;
   let editRevision = 0;
   let ownedMutationDepth = 0;
+  let destroyed = false;
+  const session = createTemplateAuthoringSession<string>({
+    isBusy: () => !!displayState.loadingAction,
+  });
+  const unsubscribeSession = session.stateStore.subscribe(
+    ({ editing, readonly, nameDialog }) =>
+      setDisplay({ editing, readonly, nameDialog }),
+  );
 
   function setDisplay(
-    patch: Partial<OrchestrationTemplateDisplayState> = {},
+    patch: Partial<ExecutionTemplateDisplayState> = {},
   ): void {
+    if (destroyed) return;
     displayState = { ...displayState, ...patch };
     displayStateStore.set(displayState);
   }
@@ -157,10 +153,6 @@ export function createOrchestrationTemplateWorkspace({
     const normalizedNames = templateNames(names);
     setDisplay({
       templateNames: normalizedNames,
-      templateOptions: [
-        { label: "", value: "" },
-        ...normalizedNames.map((name) => ({ label: name, value: name })),
-      ],
     });
   }
 
@@ -175,6 +167,7 @@ export function createOrchestrationTemplateWorkspace({
     return {
       isCurrent() {
         return (
+          !destroyed &&
           version === requestVersion &&
           (!trackEdits || startingEditRevision === editRevision)
         );
@@ -193,6 +186,7 @@ export function createOrchestrationTemplateWorkspace({
     loadingAction: string,
     operation: (action: TemplateAction) => Promise<boolean>,
   ): Promise<boolean> {
+    if (destroyed) return false;
     const action = beginAction(loadingAction);
     try {
       return await operation(action);
@@ -222,6 +216,7 @@ export function createOrchestrationTemplateWorkspace({
     statusName = "",
   }: BaselineOptions = {}): void {
     baselineJson = getCurrentJson();
+    session.adoptSource(selectionKind === "existing" ? "custom" : "manual");
     setDisplay({
       dirty: false,
       selectedName,
@@ -241,7 +236,7 @@ export function createOrchestrationTemplateWorkspace({
   }
 
   async function confirmReplacement(
-    reason: OrchestrationTemplateReplacementReason = "replace",
+    reason: ExecutionTemplateReplacementReason = "select",
   ): Promise<boolean> {
     if (!displayState.dirty) return true;
     return !!(await confirmReplace({
@@ -269,6 +264,8 @@ export function createOrchestrationTemplateWorkspace({
   }
 
   async function selectTemplate(rawName: string): Promise<boolean> {
+    if (destroyed || displayState.loadingAction.startsWith("save"))
+      return false;
     const name = rawName.trim();
     if (
       name === displayState.selectedName &&
@@ -276,7 +273,13 @@ export function createOrchestrationTemplateWorkspace({
     ) {
       return true;
     }
-    if (!(await confirmReplacement("select"))) return false;
+    const selectionVersion = ++requestVersion;
+    if (
+      !(await confirmReplacement("select")) ||
+      destroyed ||
+      selectionVersion !== requestVersion
+    )
+      return false;
     return runAction("select", async (action) => {
       if (!name) {
         const result = await runOwnedMutation(() => createDraft());
@@ -286,6 +289,7 @@ export function createOrchestrationTemplateWorkspace({
       }
       const detail = await getTemplateResource(apiBase, name);
       if (!action.isCurrent()) return false;
+      validateContent(detail.content);
       await runOwnedMutation(() => replaceJson(detail.content));
       if (!action.isCurrent()) return false;
       const selectedName = detail.name || name;
@@ -299,108 +303,22 @@ export function createOrchestrationTemplateWorkspace({
     });
   }
 
-  function openNameDialog(mode: OrchestrationTemplateNameDialogMode): void {
-    setDisplay({
-      nameDialog: {
-        error: "",
-        mode,
-        open: true,
-        value: "",
-      },
-    });
-  }
-
-  function openNewDialog(): void {
-    openNameDialog("new");
-  }
-
-  function openSaveAsDialog(): void {
-    openNameDialog("save_as");
-  }
-
-  function closeNameDialog(): void {
-    setDisplay({
-      nameDialog: { ...displayState.nameDialog, error: "", open: false },
-    });
-  }
-
-  function changeNameDialogValue(value: string): void {
-    setDisplay({
-      nameDialog: {
-        ...displayState.nameDialog,
-        error: "",
-        value,
-      },
-    });
-  }
-
-  async function createNamedDraft(name: string): Promise<boolean> {
-    if (!(await confirmReplacement("new"))) return false;
-    return runAction("new", async (action) => {
-      const result = await runOwnedMutation(() => createDraft());
-      if (result === false || !action.isCurrent()) return false;
-      captureBaseline({
-        selectedName: name,
-        selectionKind: "new",
-        statusKind: "new",
-        statusName: name,
-      });
-      closeNameDialog();
-      return true;
-    });
-  }
-
-  async function saveAs(name: string): Promise<boolean> {
-    return runAction("save_as", async (action) => {
+  async function persistTemplate(
+    name: string,
+    creating: boolean,
+  ): Promise<boolean> {
+    return runAction(creating ? "save_as" : "save", async (action) => {
       const content = getCurrentJson();
-      const detail = await createTemplateResource(apiBase, name, content);
-      if (!action.isCurrent()) return false;
-      await refreshTemplateList(action);
+      validateContent(content);
+      const detail = await (creating
+        ? createTemplateResource(apiBase, name, content)
+        : updateTemplateResource(apiBase, name, content));
       if (!action.isCurrent()) return false;
       const savedName = detail.name || name;
-      captureBaseline({
-        selectedName: savedName,
-        selectionKind: "existing",
-        statusKind: "created",
-        statusName: savedName,
-      });
-      closeNameDialog();
-      return true;
-    });
-  }
-
-  async function submitNameDialog(): Promise<boolean> {
-    const name = displayState.nameDialog.value.trim();
-    if (!name) {
-      setDisplay({
-        nameDialog: {
-          ...displayState.nameDialog,
-          error: "name_required",
-        },
-      });
-      return false;
-    }
-    return displayState.nameDialog.mode === "new"
-      ? createNamedDraft(name)
-      : saveAs(name);
-  }
-
-  async function saveTemplate(): Promise<boolean> {
-    const name = displayState.selectedName.trim();
-    if (!name) {
-      openSaveAsDialog();
-      return false;
-    }
-    return runAction("save", async (action) => {
-      const content = getCurrentJson();
-      const creating = displayState.selectionKind === "new";
-      const detail = creating
-        ? await createTemplateResource(apiBase, name, content)
-        : await updateTemplateResource(apiBase, name, content);
-      if (!action.isCurrent()) return false;
-      await refreshTemplateList(action);
-      if (!action.isCurrent()) return false;
-      const savedName = detail.name || name;
+      setNames([
+        ...displayState.templateNames.map((name) => ({ name })),
+        { name: savedName },
+      ]);
       captureBaseline({
         selectedName: savedName,
         selectionKind: "existing",
@@ -411,59 +329,107 @@ export function createOrchestrationTemplateWorkspace({
     });
   }
 
-  async function deleteTemplate(): Promise<boolean> {
+  function submitNameDialog(): Promise<boolean> {
+    return session.submitNameDialog(
+      (name) => persistTemplate(name, true),
+      () => displayState.errorMessage,
+    );
+  }
+
+  async function saveTemplate(): Promise<boolean> {
+    if (!canEdit()) return false;
     const name = displayState.selectedName.trim();
-    if (!name || displayState.selectionKind !== "existing") return false;
-    if (!(await confirmReplace({ currentName: name, reason: "delete" }))) {
+    if (!name) {
+      session.openNameDialog();
       return false;
     }
-    const snapshot = getCurrentJson();
-    return runAction("delete", async (action) => {
-      await deleteTemplateResource(apiBase, name);
+    return persistTemplate(name, false);
+  }
+
+  function markEdited(): void {
+    if (ownedMutationDepth > 0 || displayState.readonly) return;
+    editRevision += 1;
+    setDisplay({ dirty: getCurrentJson() !== baselineJson });
+  }
+
+  async function importContent(
+    readContent: () => Promise<string>,
+  ): Promise<boolean> {
+    if (!canEdit()) return false;
+    const version = requestVersion;
+    if (
+      !(await confirmReplacement()) ||
+      destroyed ||
+      version !== requestVersion
+    )
+      return false;
+    return runAction("import", async (action) => {
+      const content = await readContent();
       if (!action.isCurrent()) return false;
-      await refreshTemplateList(action);
-      if (!action.isCurrent()) return false;
-      await runOwnedMutation(() => replaceJson(snapshot));
+      validateContent(content);
+      await runOwnedMutation(() => replaceJson(content));
       if (!action.isCurrent()) return false;
       captureBaseline({
         selectedName: "",
         selectionKind: "manual",
-        statusKind: "deleted",
-        statusName: name,
+        statusKind: "imported",
       });
       return true;
     });
   }
 
-  function markEdited(): void {
-    if (ownedMutationDepth > 0) return;
-    editRevision += 1;
-    setDisplay({ dirty: getCurrentJson() !== baselineJson });
+  function startEditing(): void {
+    if (session.startEditing(() => baselineJson))
+      setDisplay({ statusKind: "", errorMessage: "" });
   }
 
-  function adoptManualSnapshot({
-    statusKind = "",
-    statusName = "",
-  }: Pick<BaselineOptions, "statusKind" | "statusName"> = {}): void {
-    requestVersion += 1;
-    captureBaseline({
-      selectedName: "",
-      selectionKind: "manual",
-      statusKind,
-      statusName,
+  function cancelEditing(): Promise<boolean> {
+    return session.cancelEditingAsync((snapshot) =>
+      runAction("cancel", async (action) => {
+        await runOwnedMutation(() => replaceJson(snapshot));
+        if (!action.isCurrent()) return false;
+        setDisplay({ dirty: false, statusKind: "", errorMessage: "" });
+        return true;
+      }),
+    );
+  }
+
+  function copyToManual(): void {
+    session.copyToManual(() => {
+      requestVersion += 1;
+      setDisplay({
+        selectedName: "",
+        selectionKind: "manual",
+        dirty: true,
+        statusKind: "",
+        errorMessage: "",
+      });
     });
   }
 
+  function canEdit(): boolean {
+    return session.canEdit();
+  }
+
+  function destroy(): void {
+    destroyed = true;
+    requestVersion += 1;
+    unsubscribeSession();
+    session.destroy();
+  }
+
   return {
-    adoptManualSnapshot,
-    changeNameDialogValue,
-    closeNameDialog,
-    deleteTemplate,
+    destroy,
+    importContent,
+    startEditing,
+    cancelEditing,
+    copyToManual,
+    canEdit,
+    changeNameDialogValue: session.changeNameDialogValue,
+    closeNameDialog: session.closeNameDialog,
     displayStateStore,
     initialize,
     markEdited,
-    openNewDialog,
-    openSaveAsDialog,
     saveTemplate,
     selectTemplate,
     submitNameDialog,

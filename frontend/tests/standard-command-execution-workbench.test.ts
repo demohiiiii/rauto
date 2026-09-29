@@ -80,6 +80,8 @@ function commandApi(
   overrides: Partial<StandardCommandApi> = {},
 ): StandardCommandApi {
   return {
+    createTemplate: async (name, content) => templateDetail(content, name),
+    updateTemplate: async (name, content) => templateDetail(content, name),
     executeTemplate: async () => executionResponse(),
     getTemplate: async (name) => templateDetail("", name),
     inspectCommandTemplate: async () => inspection(),
@@ -587,4 +589,97 @@ test("changing the target refreshes template rendering with the latest connectio
   assert.equal(get(workspace.stateStore).preview.text, "echo edge-02");
   workspace.destroy();
   assert.equal(unsubscribed, true);
+});
+
+test("command templates edit raw content, cancel to baseline, and copy without rendering variables", async (t) => {
+  const saved: { name: string; content: string; creating: boolean }[] = [];
+  const workspace = createStandardCommandExecutionWorkspace({
+    inspectionDelay: 0,
+    runtime: runtime(),
+    api: commandApi({
+      getTemplate: async (name) => templateDetail("echo {{value}}", name),
+      inspectCommandTemplate: async () => inspection("value"),
+      renderTemplate: async () => ({ rendered_commands: "echo runtime" }),
+      createTemplate: async (name, content) => {
+        saved.push({ name, content, creating: true });
+        return templateDetail(content, name);
+      },
+      updateTemplate: async (name, content) => {
+        saved.push({ name, content, creating: false });
+        return templateDetail(content, name);
+      },
+    }),
+  });
+  t.after(workspace.destroy);
+  await workspace.selectSource("echo");
+  const mode = get(workspace.stateStore).mode;
+  workspace.changeMode("enable");
+  workspace.changeMultilineMode("whole");
+  workspace.changeTextfsm({ enabled: true });
+  assert.equal(get(workspace.stateStore).mode, mode);
+  assert.equal(get(workspace.stateStore).multilineMode, "split_lines");
+  assert.equal(get(workspace.stateStore).textfsm.enabled, false);
+  assert.equal(await workspace.saveTemplate(), false);
+  workspace.changeVars({ value: "runtime" });
+  workspace.startEditing();
+  assert.equal(get(workspace.stateStore).content, "echo {{value}}");
+  await workspace.changeContent("changed {{value}}");
+  workspace.changeMultilineMode("whole");
+  await workspace.cancelEditing();
+  assert.equal(get(workspace.stateStore).content, "echo {{value}}");
+  assert.equal(get(workspace.stateStore).readonly, true);
+  assert.deepEqual(get(workspace.stateStore).vars, { value: "runtime" });
+  assert.equal(get(workspace.stateStore).multilineMode, "split_lines");
+  workspace.startEditing();
+  await workspace.changeContent("updated {{value}}");
+  assert.equal(await workspace.saveTemplate(), true);
+  assert.deepEqual(saved[0], {
+    name: "echo",
+    content: "updated {{value}}",
+    creating: false,
+  });
+  workspace.copyToManual();
+  assert.equal(
+    get(workspace.stateStore).sourceSelection,
+    MANUAL_COMMAND_SOURCE,
+  );
+  assert.equal(get(workspace.stateStore).content, "updated {{value}}");
+  await workspace.saveTemplate();
+  assert.equal(get(workspace.stateStore).nameDialog.open, true);
+  assert.equal(await workspace.submitNameDialog(), false);
+  workspace.changeNameDialogValue("copy");
+  assert.equal(await workspace.submitNameDialog(), true);
+  assert.deepEqual(saved[1], {
+    name: "copy",
+    content: "updated {{value}}",
+    creating: true,
+  });
+  assert.equal(get(workspace.stateStore).readonly, true);
+});
+
+test("command saving prevents concurrent mutations and keeps edits after an API failure", async (t) => {
+  const pending = deferred<StandardTemplateDetail>();
+  const workspace = createStandardCommandExecutionWorkspace({
+    inspectionDelay: 0,
+    runtime: runtime(),
+    api: commandApi({
+      getTemplate: async (name) => templateDetail("original", name),
+      updateTemplate: () => pending.promise,
+    }),
+  });
+  t.after(workspace.destroy);
+  await workspace.selectSource("saved");
+  workspace.startEditing();
+  await workspace.changeContent("edited");
+  const saving = workspace.saveTemplate();
+  assert.equal(await workspace.changeContent("late edit"), false);
+  assert.equal(await workspace.selectSource("other"), false);
+  assert.equal(await workspace.cancelEditing(), false);
+  assert.equal(await workspace.saveTemplate(), false);
+  pending.reject(new Error("cannot save"));
+  assert.equal(await saving, false);
+  assert.equal(get(workspace.stateStore).content, "edited");
+  assert.equal(get(workspace.stateStore).editing, true);
+  await workspace.cancelEditing();
+  assert.equal(get(workspace.stateStore).content, "original");
 });
