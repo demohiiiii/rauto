@@ -1,22 +1,22 @@
-<script lang="ts">
+<script lang="ts" generics="TPrompt extends InteractiveTemplatePromptModel">
   import PlusIcon from "@lucide/svelte/icons/plus";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import { Button } from "$lib/components/ui/button/index.js";
   import PlainCheckboxField from "$components/fragments/PlainCheckboxField.svelte";
+  import PlainTextAreaField from "$components/fragments/PlainTextAreaField.svelte";
   import PlainInputField from "$components/fragments/PlainInputField.svelte";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import {
     interactiveAccentColor,
-    defaultInteractiveTemplatePromptModel,
     type InteractiveTemplatePromptModel,
   } from "$domains/command/index.js";
 
   interface Props {
     embedded?: boolean;
     accentIndex?: number;
-    onChange?: (prompt: InteractiveTemplatePromptModel) => void;
+    onChange?: (prompt: TPrompt) => void;
     onRemove?: () => void;
-    prompt?: InteractiveTemplatePromptModel;
+    prompt: TPrompt;
   }
 
   let {
@@ -24,7 +24,7 @@
     accentIndex = 0,
     onChange,
     onRemove,
-    prompt = defaultInteractiveTemplatePromptModel(),
+    prompt,
   }: Props = $props();
   let accentColor = $derived(interactiveAccentColor(accentIndex));
 
@@ -107,7 +107,10 @@
     <span class="text-xs font-medium text-foreground">
       {labels.response}
     </span>
-    <PlainInputField
+    <PlainTextAreaField
+      aria-label={labels.response}
+      rows={2}
+      class="min-h-16 resize-y font-mono text-xs"
       value={prompt.response || ""}
       placeholderText={labels.responsePlaceholder}
       onValueInput={(response) => patchPrompt({ response })}

@@ -26,7 +26,7 @@
   <PresenceFieldGrid
     {fieldRows}
     valueHandlerMode="event"
-    hostClass="grid gap-3 md:grid-cols-2"
+    hostClass="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3"
     presenceControlsMode="hidden"
     onValueChangeForKey={onValueChange}
     onPresenceChangeForKey={onPresenceChange}

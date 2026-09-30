@@ -47,7 +47,9 @@
     {#if dynParamsDisplay.dynParamExtraRows.length > 0}
       <div class="grid gap-2">
         {#each dynParamsDisplay.dynParamExtraRows as dynParamRow}
-          <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+          <div
+            class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-2 rounded-lg border border-border p-2"
+          >
             <PlainInputField
               class="font-mono"
               placeholderText={t("txBlockFormNamePlaceholder")}
@@ -65,6 +67,7 @@
               )}
             />
             <Button
+              class="col-span-full justify-self-end"
               variant="destructive"
               size="sm"
               type="button"

@@ -1,4 +1,5 @@
-<script lang="ts">
+<script lang="ts" generics="TPrompt extends InteractiveTemplatePromptModel">
+  import type { Snippet } from "svelte";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import SlidersHorizontalIcon from "@lucide/svelte/icons/sliders-horizontal";
   import MessageSquareIcon from "@lucide/svelte/icons/message-square";
@@ -7,7 +8,7 @@
   import PlainInputField from "$components/fragments/PlainInputField.svelte";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import {
-    defaultInteractiveCommandModel,
+    type InteractiveTemplatePromptModel,
     type InteractiveCommandModel,
   } from "$domains/command/index.js";
   import CommandEditor from "./CommandEditor.svelte";
@@ -18,8 +19,12 @@
     compact?: boolean;
     accentIndex?: number;
     modeOptions?: string[];
-    onChange?: (step: InteractiveCommandModel) => void;
-    step?: InteractiveCommandModel;
+    onChange?: (step: InteractiveCommandModel<TPrompt>) => void;
+    step: InteractiveCommandModel<TPrompt>;
+    createPrompt: () => TPrompt;
+    modeField?: Snippet;
+    settings?: Snippet;
+    promptDetails?: Snippet<[TPrompt, number, (prompt: TPrompt) => void]>;
   }
 
   let {
@@ -27,7 +32,11 @@
     compact = false,
     modeOptions = [],
     onChange,
-    step = defaultInteractiveCommandModel(),
+    step,
+    createPrompt,
+    modeField,
+    settings,
+    promptDetails,
   }: Props = $props();
   let promptsOpen = $state(false);
   let previouslyHadPrompts = false;
@@ -41,13 +50,15 @@
     return t("interactiveStudioStepOptions");
   });
 
-  function patchStep(patch: Partial<InteractiveCommandModel>): void {
+  function patchStep(patch: Partial<InteractiveCommandModel<TPrompt>>): void {
     onChange?.({ ...step, ...patch });
   }
 </script>
 
 {#snippet settingsFields()}
-  <div class="grid gap-3 md:grid-cols-2">
+  <div
+    class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3"
+  >
     <div class="grid gap-2">
       <PlainCheckboxField
         controlKind="switch"
@@ -95,6 +106,8 @@
 
 {#snippet promptFields()}
   <InteractivePromptsEditor
+    {createPrompt}
+    {promptDetails}
     prompts={step.prompts || []}
     onChange={(prompts) => patchStep({ prompts })}
   />
@@ -103,13 +116,13 @@
 <div class="grid gap-4">
   <CommandEditor
     {loading}
+    {modeField}
     command={step.command || ""}
     multilineMode={step.multilineMode || "split_lines"}
-    placeholderText={t("interactiveCommandPlaceholder")}
     onCommandChange={(command) => patchStep({ command })}
     onMultilineModeChange={(multilineMode) => patchStep({ multilineMode })}
   >
-    {#if !compact}{@render settingsFields()}{/if}
+    {#if !compact}{@render (settings ?? settingsFields)()}{/if}
   </CommandEditor>
   {#if compact}
     <div class="grid gap-1 border-t border-border/70 pt-2">
@@ -128,7 +141,7 @@
               : t("interactiveReadonlyInherited")}</span
           >
         </summary>
-        <div class="p-3 pt-1">{@render settingsFields()}</div>
+        <div class="p-3 pt-1">{@render (settings ?? settingsFields)()}</div>
       </details>
       <details
         class="group/prompts rounded-lg open:bg-muted/25"

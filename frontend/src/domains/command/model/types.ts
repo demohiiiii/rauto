@@ -11,13 +11,16 @@ export interface InteractiveTemplatePromptModel {
   response: string;
 }
 
-export interface InteractiveCommandModel {
+export interface InteractiveCommandModel<
+  TPrompt extends InteractiveTemplatePromptModel =
+    InteractiveTemplatePromptModel,
+> {
   command: string;
   hasMode: boolean;
   hasTimeoutSecs: boolean;
   mode: string | null;
   multilineMode: InteractiveMultilineMode;
-  prompts: InteractiveTemplatePromptModel[];
+  prompts: TPrompt[];
   timeoutSecs: number | null;
 }
 

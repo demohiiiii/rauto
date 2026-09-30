@@ -28,7 +28,6 @@
     destroy: destroyOrchestratedWorkspace,
     executeOrchestration,
     executeTxWorkflow,
-    saveTxBlockTemplateFromWorkflow,
     setPageContext,
     stageDisplayStateStore,
     updateOrchestrationEditorInput,
@@ -43,7 +42,6 @@
     active: true,
     onEditorInput: updateTxWorkflowEditorInput,
     onExecute: executeTxWorkflow,
-    onSaveBlockTemplate: saveTxBlockTemplateFromWorkflow,
   });
   let orchestrationStageProps = $derived({
     active: true,

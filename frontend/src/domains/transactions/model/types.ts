@@ -21,6 +21,7 @@ export interface JsonErrorDetail {
 
 export type TxMultilineMode = "split_lines" | "whole";
 export type TxOperationKind = "command" | "flow";
+export type TransactionOperationEditorKind = "command" | "interactive";
 export type TxRollbackKind = "none" | "per_step" | "whole_resource";
 
 export interface TxRuntimePromptModel extends JsonObject {
@@ -63,6 +64,9 @@ export interface TxOperationModel extends JsonObject {
   command: TxCommandModel;
   flow: TxFlowModel;
   kind: TxOperationKind;
+  // Editor-only state; runtime operations serialize command/flow fields explicitly.
+  commandEditorKind?: TransactionOperationEditorKind;
+  interactionDraft?: TxCommandInteractionModel;
 }
 
 export interface TxWholeResourceRollbackModel extends JsonObject {
@@ -125,6 +129,7 @@ export interface TxWorkflowTemplateRefVarsDisplay {
 }
 
 export interface TxWorkflowBlockFormModel extends JsonObject {
+  editorId: string;
   inlineBlock: TxBlockFormModel;
   sourceKind: "inline" | "template_ref";
   templateRef: TxWorkflowTemplateRefBlockModel;

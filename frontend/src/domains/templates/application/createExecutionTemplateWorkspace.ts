@@ -56,6 +56,7 @@ interface TemplateApiPorts {
 
 interface TemplateWorkspaceOptions extends Partial<TemplateApiPorts> {
   apiBase?: string;
+  initialSelectedName?: string;
   confirmReplace?: (input: {
     currentName: string;
     reason: ExecutionTemplateReplacementReason;
@@ -114,6 +115,7 @@ function initialDisplayState(): ExecutionTemplateDisplayState {
 
 export function createExecutionTemplateWorkspace({
   apiBase = "/api/templates",
+  initialSelectedName = "",
   confirmReplace = () => true,
   createDraft = () => undefined,
   getCurrentJson = () => "",
@@ -140,6 +142,13 @@ export function createExecutionTemplateWorkspace({
     ({ editing, readonly, nameDialog }) =>
       setDisplay({ editing, readonly, nameDialog }),
   );
+
+  if (initialSelectedName) {
+    captureBaseline({
+      selectedName: initialSelectedName,
+      selectionKind: "existing",
+    });
+  }
 
   function setDisplay(
     patch: Partial<ExecutionTemplateDisplayState> = {},
@@ -250,12 +259,30 @@ export function createExecutionTemplateWorkspace({
     try {
       await refreshTemplateList(action);
       if (!action.isCurrent()) return false;
+      if (
+        initialSelectedName &&
+        displayState.selectedName === initialSelectedName &&
+        !displayState.initialized
+      ) {
+        const detail = await getTemplateResource(apiBase, initialSelectedName);
+        if (!action.isCurrent()) return false;
+        validateContent(detail.content);
+        await runOwnedMutation(() => replaceJson(detail.content));
+        if (!action.isCurrent()) return false;
+        captureBaseline({
+          selectedName: detail.name || initialSelectedName,
+          selectionKind: "existing",
+        });
+      }
       baselineJson = getCurrentJson();
       setDisplay({ initialized: true });
       return true;
     } catch (error) {
       if (action.isCurrent()) {
-        setDisplay({ errorMessage: errorMessage(error), initialized: true });
+        setDisplay({
+          errorMessage: errorMessage(error),
+          initialized: !initialSelectedName,
+        });
       }
       return false;
     } finally {

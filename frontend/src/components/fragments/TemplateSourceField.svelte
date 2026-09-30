@@ -6,7 +6,7 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Combobox } from "bits-ui";
   import * as Popover from "$lib/components/ui/popover/index.js";
-  import PencilLineIcon from "@lucide/svelte/icons/pencil-line";
+  import InputSourceToggle from "./InputSourceToggle.svelte";
   import FilesIcon from "@lucide/svelte/icons/files";
   import FileTextIcon from "@lucide/svelte/icons/file-text";
   import SearchIcon from "@lucide/svelte/icons/search";
@@ -44,12 +44,10 @@
     $currentLanguageState;
     return {
       source: t("templateSourceLabel"),
-      template: t("templateSourceTemplate"),
       draft: t("templateSourceDraft"),
       start: t("templateSourceStart"),
       move: t("connectionPickerMove"),
       select: t("connectionPickerSelect"),
-      manual: t("commandSourceManual"),
       choose: t("templateSourceChoose"),
       search: t("templateSourceSearch"),
       browse: t("templateSourceBrowse"),
@@ -60,7 +58,7 @@
   });
   let shell = $state<HTMLDivElement | null>(null);
   let searchInput = $state<HTMLInputElement | null>(null);
-  let templateTrigger = $state<HTMLButtonElement | null>(null);
+  let templateTriggerRef = $state<HTMLButtonElement | null>(null);
   let open = $state(false);
   let query = $state("");
   let pending = $state(false);
@@ -108,10 +106,10 @@
     void tick().then(() => {
       if (
         !open &&
-        templateTrigger?.isConnected &&
+        templateTriggerRef?.isConnected &&
         (document.activeElement === document.body || !document.activeElement)
       )
-        templateTrigger.focus();
+        templateTriggerRef.focus();
     });
   }
   async function selectSource(next: string) {
@@ -159,36 +157,23 @@
       loop
     >
       <div bind:this={shell} class="source-bar" class:source-disabled={busy}>
-        <div class="source-modes">
-          <span
-            class="source-slider"
-            class:source-slider-template={!manual}
-            aria-hidden="true"
-          ></span>
-          <button
-            type="button"
-            class="source-mode"
-            class:source-mode-selected={manual}
-            aria-pressed={manual}
-            disabled={busy}
-            onclick={() => selectSource(manualValue)}
-          >
-            <PencilLineIcon class="size-4" aria-hidden="true" /><span
-              >{labels.manual}</span
+        <InputSourceToggle
+          value={manual ? "manual" : "template"}
+          disabled={busy}
+          onValueChange={() => void selectSource(manualValue)}
+        >
+          {#snippet templateTrigger(className, locked, children)}
+            <Popover.Trigger
+              bind:ref={templateTriggerRef}
+              disabled={locked}
+              aria-pressed={!manual}
+              class={className}
+              aria-label={labels.choose}
             >
-          </button>
-          <Popover.Trigger
-            bind:ref={templateTrigger}
-            disabled={busy}
-            aria-pressed={!manual}
-            class={["source-mode", !manual && "source-mode-selected"]}
-            aria-label={labels.choose}
-          >
-            <FilesIcon class="size-4" aria-hidden="true" /><span
-              >{labels.template}</span
-            >
-          </Popover.Trigger>
-        </div>
+              {@render children()}
+            </Popover.Trigger>
+          {/snippet}
+        </InputSourceToggle>
         <div class="source-summary">
           {#if manual}
             <div class="source-draft">
@@ -334,6 +319,7 @@
 
 <style>
   .source-field {
+    container: input-source / inline-size;
     display: grid;
     gap: 0.625rem;
     min-width: 0;
@@ -350,53 +336,6 @@
     align-items: center;
     gap: 0.75rem;
     min-width: 0;
-  }
-  .source-modes {
-    position: relative;
-    isolation: isolate;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0;
-    padding: 0.1875rem;
-    border-radius: 0.625rem;
-    background: var(--muted);
-    box-shadow: inset 0 0 0 1px
-      color-mix(in oklab, var(--border) 55%, transparent);
-  }
-  .source-slider {
-    position: absolute;
-    z-index: -1;
-    inset: 0.1875rem auto 0.1875rem 0.1875rem;
-    width: calc((100% - 0.375rem) / 2);
-    border-radius: 0.4375rem;
-    background: var(--primary);
-    box-shadow: 0 2px 4px #00000014;
-    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .source-slider-template {
-    transform: translateX(100%);
-  }
-  .source-modes :global(.source-mode) {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.375rem;
-    height: 2.125rem;
-    padding: 0 0.75rem;
-    white-space: nowrap;
-    border-radius: 0.4375rem;
-    background: transparent;
-    color: var(--muted-foreground);
-    font-size: 0.8125rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: color 200ms;
-  }
-  .source-modes :global(.source-mode-selected) {
-    color: var(--primary-foreground);
-  }
-  .source-modes :global(.source-mode:not(.source-mode-selected):hover) {
-    color: var(--foreground);
   }
   .source-summary {
     display: flex;
@@ -497,12 +436,10 @@
   .source-disabled {
     opacity: 0.55;
   }
-  .source-field button:disabled,
-  .source-modes :global(button:disabled) {
+  .source-field button:disabled {
     cursor: not-allowed;
   }
-  .source-field button:focus-visible,
-  .source-modes :global(button:focus-visible) {
+  .source-field button:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 3px;
   }
@@ -634,6 +571,17 @@
       transform: none;
     }
   }
+  @container input-source (max-width: 36rem) {
+    .source-bar {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.625rem;
+    }
+    .source-summary {
+      border-left: 0;
+      padding-left: 0;
+      min-height: 2rem;
+    }
+  }
   @media (max-width: 640px) {
     .source-bar {
       grid-template-columns: minmax(0, 1fr);
@@ -644,15 +592,10 @@
       padding-left: 0;
       min-height: 2rem;
     }
-    .source-modes :global(.source-mode) {
-      height: 2.125rem;
-    }
   }
   @media (prefers-reduced-motion: reduce) {
-    .source-slider,
     .source-start,
-    .source-document,
-    .source-modes :global(.source-mode) {
+    .source-document {
       transition: none;
     }
     :global(.source-library) {

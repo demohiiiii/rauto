@@ -1,5 +1,5 @@
-<script lang="ts">
-  import { tick } from "svelte";
+<script lang="ts" generics="TPrompt extends InteractiveTemplatePromptModel">
+  import { tick, type Snippet } from "svelte";
   import SearchIcon from "@lucide/svelte/icons/search";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import CopyIcon from "@lucide/svelte/icons/copy";
@@ -11,16 +11,19 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { currentLanguageState, t } from "$lib/i18n.js";
-  import { defaultInteractiveTemplatePromptModel } from "../../model/interactiveTemplate.js";
   import type { InteractiveTemplatePromptModel } from "../../model/types.js";
   import InteractivePromptEditor from "./InteractivePromptEditor.svelte";
 
   let {
     prompts,
     onChange,
+    createPrompt,
+    promptDetails,
   }: {
-    prompts: InteractiveTemplatePromptModel[];
-    onChange: (prompts: InteractiveTemplatePromptModel[]) => void;
+    prompts: TPrompt[];
+    onChange: (prompts: TPrompt[]) => void;
+    createPrompt: () => TPrompt;
+    promptDetails?: Snippet<[TPrompt, number, (prompt: TPrompt) => void]>;
   } = $props();
   let selectedIndex = $state(0);
   let query = $state("");
@@ -86,7 +89,7 @@
       0,
       copy && activePrompt
         ? { ...activePrompt, patterns: [...activePrompt.patterns] }
-        : defaultInteractiveTemplatePromptModel(),
+        : createPrompt(),
     );
     query = "";
     selectedIndex = index;
@@ -104,7 +107,7 @@
       ?.focus();
   }
 
-  function updatePrompt(prompt: InteractiveTemplatePromptModel) {
+  function updatePrompt(prompt: TPrompt) {
     onChange(
       prompts.map((current, index) =>
         index === activeIndex ? prompt : current,
@@ -298,6 +301,7 @@
           onChange={updatePrompt}
           embedded={true}
         />
+        {@render promptDetails?.(activePrompt, activeIndex, updatePrompt)}
       </section>
     {/if}
   {:else}

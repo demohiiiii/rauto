@@ -9,14 +9,10 @@ import {
 } from "../src/lib/events.js";
 import {
   txBlockCommandEditorBindings,
-  txBlockCommandInteractionEditorBindings,
   txBlockFormModelFromJson,
   txBlockVisualEditorBindings,
 } from "../src/domains/transactions/index.js";
-import type {
-  TxCommandModel,
-  TxRuntimePromptModel,
-} from "../src/domains/transactions/index.js";
+import type { TxCommandModel } from "../src/domains/transactions/index.js";
 
 interface ValueEvent {
   currentTarget: { value: string };
@@ -27,34 +23,6 @@ function valueEvent(value: string): ValueEvent {
   return {
     currentTarget: { value },
     target: { value },
-  };
-}
-
-function promptCommand(prompt: Partial<TxRuntimePromptModel>): TxCommandModel {
-  return {
-    command: "copy running-config startup-config",
-    dynParams: {},
-    extra: {},
-    hasDynParams: false,
-    hasInteraction: true,
-    hasTimeout: false,
-    interaction: {
-      extra: {},
-      hasPrompts: true,
-      prompts: [
-        {
-          extra: {},
-          hasRecordInput: false,
-          patterns: [],
-          recordInput: false,
-          response: "",
-          ...prompt,
-        },
-      ],
-    },
-    mode: "Enable",
-    multilineMode: "split_lines",
-    timeout: null,
   };
 }
 
@@ -126,75 +94,6 @@ test("event-mode controls pass one DOM event to transaction handlers", () => {
   assert.deepEqual(selectValues, ["Enable"]);
   assert.equal(nullableEvents[0], nullableEvent);
   assert.deepEqual(presenceValues, [false]);
-});
-
-test("transaction prompt metadata preserves raw string input", () => {
-  const command = promptCommand({});
-  let nextCommand = command;
-  const interactionBindings = txBlockCommandInteractionEditorBindings(
-    command,
-    (value) => {
-      nextCommand = value;
-    },
-  );
-  const promptActions = interactionBindings.promptActionHandlers(0);
-  const metadataControl = presenceFieldRowBindings({
-    fieldRow: { fieldKey: "session_label", enabled: true },
-    onValueChangeForKey: promptActions.metadataValueHandler,
-  });
-  const input = plainInputFieldBindings({
-    onValueInput: metadataControl.valueChangeHandler,
-  });
-
-  input.inputHandler(valueEvent("console-session"));
-
-  assert.deepEqual(nextCommand.interaction.prompts[0].extra, {
-    session_label: "console-session",
-  });
-});
-
-test("transaction interaction record input select preserves true", () => {
-  const command = promptCommand({ hasRecordInput: true });
-  let nextCommand = command;
-  const interactionBindings = txBlockCommandInteractionEditorBindings(
-    command,
-    (value) => {
-      nextCommand = value;
-    },
-  );
-  const promptBindings = interactionBindings.promptActionHandlers(0);
-  const recordControl = presenceFieldRowBindings({
-    fieldRow: { fieldKey: "recordInput", enabled: true },
-    onValueChange: promptBindings.recordValueHandler(),
-  });
-  const select = plainSelectFieldBindings({
-    onValueChange: recordControl.valueChangeHandler,
-  });
-
-  select.changeHandler(valueEvent("true"));
-
-  assert.equal(nextCommand.interaction.prompts[0].recordInput, true);
-});
-
-test("transaction prompt list callbacks use direct value signatures", () => {
-  const command = promptCommand({ patterns: ["Password:", "Username:"] });
-  const emittedCommands: TxCommandModel[] = [];
-  const interactionBindings = txBlockCommandInteractionEditorBindings(
-    command,
-    (value) => emittedCommands.push(value),
-  );
-  const promptActions = interactionBindings.promptActionHandlers(0);
-
-  promptActions.patternValueHandler(0, "Login:");
-  promptActions.removePatternAction(1);
-
-  assert.deepEqual(emittedCommands[0].interaction.prompts[0].patterns, [
-    "Login:",
-    "Username:",
-  ]);
-  assert.deepEqual(emittedCommands[1].interaction.prompts[0].patterns, [
-    "Password:",
-  ]);
 });
 
 test("field controls preserve root and command changes", () => {

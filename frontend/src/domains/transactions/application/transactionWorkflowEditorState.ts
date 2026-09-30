@@ -8,6 +8,7 @@ import { plainObject, stringValue } from "../../../lib/jsonValue.js";
 import { t } from "../../../lib/i18n.js";
 import { selectOptionsWithCurrent } from "../../../lib/ui.js";
 import {
+  createTxWorkflowBlockEditorId,
   defaultTxBlockTemplatePayload,
   defaultTxWorkflowTemplateRefBlockPayload,
   txBlockFormModelFromJson,
@@ -153,7 +154,6 @@ export interface TxWorkflowTemplateRefEditorBindings {
 export interface TxWorkflowBlockRow {
   block: TxWorkflowBlockFormModel;
   blockIndex: number;
-  fieldRows: TxWorkflowFieldRow[];
   showInlineBlock: boolean;
   showTemplateRef: boolean;
   titleText: string;
@@ -171,7 +171,6 @@ export interface TxWorkflowBlockEditorActionHandlers {
 
 export interface TxWorkflowVisualEditorDisplay {
   blockRows: TxWorkflowBlockRow[];
-  blockSourceRows: readonly string[];
   booleanRows: readonly string[];
   jsonValueTypeRows: readonly string[];
   rootFieldRows: TxWorkflowFieldRow[];
@@ -223,7 +222,6 @@ function txWorkflowBlockModel(
     : txWorkflowBlockFormModelFromJson();
 }
 
-const TX_WORKFLOW_BLOCK_SOURCE_ROWS = Object.freeze(["inline", "template_ref"]);
 const TX_WORKFLOW_ROOT_FIELD_DEFS: readonly TxWorkflowFieldDefinition[] =
   Object.freeze([
     {
@@ -237,14 +235,6 @@ const TX_WORKFLOW_ROOT_FIELD_DEFS: readonly TxWorkflowFieldDefinition[] =
       fieldKey: "failFast",
       labelKey: "txBlockFormFailFast",
       optionKind: "boolean",
-    },
-  ]);
-const TX_WORKFLOW_BLOCK_FIELD_DEFS: readonly TxWorkflowFieldDefinition[] =
-  Object.freeze([
-    {
-      controlType: "select",
-      fieldKey: "sourceKind",
-      labelKey: "txWorkflowFormBlockSource",
     },
   ]);
 const TX_WORKFLOW_TEMPLATE_REF_FIELD_DEFS: readonly TxWorkflowFieldDefinition[] =
@@ -421,11 +411,10 @@ export function txWorkflowDuplicateBlock(
 ): TxWorkflowEditorModel {
   const next = workflowCloneModel(model);
   if (!Array.isArray(next.blocks) || !next.blocks[blockIndex]) return next;
-  next.blocks.splice(
-    blockIndex + 1,
-    0,
-    structuredClone(next.blocks[blockIndex]),
-  );
+  next.blocks.splice(blockIndex + 1, 0, {
+    ...structuredClone(next.blocks[blockIndex]),
+    editorId: createTxWorkflowBlockEditorId(),
+  });
   return next;
 }
 
@@ -456,6 +445,7 @@ function txWorkflowChangeBlockSource(
   sourceKind: TxWorkflowValueInput,
 ): TxWorkflowEditorModel {
   return txWorkflowUpdateBlock(model, blockIndex, (currentBlock) => ({
+    ...currentBlock,
     sourceKind: sourceKind === "template_ref" ? "template_ref" : "inline",
     inlineBlock:
       currentBlock.inlineBlock ||
@@ -582,29 +572,6 @@ export function txWorkflowRootFieldsDisplay(
       valueText: stringValue(workflowValue[fieldDef.fieldKey]),
     };
   });
-}
-
-export function txWorkflowBlockFieldsDisplay(
-  block: JsonObject = {},
-): TxWorkflowFieldRow[] {
-  const blockValue = plainObject(block)
-    ? (block as TxWorkflowBlockFormModel)
-    : ({} as TxWorkflowBlockFormModel);
-  return TX_WORKFLOW_BLOCK_FIELD_DEFS.map((fieldDef) => ({
-    ...fieldDef,
-    enabled: true,
-    labelText: t(fieldDef.labelKey),
-    optionRows: TX_WORKFLOW_BLOCK_SOURCE_ROWS.map((optionValue) => ({
-      optionLabel:
-        optionValue === "template_ref"
-          ? t("txWorkflowBlockSourceTemplate")
-          : t("txWorkflowBlockSourceInline"),
-      optionValue,
-    })),
-    placeholderText: "",
-    showPresenceToggle: false,
-    valueText: stringValue(blockValue[fieldDef.fieldKey]),
-  }));
 }
 
 export function txWorkflowTemplateRefFieldsDisplay(
@@ -1034,13 +1001,11 @@ export function txWorkflowVisualEditorDisplay(
       return {
         block: blockValue,
         blockIndex,
-        fieldRows: txWorkflowBlockFieldsDisplay(blockValue),
         showInlineBlock: !isTemplateRef,
         showTemplateRef: isTemplateRef,
         titleText: `${t("txWorkflowFormBlock")} ${blockIndex + 1}`,
       };
     }),
-    blockSourceRows: TX_WORKFLOW_BLOCK_SOURCE_ROWS,
     booleanRows: TX_BLOCK_BOOLEAN_ROWS,
     jsonValueTypeRows: TX_BLOCK_JSON_VALUE_TYPE_ROWS,
     rootFieldRows: txWorkflowRootFieldsDisplay(

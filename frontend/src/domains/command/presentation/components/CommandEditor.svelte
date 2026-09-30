@@ -40,6 +40,7 @@
     <CommandTextAreaField
       {loading}
       value={command}
+      aria-label={commandLabel || t("txBlockFormCommand")}
       {readonly}
       {placeholderText}
       onValueInput={onCommandChange}

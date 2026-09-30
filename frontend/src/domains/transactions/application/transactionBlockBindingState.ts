@@ -13,8 +13,6 @@ import {
   txSetExtraStringFieldValue,
 } from "../model/transactionMetadataFields.js";
 import {
-  txBlockAddCommandPrompt,
-  txBlockAddCommandPromptPattern,
   txBlockAddFlowStep,
   txBlockAddStep,
   txBlockApplyChange,
@@ -25,26 +23,20 @@ import {
   txBlockChangeWholeResourceRollback,
   txBlockChangeWholeResourceTrigger,
   txBlockCommandDraft,
-  txBlockCommandPromptPatternsFromText,
   txBlockDuplicateFlowStep,
   txBlockDuplicateStep,
   txBlockMoveFlowStep,
   txBlockMoveStep,
   txBlockNumberFormValue,
   txBlockPatchCommand,
-  txBlockPatchCommandInteractionExtra,
   txBlockPatchFlow,
   txBlockPatchStep,
   txBlockPatchStepRollback,
   txBlockPatchStepRun,
   txBlockRemoveCommandDynParam,
-  txBlockRemoveCommandPrompt,
-  txBlockRemoveCommandPromptPattern,
   txBlockRemoveFlowStep,
   txBlockRemoveStep,
   txBlockRenameCommandDynParam,
-  txBlockSetCommandPromptFieldPresence,
-  txBlockSetCommandPromptPatternValue,
   txBlockSetCommandTimeoutPresence,
   txBlockSetCommandDynParamsPresence,
   txBlockSetFlowFieldPresence,
@@ -54,9 +46,7 @@ import {
   txBlockSetStepRollbackEnabled,
   txBlockSetWholeResourceTriggerPresence,
   txBlockUpdateCommandDynParam,
-  txBlockUpdateCommandPrompt,
   txBlockUpdateFlowStep,
-  txCommandPromptExtraSource,
 } from "../model/transactionBlockMutations.js";
 import type {
   JsonObject,
@@ -403,115 +393,6 @@ export function txBlockStepEditorBindings(
             : undefined,
         (value) => value,
       );
-    },
-  };
-}
-
-function txBlockCommandInteractionBindings(
-  command: TxCommandModel,
-  onChange: ChangeHandler<TxCommandModel>,
-) {
-  const applyCommandChange = <TArgs extends unknown[]>(
-    mutation: ModelMutation<TxCommandModel, TArgs>,
-  ) => txModelChangeHandler(command, onChange, mutation);
-  return {
-    addPrompt: applyCommandChange(txBlockAddCommandPrompt),
-    removePrompt: applyCommandChange(txBlockRemoveCommandPrompt),
-    setInteractionExtra: applyCommandChange(
-      txBlockPatchCommandInteractionExtra,
-    ),
-    setPromptExtra(promptIndex: number, extra: JsonObject): void {
-      applyCommandChange(txBlockUpdateCommandPrompt)(promptIndex, { extra });
-    },
-    setPromptFieldPresence: applyCommandChange(
-      txBlockSetCommandPromptFieldPresence,
-    ),
-    addPromptPattern: applyCommandChange(txBlockAddCommandPromptPattern),
-    removePromptPattern: applyCommandChange(txBlockRemoveCommandPromptPattern),
-    setPromptPatterns(promptIndex: number, patternText: string): void {
-      applyCommandChange(txBlockUpdateCommandPrompt)(promptIndex, {
-        patterns: txBlockCommandPromptPatternsFromText(patternText),
-      });
-    },
-    setPromptPatternValue: applyCommandChange(
-      txBlockSetCommandPromptPatternValue,
-    ),
-    setPromptRecordInput(promptIndex: number, value: string): void {
-      applyCommandChange(txBlockUpdateCommandPrompt)(promptIndex, {
-        recordInput: value === "true",
-        hasRecordInput: true,
-      });
-    },
-    setPromptResponse(promptIndex: number, response: string): void {
-      applyCommandChange(txBlockUpdateCommandPrompt)(promptIndex, { response });
-    },
-  };
-}
-
-export function txBlockCommandInteractionEditorBindings(
-  command: TxCommandModel,
-  onChange: ChangeHandler<TxCommandModel>,
-) {
-  const bindings = txBlockCommandInteractionBindings(command, onChange);
-  return {
-    addPrompt: bindings.addPrompt,
-    setInteractionExtra: bindings.setInteractionExtra,
-    promptActionHandlers(promptIndex: number) {
-      return {
-        deletePromptAction() {
-          return () => bindings.removePrompt(promptIndex);
-        },
-        addPatternAction() {
-          return () => bindings.addPromptPattern(promptIndex);
-        },
-        extraChangeHandler() {
-          return (extra: JsonObject) =>
-            bindings.setPromptExtra(promptIndex, extra);
-        },
-        fieldPresenceHandler(fieldKey: string) {
-          return (enabled: boolean) =>
-            bindings.setPromptFieldPresence(promptIndex, fieldKey, enabled);
-        },
-        metadataPresenceHandler(fieldKey: string) {
-          return (enabled: boolean) => {
-            bindings.setPromptExtra(
-              promptIndex,
-              txSetExtraStringFieldPresence(
-                txCommandPromptExtraSource(command, promptIndex),
-                fieldKey,
-                enabled,
-              ),
-            );
-          };
-        },
-        metadataValueHandler(fieldKey: string) {
-          return (value: PresenceFieldValueInput) => {
-            bindings.setPromptExtra(
-              promptIndex,
-              txSetExtraStringFieldValue(
-                txCommandPromptExtraSource(command, promptIndex),
-                fieldKey,
-                stringValue(value),
-              ),
-            );
-          };
-        },
-        recordValueHandler() {
-          return (value: PresenceFieldValueInput) =>
-            bindings.setPromptRecordInput(promptIndex, stringValue(value));
-        },
-        patternValueHandler(patternIndex: number, value: string): void {
-          bindings.setPromptPatternValue(promptIndex, patternIndex, value);
-        },
-        removePatternAction(patternIndex: number): void {
-          bindings.removePromptPattern(promptIndex, patternIndex);
-        },
-        textValueHandler(fieldKey: string) {
-          return fieldKey === "patterns"
-            ? (value: string) => bindings.setPromptPatterns(promptIndex, value)
-            : (value: string) => bindings.setPromptResponse(promptIndex, value);
-        },
-      };
     },
   };
 }

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import FlowInsertNode from "$components/fragments/FlowInsertNode.svelte";
+  import type { ComponentProps } from "svelte";
   import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
@@ -7,9 +9,9 @@
   import EyeIcon from "@lucide/svelte/icons/eye";
   import GripVerticalIcon from "@lucide/svelte/icons/grip-vertical";
   import PanelRightCloseIcon from "@lucide/svelte/icons/panel-right-close";
-  import PanelRightOpenIcon from "@lucide/svelte/icons/panel-right-open";
-  import PanelTopCloseIcon from "@lucide/svelte/icons/panel-top-close";
-  import PanelTopOpenIcon from "@lucide/svelte/icons/panel-top-open";
+  import SlidersHorizontalIcon from "@lucide/svelte/icons/sliders-horizontal";
+  import LayersIcon from "@lucide/svelte/icons/layers";
+  import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import {
@@ -17,12 +19,14 @@
     BackgroundVariant,
     Controls,
     MarkerType,
-    Panel,
     SvelteFlow,
   } from "@xyflow/svelte";
   import type { Edge, Node } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
-  import { onDestroy, onMount } from "svelte";
+  import { getContext, onDestroy, onMount } from "svelte";
+  import { MediaQuery } from "svelte/reactivity";
+  import { fly } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
@@ -30,7 +34,9 @@
   import { currentLanguageState, t } from "$lib/i18n.js";
   import { classNames } from "$lib/ui.js";
   import { txBlockTimelineDisplay } from "$domains/transactions/index.js";
-  import { txBlockFormModelToJsonText } from "$domains/transactions/index.js";
+  import { createTransactionBlockTemplateRegistry } from "$domains/transactions/index.js";
+  import { browserConfirm } from "$lib/browser.js";
+  import { readonlyFieldsContextKey } from "$lib/svelte.js";
   import { createTxWorkflowVisualEditorWorkspace } from "$domains/transactions/index.js";
   import TxWorkflowBlockEditor from "$domains/transactions/presentation/components/workflow/TxWorkflowBlockEditor.svelte";
   import TxWorkflowFlowNode from "$domains/transactions/presentation/components/workflow/TxWorkflowFlowNode.svelte";
@@ -40,11 +46,16 @@
     TxWorkflowBlockRow,
     TxWorkflowFlowNodeData,
     TxWorkflowFormModel,
-    JsonObject,
   } from "$domains/transactions/index.js";
 
   type TxWorkflowEditorView = "json" | "readonly";
-  type TxWorkflowGraphNode = Node<TxWorkflowFlowNodeData, "workflowNode">;
+  type TxWorkflowBlockNode = Node<TxWorkflowFlowNodeData, "workflowNode">;
+  type TxWorkflowAppendNode = Node<
+    ComponentProps<typeof FlowInsertNode>["data"] & { kind: "append" },
+    "workflowAppend"
+  >;
+  type TxWorkflowGraphNode = TxWorkflowBlockNode | TxWorkflowAppendNode;
+  const appendNodeId = "workflow-append";
   type TxWorkflowGraphEdge = Edge<Record<string, never>, "smoothstep">;
   type TxWorkflowSelection =
     { blockIndex: number; kind: "block" } | { blockIndex: null; kind: "none" };
@@ -56,7 +67,6 @@
     onChange?: ((model: TxWorkflowFormModel) => void) | null;
     onOpenView?: (view: TxWorkflowEditorView) => void;
     settingsOnly?: boolean;
-    onSaveBlockTemplate?: (block: JsonObject) => void | Promise<void>;
   }
 
   let {
@@ -66,12 +76,31 @@
     onOpenView,
     embedded = false,
     settingsOnly = false,
-    onSaveBlockTemplate,
   }: Props = $props();
+
+  const inheritedReadonly = getContext<(() => boolean) | undefined>(
+    readonlyFieldsContextKey,
+  );
+  const blockTemplates = createTransactionBlockTemplateRegistry({
+    getModel: () => model,
+    onChange: (next) => onChange?.(next),
+    canModify: () => !readonly && !inheritedReadonly?.(),
+    templateOptions: {
+      confirmReplace: () =>
+        browserConfirm(t("orchestrationDiscardChangesConfirm")),
+    },
+  });
+  $effect(() => {
+    blockTemplates.sync(model);
+  });
+  onDestroy(blockTemplates.destroy);
 
   const txWorkflowVisualEditorWorkspace =
     createTxWorkflowVisualEditorWorkspace();
-  const nodeTypes = { workflowNode: TxWorkflowFlowNode };
+  const nodeTypes = {
+    workflowNode: TxWorkflowFlowNode,
+    workflowAppend: FlowInsertNode,
+  };
   const {
     blockRowsStateStore,
     editorDisplayStateStore,
@@ -89,8 +118,17 @@
     kind: "block",
     blockIndex: 0,
   });
-  let settingsCollapsed = $state(false);
-  let inspectorCollapsed = $state(false);
+  const panelId = $props.id();
+  const reducedMotion = new MediaQuery("(prefers-reduced-motion: reduce)");
+  let settingsCollapsed = $state(true);
+  let inspectorCollapsed = $state(true);
+  let toolbarHeight = $state(44);
+  let panelToggles = $state<
+    Record<
+      "settings" | "inspector",
+      HTMLButtonElement | HTMLAnchorElement | null
+    >
+  >({ settings: null, inspector: null });
   let inspectorWidth = $state(560);
   let compactViewport = $state(
     typeof window !== "undefined" &&
@@ -109,7 +147,7 @@
   let selectedNodeId = $derived(
     selectedTarget.kind === "block"
       ? `workflow-block-${selectedTarget.blockIndex}`
-      : "",
+      : appendNodeId,
   );
   let canvasBlockCountText = $derived.by(() => {
     currentLanguage;
@@ -132,7 +170,7 @@
   });
   let graphNodes = $derived.by<TxWorkflowGraphNode[]>(() => {
     currentLanguage;
-    const blockNodes = blockRows.map((blockRow): TxWorkflowGraphNode => {
+    const blockNodes = blockRows.map((blockRow): TxWorkflowBlockNode => {
       const titleText = blockName(blockRow);
       const metaText = blockMeta(blockRow);
       const timelineRows = blockRow.showInlineBlock
@@ -154,7 +192,7 @@
           sequenceText: String(blockRow.blockIndex + 1),
           isTemplate: blockRow.showTemplateRef,
           hasTarget: blockRow.blockIndex > 0,
-          hasSource: blockRow.blockIndex < blockRows.length - 1,
+          hasSource: true,
           vertical: compactCanvas,
           commandRows: timelineRows.slice(0, 4),
           emptyCommandText: blockRow.showTemplateRef
@@ -191,14 +229,47 @@
         ariaLabel: `${blockRow.blockIndex + 1}. ${titleText}. ${metaText}`,
       };
     });
-    return blockNodes;
+    const lastBlock = blockNodes.at(-1);
+    return [
+      ...blockNodes,
+      {
+        id: appendNodeId,
+        type: "workflowAppend",
+        position: lastBlock
+          ? compactCanvas
+            ? { x: lastBlock.position.x + 138, y: lastBlock.position.y + 250 }
+            : { x: lastBlock.position.x + 368, y: lastBlock.position.y + 58 }
+          : compactCanvas
+            ? { x: 138, y: 340 }
+            : { x: 238, y: 300 },
+        width: 44,
+        height: 44,
+        data: {
+          kind: "append",
+          afterNodeId: lastBlock?.id,
+          readonly,
+          hasSource: false,
+          hasTarget: !!lastBlock,
+          vertical: compactCanvas,
+          labelText: t("txWorkflowFormAddBlock"),
+          onInsert: addBlock,
+        },
+        draggable: false,
+        deletable: false,
+        connectable: false,
+        selectable: false,
+        focusable: false,
+      },
+    ];
   });
   let graphEdges = $derived.by<TxWorkflowGraphEdge[]>(() => {
-    if (blockRows.length < 2) return [];
-    return blockRows.slice(1).map((blockRow) => ({
-      id: `workflow-edge-${blockRow.blockIndex}`,
-      source: `workflow-block-${blockRow.blockIndex - 1}`,
-      target: `workflow-block-${blockRow.blockIndex}`,
+    return blockRows.map((blockRow, index) => ({
+      id: `workflow-edge-${index + 1}`,
+      source: `workflow-block-${blockRow.blockIndex}`,
+      target:
+        index === blockRows.length - 1
+          ? appendNodeId
+          : `workflow-block-${blockRows[index + 1].blockIndex}`,
       type: "smoothstep",
       selectable: false,
       focusable: false,
@@ -251,6 +322,7 @@
   }
 
   function addBlock(): void {
+    if (readonly) return;
     const nextIndex = blockRows.length;
     workflowActionHandlers.appendBlock();
     selectBlock(nextIndex);
@@ -371,6 +443,71 @@
   });
 </script>
 
+{#snippet panelToggle(kind: "settings" | "inspector")}
+  {@const isSettings = kind === "settings"}
+  {@const collapsed = isSettings ? settingsCollapsed : inspectorCollapsed}
+  {@const Icon = isSettings ? SlidersHorizontalIcon : LayersIcon}
+  {@const label = isSettings
+    ? t(collapsed ? "txWorkflowSettingsExpand" : "txWorkflowSettingsCollapse")
+    : t(
+        collapsed ? "txWorkflowInspectorExpand" : "txWorkflowInspectorCollapse",
+      )}
+  <Button
+    bind:ref={panelToggles[kind]}
+    variant="ghost"
+    type="button"
+    aria-label={label}
+    aria-expanded={!collapsed}
+    aria-controls={`${panelId}-${kind}`}
+    title={label}
+    class={classNames(
+      "pointer-events-auto group h-11 min-w-0 shrink gap-2 rounded-xl border px-2.5 shadow-sm backdrop-blur-xl transition-all duration-200 motion-reduce:transition-none sm:gap-3 sm:pr-3",
+      collapsed
+        ? "border-border/80 bg-background/95 hover:border-primary/30 hover:bg-background"
+        : "border-primary/25 bg-background text-primary ring-2 ring-primary/5 hover:bg-background aria-expanded:bg-background aria-expanded:text-primary",
+    )}
+    onclick={() => {
+      if (isSettings) settingsCollapsed ? expandSettings() : collapseSettings();
+      else inspectorCollapsed ? openInspector() : collapseInspector();
+    }}
+  >
+    <span
+      class={classNames(
+        "flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors motion-reduce:transition-none",
+        collapsed
+          ? "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+          : "bg-primary/10 text-primary",
+      )}
+    >
+      <Icon class="size-3.5" />
+    </span>
+    <span class="truncate text-xs font-medium"
+      >{t(
+        isSettings ? "txWorkflowSettingsTitle" : "txWorkflowInspectorTitle",
+      )}</span
+    >
+    <ChevronDownIcon
+      class={classNames(
+        "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none",
+        !collapsed && "rotate-180 text-primary",
+      )}
+    />
+  </Button>
+{/snippet}
+
+{#snippet addBlockAction()}
+  <Button
+    disabled={readonly}
+    variant="outline"
+    size="sm"
+    type="button"
+    onclick={addBlock}
+  >
+    <PlusIcon data-icon="inline-start" />
+    {t("txWorkflowFormAddBlock")}
+  </Button>
+{/snippet}
+
 {#if embedded}
   <div data-testid="tx-workflow-embedded-editor" class="grid min-w-0 gap-4">
     <section
@@ -390,16 +527,7 @@
         <div class="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{canvasBlockCountText}</Badge>
           {#if settingsOnly}
-            <Button
-              disabled={readonly}
-              variant="outline"
-              size="sm"
-              type="button"
-              onclick={addBlock}
-            >
-              <PlusIcon data-icon="inline-start" />
-              {t("txWorkflowFormAddBlock")}
-            </Button>
+            {@render addBlockAction()}
           {/if}
         </div>
       </header>
@@ -432,16 +560,7 @@
               {canvasBlockCountText}
             </p>
           </div>
-          <Button
-            disabled={readonly}
-            variant="outline"
-            size="sm"
-            type="button"
-            onclick={addBlock}
-          >
-            <PlusIcon data-icon="inline-start" />
-            {t("txWorkflowFormAddBlock")}
-          </Button>
+          {@render addBlockAction()}
         </header>
 
         {#if blockRows.length}
@@ -552,22 +671,13 @@
             <TxWorkflowBlockEditor
               blockRow={selectedBlockRow}
               {editorDisplay}
-              embedded={true}
               blockActionHandlers={workflowActionHandlers.blockBindings(
                 selectedBlockRow.blockIndex,
               )}
               showRemoveAction={false}
-              onSaveAsTemplate={selectedBlockRow.showInlineBlock &&
-              onSaveBlockTemplate
-                ? () =>
-                    onSaveBlockTemplate(
-                      JSON.parse(
-                        txBlockFormModelToJsonText(
-                          selectedBlockRow.block.inlineBlock,
-                        ),
-                      ) as JsonObject,
-                    )
-                : undefined}
+              templateWorkspace={blockTemplates.getWorkspace(
+                selectedBlockRow.block,
+              )}
             />
           </ReadonlyFields>
         {/if}
@@ -620,79 +730,12 @@
           <TxWorkflowFlowViewportController
             compact={compactCanvas}
             focusNodeId={selectedNodeId}
+            endNodeId={selectedTarget.blockIndex === blockRows.length - 1
+              ? appendNodeId
+              : ""}
             inspectorOpen={!inspectorCollapsed}
             {inspectorWidth}
           />
-
-          <Panel
-            position="top-left"
-            class={settingsCollapsed ? "m-3" : "m-3 w-[calc(100%-1.5rem)]"}
-          >
-            {#if settingsCollapsed}
-              <Button
-                class="pointer-events-auto shadow-lg"
-                variant="secondary"
-                size="sm"
-                type="button"
-                aria-label={t("txWorkflowSettingsExpand")}
-                title={t("txWorkflowSettingsExpand")}
-                onclick={expandSettings}
-              >
-                <PanelTopOpenIcon data-icon="inline-start" />
-                {t("txWorkflowSettingsTitle")}
-              </Button>
-            {:else}
-              <div
-                class="pointer-events-auto grid min-w-0 gap-3 rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur"
-              >
-                <div
-                  class="flex min-w-0 flex-wrap items-center justify-between gap-2"
-                >
-                  <div class="min-w-0">
-                    <div class="truncate text-sm font-semibold text-foreground">
-                      {t("txWorkflowSettingsTitle")}
-                    </div>
-                    <div class="text-xs text-muted-foreground">
-                      {t("txWorkflowCanvasSettingsHint")}
-                    </div>
-                  </div>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">{canvasBlockCountText}</Badge>
-                    <Button
-                      disabled={readonly}
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      onclick={addBlock}
-                    >
-                      <PlusIcon data-icon="inline-start" />
-                      {t("txWorkflowFormAddBlock")}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      type="button"
-                      title={t("txWorkflowSettingsCollapse")}
-                      aria-label={t("txWorkflowSettingsCollapse")}
-                      onclick={collapseSettings}
-                    >
-                      <PanelTopCloseIcon />
-                    </Button>
-                  </div>
-                </div>
-                <ReadonlyFields disabled={readonly} class="min-w-0">
-                  <PresenceFieldGrid
-                    fieldRows={workflowRootFieldRows}
-                    valueHandlerMode="event"
-                    hostClass="grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_minmax(10rem,12rem)]"
-                    presenceControlsMode="hidden"
-                    onValueChangeForKey={workflowActionHandlers.valueHandler}
-                    onPresenceChangeForKey={workflowActionHandlers.presenceToggle}
-                  />
-                </ReadonlyFields>
-              </div>
-            {/if}
-          </Panel>
 
           <Controls
             position="bottom-left"
@@ -710,7 +753,7 @@
       <div
         role="group"
         aria-label={t("txWorkflowCanvasViewToolbar")}
-        class="flex shrink-0 items-center justify-center gap-2 border-t border-border bg-background/95 p-2 backdrop-blur"
+        class="flex shrink-0 flex-wrap items-center justify-center gap-2 border-t border-border bg-background/95 p-2 backdrop-blur"
       >
         <Button
           variant="outline"
@@ -733,124 +776,183 @@
       </div>
     </div>
 
-    {#if inspectorCollapsed}
-      <Button
-        class={classNames(
-          "absolute right-4 z-20 shadow-lg",
-          settingsCollapsed ? "top-4" : "top-[10.5rem]",
-        )}
-        variant="secondary"
-        size="sm"
-        type="button"
-        aria-label={t("txWorkflowInspectorExpand")}
-        title={t("txWorkflowInspectorExpand")}
-        onclick={openInspector}
-      >
-        <PanelRightOpenIcon data-icon="inline-start" />
-        {t("txWorkflowInspectorExpand")}
-      </Button>
-    {:else}
+    <div
+      bind:offsetHeight={toolbarHeight}
+      class="pointer-events-none absolute inset-x-3 top-3 z-20 grid gap-3"
+    >
+      <div class="flex min-w-0 items-center justify-between gap-2">
+        {@render panelToggle("settings")}
+        {@render panelToggle("inspector")}
+      </div>
+      {#if !settingsCollapsed}
+        <section
+          id={`${panelId}-settings`}
+          aria-label={t("txWorkflowSettingsTitle")}
+          class="canvas-window pointer-events-auto overflow-hidden rounded-2xl border border-border/80 bg-background/95 shadow-lg backdrop-blur-xl"
+          transition:fly={{
+            y: -8,
+            duration: reducedMotion.current ? 0 : 180,
+            easing: cubicOut,
+          }}
+        >
+          <div
+            class="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-4 py-3"
+          >
+            <p class="text-xs leading-relaxed text-muted-foreground">
+              {t("txWorkflowCanvasSettingsHint")}
+            </p>
+            <Badge variant="secondary" class="shrink-0 font-normal tabular-nums"
+              >{canvasBlockCountText}</Badge
+            >
+          </div>
+          <ReadonlyFields disabled={readonly} class="min-w-0 p-4">
+            <PresenceFieldGrid
+              fieldRows={workflowRootFieldRows}
+              valueHandlerMode="event"
+              hostClass="grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_minmax(10rem,12rem)]"
+              presenceControlsMode="hidden"
+              onValueChangeForKey={workflowActionHandlers.valueHandler}
+              onPresenceChangeForKey={workflowActionHandlers.presenceToggle}
+            />
+          </ReadonlyFields>
+        </section>
+      {/if}
+    </div>
+
+    {#if !inspectorCollapsed}
       <aside
-        class={classNames(
-          "tx-workflow-inspector mt-3 min-w-0 overflow-hidden rounded-2xl border border-border bg-background/95 shadow-2xl backdrop-blur lg:absolute lg:bottom-[4.75rem] lg:right-4 lg:z-20 lg:mt-0 lg:flex lg:flex-col",
-          settingsCollapsed ? "lg:top-4" : "lg:top-[10.5rem]",
-        )}
-        style={`--inspector-width: ${inspectorWidth}px`}
+        id={`${panelId}-inspector`}
+        class="canvas-window tx-workflow-inspector relative mt-3 min-w-0 rounded-2xl border border-border/80 bg-background/95 shadow-xl backdrop-blur-xl lg:absolute lg:bottom-[4.75rem] lg:right-3 lg:z-20 lg:mt-0 lg:flex lg:flex-col"
+        style={`--inspector-width: ${inspectorWidth}px; --inspector-top: ${toolbarHeight + 24}px`}
         aria-label={inspectorTitle}
+        transition:fly={{
+          x: compactCanvas ? 0 : 12,
+          y: compactCanvas ? 8 : 0,
+          duration: reducedMotion.current ? 0 : 200,
+          easing: cubicOut,
+        }}
       >
         <button
           type="button"
-          class="absolute -left-3 bottom-0 top-0 hidden w-6 touch-none cursor-col-resize items-center justify-center text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex"
+          class="group absolute -left-3 bottom-0 top-0 hidden w-6 touch-none cursor-col-resize items-center justify-center text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none lg:flex"
           aria-label={t("txWorkflowInspectorResize")}
           title={t("txWorkflowInspectorResize")}
           onpointerdown={startInspectorResize}
           onkeydown={resizeInspectorWithKeyboard}
         >
-          <GripVerticalIcon />
+          <span
+            class="flex h-10 w-3 items-center justify-center rounded-full border border-border bg-background shadow-sm transition-colors group-hover:border-primary/40 group-focus-visible:ring-2 group-focus-visible:ring-ring motion-reduce:transition-none"
+          >
+            <GripVerticalIcon class="size-3" />
+          </span>
         </button>
 
-        <header class="border-b border-border bg-muted/20 p-3 sm:p-4">
-          <div class="flex min-w-0 items-start justify-between gap-3">
-            <div class="min-w-0">
-              <div class="truncate text-sm font-semibold text-foreground">
-                {inspectorTitle}
-              </div>
-              <div class="mt-0.5 truncate text-xs text-muted-foreground">
-                {inspectorHint}
+        <header
+          class="rounded-t-2xl border-b border-border/60 bg-muted/20 p-3 sm:p-4"
+        >
+          <div
+            class="flex min-w-0 flex-wrap items-center justify-between gap-3"
+          >
+            <div class="flex min-w-0 flex-1 items-center gap-3">
+              <span
+                class="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 font-mono text-xs font-medium tabular-nums text-primary"
+              >
+                {#if selectedBlockRow}
+                  {String(selectedBlockRow.blockIndex + 1).padStart(2, "0")}
+                {:else}
+                  <LayersIcon class="size-4" />
+                {/if}
+              </span>
+              <div class="min-w-0">
+                <div class="truncate text-sm font-semibold text-foreground">
+                  {inspectorTitle}
+                </div>
+                {#if selectedBlockRow}
+                  <div class="mt-0.5 truncate text-xs text-muted-foreground">
+                    {inspectorHint}
+                  </div>
+                {/if}
               </div>
             </div>
-            <div class="flex shrink-0 items-center gap-1">
-              {#if selectedBlockRow}
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  type="button"
-                  title={t("txWorkflowMoveBlockLeft")}
-                  aria-label={t("txWorkflowMoveBlockLeft")}
-                  disabled={readonly || selectedBlockRow.blockIndex === 0}
-                  onclick={() =>
-                    moveBlock(
-                      selectedBlockRow.blockIndex,
-                      selectedBlockRow.blockIndex - 1,
-                    )}
-                >
-                  <ArrowLeftIcon />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  type="button"
-                  title={t("txWorkflowMoveBlockRight")}
-                  aria-label={t("txWorkflowMoveBlockRight")}
-                  disabled={readonly ||
-                    selectedBlockRow.blockIndex === blockRows.length - 1}
-                  onclick={() =>
-                    moveBlock(
-                      selectedBlockRow.blockIndex,
-                      selectedBlockRow.blockIndex + 1,
-                    )}
-                >
-                  <ArrowRightIcon />
-                </Button>
-                <Button
-                  disabled={readonly}
-                  variant="ghost"
-                  size="icon-sm"
-                  type="button"
-                  title={t("txWorkflowDuplicateBlock")}
-                  aria-label={t("txWorkflowDuplicateBlock")}
-                  onclick={() => duplicateBlock(selectedBlockRow.blockIndex)}
-                >
-                  <CopyIcon />
-                </Button>
-                <Button
-                  disabled={readonly}
-                  variant="ghost"
-                  size="icon-sm"
-                  type="button"
-                  class="text-destructive hover:text-destructive"
-                  title={t("txWorkflowDeleteBlock")}
-                  aria-label={t("txWorkflowDeleteBlock")}
-                  onclick={() => removeBlock(selectedBlockRow.blockIndex)}
-                >
-                  <Trash2Icon />
-                </Button>
-              {/if}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              type="button"
+              title={t("txWorkflowInspectorCollapse")}
+              aria-label={t("txWorkflowInspectorCollapse")}
+              onclick={() => {
+                collapseInspector();
+                panelToggles.inspector?.focus();
+              }}
+            >
+              <PanelRightCloseIcon />
+            </Button>
+          </div>
+          {#if selectedBlockRow}
+            <div
+              class="mt-3 flex items-center gap-1 border-t border-border/60 pt-2"
+            >
               <Button
                 variant="ghost"
                 size="icon-sm"
                 type="button"
-                title={t("txWorkflowInspectorCollapse")}
-                aria-label={t("txWorkflowInspectorCollapse")}
-                onclick={collapseInspector}
+                title={t("txWorkflowMoveBlockLeft")}
+                aria-label={t("txWorkflowMoveBlockLeft")}
+                disabled={readonly || selectedBlockRow.blockIndex === 0}
+                onclick={() =>
+                  moveBlock(
+                    selectedBlockRow.blockIndex,
+                    selectedBlockRow.blockIndex - 1,
+                  )}
               >
-                <PanelRightCloseIcon />
+                <ArrowLeftIcon />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                type="button"
+                title={t("txWorkflowMoveBlockRight")}
+                aria-label={t("txWorkflowMoveBlockRight")}
+                disabled={readonly ||
+                  selectedBlockRow.blockIndex === blockRows.length - 1}
+                onclick={() =>
+                  moveBlock(
+                    selectedBlockRow.blockIndex,
+                    selectedBlockRow.blockIndex + 1,
+                  )}
+              >
+                <ArrowRightIcon />
+              </Button>
+              <Button
+                disabled={readonly}
+                variant="ghost"
+                size="icon-sm"
+                type="button"
+                title={t("txWorkflowDuplicateBlock")}
+                aria-label={t("txWorkflowDuplicateBlock")}
+                onclick={() => duplicateBlock(selectedBlockRow.blockIndex)}
+              >
+                <CopyIcon />
+              </Button>
+              <Button
+                disabled={readonly}
+                variant="ghost"
+                size="icon-sm"
+                type="button"
+                class="text-destructive hover:text-destructive"
+                title={t("txWorkflowDeleteBlock")}
+                aria-label={t("txWorkflowDeleteBlock")}
+                onclick={() => removeBlock(selectedBlockRow.blockIndex)}
+              >
+                <Trash2Icon />
               </Button>
             </div>
-          </div>
+          {/if}
         </header>
 
-        <div class="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+        <div
+          class="min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-b-2xl p-3 sm:p-4"
+        >
           {#key currentLanguage}
             {#if selectedBlockRow}
               <ReadonlyFields disabled={readonly} scopeOnly class="min-w-0">
@@ -861,31 +963,25 @@
                     selectedBlockRow.blockIndex,
                   )}
                   showRemoveAction={false}
-                  onSaveAsTemplate={selectedBlockRow.showInlineBlock &&
-                  onSaveBlockTemplate
-                    ? () =>
-                        onSaveBlockTemplate(
-                          JSON.parse(
-                            txBlockFormModelToJsonText(
-                              selectedBlockRow.block.inlineBlock,
-                            ),
-                          ) as JsonObject,
-                        )
-                    : undefined}
+                  templateWorkspace={blockTemplates.getWorkspace(
+                    selectedBlockRow.block,
+                  )}
                 />
               </ReadonlyFields>
             {:else}
-              <div class="grid gap-3">
-                <StatusCard message={t("txWorkflowInspectorNoSelectionHint")} />
-                <Button
-                  disabled={readonly}
-                  variant="outline"
-                  type="button"
-                  onclick={addBlock}
+              <div
+                class="flex min-h-48 flex-col items-center justify-center gap-4 px-4 py-8 text-center"
+              >
+                <div
+                  class="flex size-12 items-center justify-center rounded-2xl border border-dashed border-primary/25 bg-primary/5 text-primary/70"
                 >
-                  <PlusIcon data-icon="inline-start" />
-                  {t("txWorkflowFormAddBlock")}
-                </Button>
+                  <LayersIcon class="size-5" />
+                </div>
+                <p
+                  class="max-w-60 text-xs leading-relaxed text-muted-foreground"
+                >
+                  {t("txWorkflowInspectorNoSelectionHint")}
+                </p>
               </div>
             {/if}
           {/key}
@@ -900,9 +996,22 @@
     width: 100%;
   }
 
+  .canvas-window {
+    box-shadow:
+      0 8px 32px -12px color-mix(in oklch, var(--foreground) 16%, transparent),
+      0 2px 6px -2px color-mix(in oklch, var(--foreground) 6%, transparent);
+  }
+
   @media (min-width: 64rem) {
     .tx-workflow-inspector {
-      width: min(var(--inspector-width), calc(100% - 2rem));
+      top: var(--inspector-top);
+      width: min(var(--inspector-width), calc(100% - 1.5rem));
+      transition: top 180ms ease;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tx-workflow-inspector {
+      transition: none;
     }
   }
 </style>

@@ -152,7 +152,7 @@
               ? "commandTemplateRendering"
               : "commandTemplateReadonly",
           )
-        : t("commandPlaceholder")}
+        : ""}
       onCommandChange={workspace.changeContent}
       onMultilineModeChange={workspace.changeMultilineMode}
     >

@@ -9,6 +9,7 @@ const CODEMIRROR_MODULE_PATTERN =
   /[\\/]node_modules[\\/](?:@codemirror|@lezer|codemirror|svelte-codemirror-editor)[\\/]/;
 const LAZY_ONLY_MODULE_PATTERNS = [
   CODEMIRROR_MODULE_PATTERN,
+  /[\\/]FlowInsertNode\.svelte(?:\?|$)/,
   /[\\/]domains[\\/]command[\\/]presentation[\\/]components[\\/]/,
   /[\\/]domains[\\/]orchestration[\\/]presentation[\\/]components[\\/]/,
   /[\\/]domains[\\/]transactions[\\/]presentation[\\/]components[\\/]/,

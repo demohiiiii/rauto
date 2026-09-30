@@ -29,7 +29,6 @@ import {
 import {
   txBlockCommandEditorBindings,
   txBlockCommandDynParamsEditorBindings,
-  txBlockCommandInteractionEditorBindings,
   txBlockFlowEditorBindings,
   txBlockOperationBindings,
   txBlockStepEditorBindings,
@@ -51,7 +50,6 @@ import {
   TX_BLOCK_JSON_VALUE_TYPE_ROWS,
   TX_BLOCK_OPERATION_KIND_ROWS,
   TX_BLOCK_ROLLBACK_KIND_ROWS,
-  txBlockCommandInteractionDisplay,
   txBlockCommandDynParamsDisplay,
   txBlockCommandEditorDisplay,
   txBlockFlowFieldsDisplay,
@@ -178,9 +176,8 @@ export function createTxBlockVisualEditorWorkspace({
     currentModel: TxBlockFormModel,
   ): TxVisualSelection {
     const steps = modelSteps(currentModel);
-    if (selection?.kind !== "step" || steps.length === 0) {
-      return rootSelection();
-    }
+    if (steps.length === 0) return rootSelection();
+    if (selection?.kind !== "step") return stepSelection(0);
     const stepIndex = Number.isInteger(selection.stepIndex)
       ? Math.min(Math.max(selection.stepIndex, 0), steps.length - 1)
       : 0;
@@ -758,31 +755,6 @@ function createTxBlockCommandChildWorkspace<TBindings, TDisplay>({
       commandDisplayStateStore.set(nextCommandDisplay);
       onChangeStateStore.set(nextOnChange);
     },
-  };
-}
-
-export function createTxBlockCommandInteractionEditorWorkspace(
-  options: TxBlockCommandChildOptions = {},
-) {
-  const workspace = createTxBlockCommandChildWorkspace<
-    ReturnType<typeof txBlockCommandInteractionEditorBindings>,
-    ReturnType<typeof txBlockCommandInteractionDisplay>
-  >({
-    ...options,
-    bindings: txBlockCommandInteractionEditorBindings,
-    display: (command, commandDisplay) => {
-      const interactionDisplay = commandDisplay.interactionDisplay;
-      return plainObject(interactionDisplay)
-        ? (interactionDisplay as ReturnType<
-            typeof txBlockCommandInteractionDisplay
-          >)
-        : txBlockCommandInteractionDisplay(command, TX_BLOCK_BOOLEAN_ROWS);
-    },
-  });
-  return {
-    interactionActionHandlersStateStore: workspace.actionHandlersStateStore,
-    interactionDisplayStateStore: workspace.displayStateStore,
-    setInteractionEditorContext: workspace.setContext,
   };
 }
 

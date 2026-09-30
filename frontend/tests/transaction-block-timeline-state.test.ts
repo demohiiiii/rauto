@@ -225,11 +225,11 @@ test("timeline rows expose localized operation summaries and movement flags", as
       },
     ],
   );
-  assert.equal(display.stepRows[0].titleText, "Step 1");
+  assert.equal(display.stepRows[0].titleText, "show interfaces");
   assert.equal(display.stepRows[0].kindText, "Command");
   assert.equal(display.stepRows[0].summaryText, "show interfaces");
-  assert.match(display.stepRows[1].summaryText, /Command sequence steps/);
-  assert.match(display.stepRows[1].summaryText, /2/);
+  assert.equal(display.stepRows[1].kindText, "Interactive command");
+  assert.equal(display.stepRows[1].summaryText, "show version");
   assert.equal(display.stepRows[2].summaryText, "Empty command");
 });
 
@@ -378,7 +378,8 @@ test("timeline selection and localized displays react to language changes", asyn
   );
 
   const englishTimeline = get(workspace.timelineDisplayStateStore).stepRows;
-  assert.match(englishTimeline[0].summaryText, /Command sequence steps/);
+  assert.equal(englishTimeline[0].kindText, "Interactive command");
+  assert.equal(englishTimeline[0].summaryText, "show version");
   assert.equal(englishTimeline[1].summaryText, "Empty command");
 
   const english = get(workspace.editorSummaryStateStore).cellRows;
@@ -393,7 +394,8 @@ test("timeline selection and localized displays react to language changes", asyn
 
   await loadI18nLanguage("zh");
   const chineseTimeline = get(workspace.timelineDisplayStateStore).stepRows;
-  assert.match(chineseTimeline[0].summaryText, /命令序列步骤/);
+  assert.equal(chineseTimeline[0].kindText, "交互式命令");
+  assert.equal(chineseTimeline[0].summaryText, "show version");
   assert.equal(chineseTimeline[1].summaryText, "空命令");
 
   const chinese = get(workspace.editorSummaryStateStore).cellRows;
@@ -408,19 +410,30 @@ test("timeline selection and localized displays react to language changes", asyn
   setCurrentLanguage("en");
 });
 
-test("flow step titles publish language changes to active subscribers", async () => {
+test("interactive step kinds publish language changes to active subscribers", async () => {
   await loadI18nLanguage("zh");
   const workspace = createTxBlockVisualEditorWorkspace({
     model: model([step("flow")]),
   });
   const timelineUpdates: Array<string | undefined> = [];
   const unsubscribe = workspace.timelineDisplayStateStore.subscribe((display) =>
-    timelineUpdates.push(display.stepRows[0]?.titleText),
+    timelineUpdates.push(display.stepRows[0]?.kindText),
   );
 
-  assert.equal(timelineUpdates.at(-1), "步骤 1");
+  assert.equal(timelineUpdates.at(-1), "交互式命令");
   await loadI18nLanguage("en");
-  assert.equal(timelineUpdates.at(-1), "Step 1");
+  assert.equal(timelineUpdates.at(-1), "Interactive command");
   unsubscribe();
   setCurrentLanguage("en");
+});
+
+test("loading steps into an empty editor selects the first step independently of block settings", () => {
+  const workspace = createTxBlockVisualEditorWorkspace({ model: model([]) });
+  workspace.setVisualEditorContext({
+    model: model([step("command", "show version")]),
+  });
+  assert.deepEqual(get(workspace.selectedTargetStateStore), {
+    kind: "step",
+    stepIndex: 0,
+  });
 });

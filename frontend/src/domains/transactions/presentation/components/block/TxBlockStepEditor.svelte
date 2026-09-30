@@ -29,13 +29,11 @@
     rollbackCommandMetadataFieldDefs?: readonly TxMetadataFieldDefinition[];
     runCommandMetadataFieldDefs?: readonly TxMetadataFieldDefinition[];
     step: TxStepFormModel;
-    titleText: string;
     validationErrors?: readonly TxValidationError[];
   }
 
   let {
     step,
-    titleText,
     editorDisplay,
     runCommandMetadataFieldDefs = [],
     rollbackCommandMetadataFieldDefs = [],
@@ -67,17 +65,8 @@
   });
 </script>
 
-<Card.Content class="min-w-0 px-0">
-  <header class="px-4 pb-4 sm:px-6">
-    <h2 class="text-base font-semibold text-foreground">{titleText}</h2>
-    <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
-      {t("txBlockInspectorStepHint")}
-    </p>
-  </header>
-
-  <Separator />
-
-  <div class="grid min-w-0 gap-5 px-4 pt-5 sm:px-6">
+<Card.Content class="min-w-0 px-0 group-data-[size=sm]/card:px-0">
+  <div class="grid min-w-0 gap-4 px-3">
     <TxBlockOperationEditor
       operation={step.run}
       title={t("txBlockFormRunOperation")}
@@ -103,17 +92,6 @@
             labelText={t("txBlockFormEnableStepRollback")}
             onCheckedChange={onRollbackEnabledChange}
           />
-
-          {#if rollbackEnabled}
-            <PresenceFieldGrid
-              fieldRows={stepFieldRows}
-              valueHandlerMode="event"
-              hostClass="grid gap-3 md:grid-cols-2"
-              presenceControlsMode="hidden"
-              onValueChangeForKey={stepActionHandlers.fieldValueHandler}
-              onPresenceChangeForKey={stepActionHandlers.fieldPresenceHandler}
-            />
-          {/if}
         </TxFormSection>
       </ReadonlyFields>
     {/if}
@@ -128,7 +106,20 @@
         onChange={onRollbackChange}
         {validationErrors}
         pathPrefix={`${pathPrefix}.rollback`}
-      />
+      >
+        {#snippet options()}
+          <ReadonlyFields>
+            <PresenceFieldGrid
+              fieldRows={stepFieldRows}
+              valueHandlerMode="event"
+              hostClass="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3"
+              presenceControlsMode="hidden"
+              onValueChangeForKey={stepActionHandlers.fieldValueHandler}
+              onPresenceChangeForKey={stepActionHandlers.fieldPresenceHandler}
+            />
+          </ReadonlyFields>
+        {/snippet}
+      </TxBlockOperationEditor>
     {/if}
   </div>
 </Card.Content>

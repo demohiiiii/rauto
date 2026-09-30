@@ -26,6 +26,11 @@ import type {
   TxWorkflowTemplateRefBlockModel,
 } from "./types.js";
 
+let blockEditorSequence = 0;
+export function createTxWorkflowBlockEditorId(): string {
+  return `tx-block-${++blockEditorSequence}`;
+}
+
 const TX_BLOCK_ROLLBACK_KINDS = new Set(["none", "per_step", "whole_resource"]);
 const TX_OPERATION_KINDS = new Set(["command", "flow"]);
 
@@ -379,7 +384,7 @@ export function defaultTxBlockTemplatePayload(): JsonObject {
         run: {
           kind: "command",
           mode: "",
-          command: "show version",
+          command: "",
           timeout: 30,
         },
         rollback: null,
@@ -619,6 +624,7 @@ export function txWorkflowBlockFormModelFromJson(
   const sourceKind =
     hasTemplateName || hasTemplateContent ? "template_ref" : "inline";
   return {
+    editorId: createTxWorkflowBlockEditorId(),
     sourceKind,
     inlineBlock: txBlockFormModelFromJson(value),
     templateRef: txWorkflowTemplateRefBlockModelFromJson(

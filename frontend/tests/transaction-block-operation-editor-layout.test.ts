@@ -4,7 +4,6 @@ import { get } from "svelte/store";
 
 import {
   createTxBlockCommandDynParamsEditorWorkspace,
-  createTxBlockCommandInteractionEditorWorkspace,
   txBlockCommandDraft,
   txBlockCommandEditorDisplay,
   txBlockFieldRowsWithValidation,
@@ -28,38 +27,7 @@ test("legacy password dynamic params remain editable as generic rows", () => {
   );
 });
 
-test("command child workspaces preserve their display and binding contracts", () => {
-  const interaction = createTxBlockCommandInteractionEditorWorkspace();
-  interaction.setInteractionEditorContext({
-    command: {
-      ...txBlockCommandDraft(),
-      interaction: {
-        extra: {},
-        hasPrompts: true,
-        prompts: [
-          {
-            extra: {},
-            hasRecordInput: false,
-            patterns: ["Password:"],
-            recordInput: false,
-            response: "secret",
-          },
-        ],
-      },
-    },
-    onChange: () => {},
-  });
-  assert.equal(
-    get(interaction.interactionDisplayStateStore).promptRows.length,
-    1,
-  );
-  assert.equal(
-    typeof get(
-      interaction.interactionActionHandlersStateStore,
-    ).promptActionHandlers(0).deletePromptAction,
-    "function",
-  );
-
+test("dynamic parameter workspace preserves its display and binding contracts", () => {
   const dynParams = createTxBlockCommandDynParamsEditorWorkspace();
   dynParams.setDynParamsContext({
     command: { ...txBlockCommandDraft(), hasDynParams: true },

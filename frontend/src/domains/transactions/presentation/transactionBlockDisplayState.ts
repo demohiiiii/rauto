@@ -6,20 +6,13 @@ import {
 } from "../../../lib/jsonValue.js";
 import { selectOptionsWithCurrent } from "../../../lib/ui.js";
 import type { PresenceFieldRow } from "$components/fragments/presenceFieldTypes.js";
-import {
-  txBlockOperationDraft,
-  txCommandPromptExtraSource,
-} from "../model/transactionBlockMutations.js";
-import { txBlockPromptMetadataFieldDefs } from "../model/transactionStructure.js";
-import { txExtraStringFieldRows } from "../model/transactionMetadataFields.js";
+import { txBlockOperationDraft } from "../model/transactionBlockMutations.js";
 import type {
   JsonObject,
   TxBlockFormModel,
-  TxCommandInteractionModel,
   TxCommandModel,
   TxFlowModel,
   TxOperationModel,
-  TxRuntimePromptModel,
   TxStepFormModel,
   TxValidationError,
   TxWholeResourceRollbackModel,
@@ -145,25 +138,6 @@ const TX_BLOCK_FLOW_FIELD_DEFS: readonly PresenceTxBlockFieldDefinition[] =
     },
   ]);
 
-const TX_BLOCK_COMMAND_PROMPT_FIELD_DEFS = Object.freeze([
-  {
-    controlType: "textarea",
-    fieldKey: "patterns",
-    labelKey: "txBlockFormPatterns",
-  },
-  {
-    controlType: "textarea",
-    fieldKey: "response",
-    labelKey: "txBlockFormResponse",
-  },
-  {
-    controlType: "select",
-    fieldKey: "recordInput",
-    labelKey: "fieldRecordInput",
-    optionKind: "boolean",
-  },
-] as const satisfies readonly LabeledTxBlockFieldDefinition[]);
-
 const TX_BLOCK_ROOT_FIELD_DEFS: readonly PresenceTxBlockFieldDefinition[] =
   Object.freeze([
     {
@@ -233,63 +207,6 @@ function txBlockCommandDynParamExtraRows(command: JsonObject = {}) {
     keyText: String(key),
     valueText: stringValue(value),
   }));
-}
-
-function txBlockCommandPromptRows(
-  command: JsonObject = {},
-): PartialJson<TxRuntimePromptModel>[] {
-  const commandValue = txObject<TxCommandModel>(command);
-  const interaction = txObject<TxCommandInteractionModel>(
-    commandValue.interaction,
-  );
-  return Array.isArray(interaction.prompts)
-    ? interaction.prompts.map((prompt) =>
-        txObject<TxRuntimePromptModel>(prompt),
-      )
-    : [];
-}
-
-function txBlockCommandPromptMetadataRows(
-  command: JsonObject = {},
-  promptIndex = 0,
-) {
-  return txExtraStringFieldRows(
-    txCommandPromptExtraSource(txObject<TxCommandModel>(command), promptIndex),
-    txBlockPromptMetadataFieldDefs(),
-  );
-}
-
-function txBlockCommandPromptPatternRows(prompt: JsonObject = {}) {
-  const promptValue = txObject<TxRuntimePromptModel>(prompt);
-  return (Array.isArray(promptValue.patterns) ? promptValue.patterns : []).map(
-    (patternValue, itemIndex) => ({
-      itemIndex,
-      text: stringValue(patternValue),
-    }),
-  );
-}
-
-function txBlockCommandInteractionPromptRow(
-  command: JsonObject = {},
-  prompt: JsonObject = {},
-  promptIndex = 0,
-  booleanRows: readonly string[] = [],
-) {
-  const promptValue = txObject<TxRuntimePromptModel>(prompt);
-  const fieldRows = txBlockCommandPromptFieldsDisplay(promptValue, booleanRows);
-  return {
-    controlFieldRows: fieldRows.filter(
-      (fieldRow) => fieldRow.controlType !== "textarea",
-    ),
-    fieldRows,
-    metadataFieldRows: txBlockCommandPromptMetadataRows(command, promptIndex),
-    patternRows: txBlockCommandPromptPatternRows(prompt),
-    prompt: promptValue,
-    promptIndex,
-    textAreaFieldRows: fieldRows.filter(
-      (fieldRow) => fieldRow.controlType === "textarea",
-    ),
-  };
 }
 
 export function txBlockCommandFieldsDisplay(
@@ -392,76 +309,6 @@ export function txBlockFlowFieldsDisplay(
     validationErrors,
     pathPrefix,
   );
-}
-
-export function txBlockCommandPromptFieldsDisplay(
-  prompt: JsonObject = {},
-  booleanRows: readonly string[] = [],
-) {
-  const promptValue = txObject<TxRuntimePromptModel>(prompt);
-  return TX_BLOCK_COMMAND_PROMPT_FIELD_DEFS.map((fieldDef) => {
-    const presenceKey = `has${fieldDef.fieldKey[0].toUpperCase()}${fieldDef.fieldKey.slice(1)}`;
-    if ("optionKind" in fieldDef && fieldDef.optionKind === "boolean") {
-      return {
-        ...fieldDef,
-        enabled: !!promptValue[presenceKey] || !!promptValue.recordInput,
-        labelText: t(fieldDef.labelKey),
-        optionRows: selectOptionsWithCurrent(
-          booleanRows,
-          promptValue.recordInput ? "true" : "false",
-        ).map((optionValue) => ({
-          optionLabel: optionValue,
-          optionValue,
-        })),
-        placeholderText: "",
-        showPresenceToggle: true,
-        valueText: promptValue.recordInput ? "true" : "false",
-      };
-    }
-    return {
-      ...fieldDef,
-      enabled: true,
-      labelText: t(fieldDef.labelKey),
-      placeholderText: "",
-      showPresenceToggle: false,
-      valueText:
-        fieldDef.fieldKey === "patterns"
-          ? (Array.isArray(promptValue.patterns)
-              ? promptValue.patterns
-              : []
-            ).join("\n")
-          : stringValue(promptValue.response),
-    };
-  });
-}
-
-export function txBlockCommandInteractionDisplay(
-  command: JsonObject = {},
-  booleanRows: readonly string[] = [],
-) {
-  const commandValue = txObject<TxCommandModel>(command);
-  const interaction = txObject<TxCommandInteractionModel>(
-    commandValue.interaction,
-  );
-  const promptRows = Array.isArray(interaction.prompts)
-    ? interaction.prompts.map((prompt, promptIndex) =>
-        txBlockCommandInteractionPromptRow(
-          command,
-          prompt,
-          promptIndex,
-          booleanRows,
-        ),
-      )
-    : [];
-  return {
-    interactionPresent:
-      !!commandValue.hasInteraction ||
-      promptRows.length > 0 ||
-      Object.keys(plainObject(interaction.extra) ? interaction.extra : {})
-        .length > 0,
-    promptsPresent: !!interaction.hasPrompts || promptRows.length > 0,
-    promptRows,
-  };
 }
 
 export function txBlockRootFieldsDisplay(
@@ -612,7 +459,7 @@ function txBlockLocalizedFallback(
 function txBlockOperationKindText(
   kind: TxOperationModel["kind"] | undefined,
 ): string {
-  if (kind === "flow") return t("txBlockFormFlowSteps");
+  if (kind === "flow") return t("txBlockOperationKindInteractive");
   return t("txBlockFormCommand");
 }
 
@@ -620,10 +467,10 @@ function txBlockOperationSummaryText(operation: JsonObject = {}): string {
   const operationValue = txObject<TxOperationModel>(operation);
   if (operationValue.kind === "flow") {
     const flowValue = txObject<TxFlowModel>(operationValue.flow);
-    const stepCount = Array.isArray(flowValue.steps)
-      ? flowValue.steps.length
-      : 0;
-    return `${t("txBlockFormFlowSteps")} · ${stepCount}`;
+    return (
+      stringValue(flowValue.steps?.[0]?.command).trim() ||
+      t("txBlockTimelineEmptyCommand")
+    );
   }
   return (
     stringValue(
@@ -644,11 +491,16 @@ export function txBlockTimelineDisplay(model: JsonObject = {}) {
     stepRows: steps.map((step, stepIndex) => ({
       canMoveDown: stepIndex < steps.length - 1,
       canMoveUp: stepIndex > 0,
-      kindText: txBlockOperationKindText(step?.run?.kind),
+      kindText:
+        step?.run?.kind === "command" &&
+        (step.run.commandEditorKind === "interactive" ||
+          (step.run.command?.interaction?.prompts?.length ?? 0) > 0)
+          ? t("txBlockOperationKindInteractive")
+          : txBlockOperationKindText(step?.run?.kind),
       rollbackConfigured: !!step?.rollback,
       stepIndex,
       summaryText: txBlockOperationSummaryText(step?.run),
-      titleText: `${t("txBlockFormStep")} ${stepIndex + 1}`,
+      titleText: txBlockOperationSummaryText(step?.run),
     })),
   };
 }
@@ -687,13 +539,8 @@ export function txBlockCommandEditorDisplay(
       validationErrors,
       pathPrefix,
     ),
-    interactionDisplay: txBlockCommandInteractionDisplay(
-      command,
-      TX_BLOCK_BOOLEAN_ROWS,
-    ),
     multilineMode:
       commandValue.multilineMode === "whole" ? "whole" : "split_lines",
-    promptRows: txBlockCommandPromptRows(command),
   };
 }
 

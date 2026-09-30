@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { getContext, onDestroy } from "svelte";
+  import { readonlyFieldsContextKey } from "$lib/svelte.js";
+  import { browserConfirm } from "$lib/browser.js";
+  import { createTransactionBlockTemplateRegistry } from "$domains/transactions/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import StatusCard from "$components/fragments/StatusCard.svelte";
   import { currentLanguageState, t } from "$lib/i18n.js";
@@ -35,7 +39,29 @@
   }: Props = $props();
 
   let currentLanguage = $derived($currentLanguageState);
-  let workflowFormModel = $derived(txWorkflowFormModelFromJson(workflow));
+  let workflowFormModel = $state(txWorkflowFormModelFromJson());
+  let publishedWorkflow = "";
+  const inheritedReadonly = getContext<(() => boolean) | undefined>(
+    readonlyFieldsContextKey,
+  );
+  const blockTemplates = createTransactionBlockTemplateRegistry({
+    getModel: () => workflowFormModel,
+    onChange: updateWorkflow,
+    canModify: () => sourceKind === "manual" && !inheritedReadonly?.(),
+    templateOptions: {
+      confirmReplace: () =>
+        browserConfirm(t("orchestrationDiscardChangesConfirm")),
+    },
+  });
+  $effect(() => {
+    const text = JSON.stringify(workflow);
+    if (text !== publishedWorkflow) {
+      publishedWorkflow = text;
+      workflowFormModel = txWorkflowFormModelFromJson(workflow);
+      blockTemplates.sync(workflowFormModel);
+    }
+  });
+  onDestroy(blockTemplates.destroy);
   let editorDisplay = $derived.by(() => {
     currentLanguage;
     return txWorkflowVisualEditorDisplay(workflowFormModel);
@@ -61,7 +87,12 @@
     const nextWorkflow: unknown = JSON.parse(
       txWorkflowFormModelToJsonText(nextWorkflowFormModel),
     );
-    if (plainObject(nextWorkflow)) onWorkflowChange(nextWorkflow);
+    if (plainObject(nextWorkflow)) {
+      publishedWorkflow = JSON.stringify(nextWorkflow);
+      workflowFormModel = nextWorkflowFormModel;
+      blockTemplates.sync(nextWorkflowFormModel);
+      onWorkflowChange(nextWorkflow);
+    }
   }
 </script>
 
@@ -69,7 +100,7 @@
   <TxWorkflowBlockEditor
     {blockRow}
     {editorDisplay}
-    embedded={true}
+    templateWorkspace={blockTemplates.getWorkspace(blockRow.block)}
     blockActionHandlers={workflowBindings.blockBindings(blockIndex)}
     showRemoveAction={false}
   />

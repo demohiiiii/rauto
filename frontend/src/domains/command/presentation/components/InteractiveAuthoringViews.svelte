@@ -6,6 +6,7 @@
   import { interactiveEditorViewTabs } from "$config/dashboardModes.js";
   import {
     defaultInteractiveTemplateModel,
+    defaultInteractiveTemplatePromptModel,
     type InteractiveEditorTab,
     type InteractiveTemplateModel,
   } from "$domains/command/index.js";
@@ -72,6 +73,7 @@
       {loading}
       compact={studio}
       step={model}
+      createPrompt={defaultInteractiveTemplatePromptModel}
       {modeOptions}
       onChange={(command) => onModelChange?.({ ...model, ...command })}
     />

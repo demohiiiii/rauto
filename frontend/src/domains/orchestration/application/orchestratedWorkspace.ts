@@ -33,7 +33,6 @@ import {
   TX_OUTPUT,
   TX_TEMPLATE_KIND,
 } from "$domains/transactions/index.js";
-import type { JsonObject } from "$domains/transactions/index.js";
 import {
   createOrchestratedExecutionDependencies,
   jsonTemplateConfigFor,
@@ -532,14 +531,6 @@ export function createOrchestratedWorkspace(
       txJsonEditorsHost,
     }).previewTxWorkflow();
 
-  async function saveTxBlockTemplateFromWorkflow(
-    block: JsonObject,
-  ): Promise<void> {
-    await ensureEditors();
-    txJsonEditors?.setTxBlockEditorJson(block);
-    await txBlockJsonTemplateStageProps.onCreateJsonTemplateDraft?.();
-  }
-
   return {
     applyEditorTheme: applyTxEditorTheme,
     applyModeChange: applyTxModeChange,
@@ -583,7 +574,6 @@ export function createOrchestratedWorkspace(
     saveTxBlockJsonTemplate: txBlockJsonTemplateStageProps.onSaveJsonTemplate,
     saveTxWorkflowJsonTemplate:
       txWorkflowJsonTemplateStageProps.onSaveJsonTemplate,
-    saveTxBlockTemplateFromWorkflow,
     setMode: setTxMode,
     updateOrchestrationEditorInput: updateOrchestrationPreviewFromCurrentEditor,
     updateTxBlockEditorInput: (text: string | null) => {

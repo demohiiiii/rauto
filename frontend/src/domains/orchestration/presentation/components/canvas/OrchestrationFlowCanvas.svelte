@@ -57,7 +57,7 @@
   } from "$domains/transactions/index.js";
   import OrchestrationFlowInspector from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowInspector.svelte";
   import OrchestrationFlowJobNode from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowJobNode.svelte";
-  import OrchestrationFlowStageInsertNode from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowStageInsertNode.svelte";
+  import FlowInsertNode from "$components/fragments/FlowInsertNode.svelte";
   import OrchestrationFlowStageNode from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowStageNode.svelte";
   import OrchestrationFlowViewportController from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowViewportController.svelte";
   import OrchestrationFlowWorkflowBlockNode from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowWorkflowBlockNode.svelte";
@@ -82,9 +82,7 @@
     typeof OrchestrationFlowStageNode
   >["data"] &
     Record<string, unknown>;
-  type StageInsertNodeData = ComponentProps<
-    typeof OrchestrationFlowStageInsertNode
-  >["data"] &
+  type StageInsertNodeData = ComponentProps<typeof FlowInsertNode>["data"] &
     Record<string, unknown>;
   type JobNodeData = ComponentProps<typeof OrchestrationFlowJobNode>["data"] &
     Record<string, unknown>;
@@ -147,7 +145,7 @@
 
   const nodeTypes = {
     stage: OrchestrationFlowStageNode,
-    stageInsert: OrchestrationFlowStageInsertNode,
+    stageInsert: FlowInsertNode,
     job: OrchestrationFlowJobNode,
     workflowBlock: OrchestrationFlowWorkflowBlockNode,
   };
@@ -306,7 +304,7 @@
             readonly,
             vertical: compactCanvas,
             labelText: t("orchestrationFlowInsertStage"),
-            onInsertStage: () => insertStage(insertIndex),
+            onInsert: () => insertStage(insertIndex),
           },
         };
       }

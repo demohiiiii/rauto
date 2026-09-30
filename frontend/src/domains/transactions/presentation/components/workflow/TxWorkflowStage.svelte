@@ -3,20 +3,13 @@
   import ExecutionDock from "$components/fragments/ExecutionDock.svelte";
   import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
   import { createTxWorkflowStageWorkspace } from "$domains/transactions/index.js";
-  import type { JsonObject } from "$domains/transactions/index.js";
 
   interface Props {
     active?: boolean;
     onEditorInput?: (text: string) => void;
     onExecute?: () => void;
-    onSaveBlockTemplate?: (block: JsonObject) => void | Promise<void>;
   }
-  let {
-    active = false,
-    onExecute,
-    onEditorInput,
-    onSaveBlockTemplate,
-  }: Props = $props();
+  let { active = false, onExecute, onEditorInput }: Props = $props();
   const txWorkflowStageWorkspace = createTxWorkflowStageWorkspace();
   const {
     executeWorkflow,
@@ -37,7 +30,7 @@
 
 <ExecutionDock {active} feature="tx-workflow">
   <div class="grid gap-2">
-    <TxWorkflowInputPanel {active} {onEditorInput} {onSaveBlockTemplate} />
+    <TxWorkflowInputPanel {active} {onEditorInput} />
     <ExecutionRunBar
       {active}
       buttonLabel={workflowOutputPanelDisplay.executeButtonLabel}

@@ -8,6 +8,7 @@ const CODE_EDITOR_MODULE_PATTERN =
   /(?:[\\/]node_modules[\\/](?:@codemirror|@lezer|codemirror|svelte-codemirror-editor)[\\/]|[\\/](?:JsonTextEditor|TextAreaField)\.svelte(?:\?|$))/;
 const SHARED_UI_MODULE_PATTERN =
   /[\\/]frontend[\\/]src[\\/](?:components|lib[\\/]components)[\\/]/;
+const FLOW_INSERT_NODE_MODULE_PATTERN = /[\\/]FlowInsertNode\.svelte(?:\?|$)/;
 
 function isApplicationModule(id: string): boolean {
   return !id.startsWith("\0") && !id.includes("/node_modules/");
@@ -63,7 +64,10 @@ export default defineConfig(({ command, isPreview }) => ({
             },
             {
               name: "shared-ui",
-              test: SHARED_UI_MODULE_PATTERN,
+              // Keep the canvas control in the shared lazy editor graph.
+              test: (id: string) =>
+                SHARED_UI_MODULE_PATTERN.test(id) &&
+                !FLOW_INSERT_NODE_MODULE_PATTERN.test(id),
               entriesAware: true,
               // Merge small shared controls to keep lazy page request counts bounded.
               entriesAwareMergeThreshold: 48 * 1024,

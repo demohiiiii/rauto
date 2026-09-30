@@ -1,6 +1,7 @@
 <script lang="ts">
   import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
-  import * as Card from "$lib/components/ui/card";
+  import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
+  import Settings2Icon from "@lucide/svelte/icons/settings-2";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { t } from "$lib/i18n.js";
   import { txBlockValidationErrorText } from "$domains/transactions/index.js";
@@ -39,19 +40,20 @@
   );
 </script>
 
-<Card.Content class="min-w-0 px-0">
-  <header class="px-4 pb-4 sm:px-6">
-    <h2 class="text-base font-semibold text-foreground">
-      {t("txBlockInspectorRootTitle")}
-    </h2>
-    <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
-      {t("txBlockInspectorRootHint")}
-    </p>
-  </header>
-
-  <Separator />
-
-  <div class="grid min-w-0 gap-5 px-4 pt-5 sm:px-6">
+<details
+  data-tx-block-settings
+  class="group/block-settings min-w-0 rounded-xl border border-border bg-card"
+>
+  <summary
+    class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
+  >
+    <Settings2Icon class="size-4 text-primary" />
+    {t("txBlockInspectorRootTitle")}
+    <ChevronRightIcon
+      class="ml-auto size-4 text-muted-foreground transition-transform group-open/block-settings:rotate-90 motion-reduce:transition-none"
+    />
+  </summary>
+  <div class="grid min-w-0 gap-4 border-t border-border p-3">
     {#if stepsErrorText}
       <p class="text-xs text-destructive" role="alert">{stepsErrorText}</p>
     {/if}
@@ -83,4 +85,4 @@
       pathPrefix={`${pathPrefix ? `${pathPrefix}.` : ""}rollbackPolicy.wholeResource`}
     />
   </div>
-</Card.Content>
+</details>

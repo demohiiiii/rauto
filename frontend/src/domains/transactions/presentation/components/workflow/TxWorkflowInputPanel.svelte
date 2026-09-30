@@ -27,10 +27,7 @@
   import { createTxWorkflowInputPanelWorkspace } from "$domains/transactions/index.js";
   import { txWorkflowFormModelToJsonText } from "$domains/transactions/index.js";
   import { txWorkflowPreviewPresentation } from "$domains/transactions/index.js";
-  import type {
-    TxWorkflowFormModel,
-    JsonObject,
-  } from "$domains/transactions/index.js";
+  import type { TxWorkflowFormModel } from "$domains/transactions/index.js";
   import Layers3Icon from "@lucide/svelte/icons/layers-3";
 
   import {
@@ -44,10 +41,9 @@
   interface Props {
     active?: boolean;
     onEditorInput?: (text: string) => void;
-    onSaveBlockTemplate?: (block: JsonObject) => void | Promise<void>;
   }
 
-  let { active, onEditorInput, onSaveBlockTemplate }: Props = $props();
+  let { active, onEditorInput }: Props = $props();
 
   const directVarsKey = TX_VARS.txWorkflowDirect;
   const txWorkflowInputWorkspace = createTxWorkflowInputPanelWorkspace<File>();
@@ -250,7 +246,6 @@
             model={txWorkflowFormModel}
             onChange={changeCurrentFormModel}
             onOpenView={openCanvasViewDialog}
-            {onSaveBlockTemplate}
           />
         {/snippet}
         {#snippet readonlyContent()}
