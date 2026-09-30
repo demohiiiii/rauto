@@ -71,7 +71,9 @@ main() {
     esac
     rauto_url=$rauto_releases/download/v$rauto_version/$rauto_asset.tar.gz
 
-    rauto_tmp=$(mktemp -d)
+    # BSD mktemp (macOS) requires a template, while GNU mktemp accepts an
+    # omitted one. Keep the temporary directory under TMPDIR on both systems.
+    rauto_tmp=$(mktemp -d "${TMPDIR:-/tmp}/rauto-install.XXXXXXXX")
     rauto_staged=
     trap cleanup EXIT
     trap 'exit 130' INT

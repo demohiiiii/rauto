@@ -126,7 +126,19 @@ class Fixture {
 }
 '@ | Set-Content -LiteralPath $source -Encoding ascii
     $binary = Join-Path $root 'rauto.exe'
-    $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+    # Resolve the compiler from the legacy .NET Framework and Visual Studio
+    # Roslyn locations so the fixture works across runner image versions.
+    $compilerCandidates = @(
+        (Get-Command csc.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source),
+        (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'),
+        (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'),
+        (Join-Path $env:ProgramFiles 'Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\Roslyn\csc.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\Roslyn\csc.exe')
+    )
+    $compiler = $compilerCandidates |
+        Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) } |
+        Select-Object -First 1
+    if (-not $compiler) { throw 'Could not locate the C# compiler on the Windows runner.' }
     & $compiler /nologo /target:exe "/out:$binary" $source
     if ($LASTEXITCODE -ne 0) { throw 'Fixture compilation failed' }
     $script:binaryHash = (Get-FileHash -LiteralPath $binary).Hash
