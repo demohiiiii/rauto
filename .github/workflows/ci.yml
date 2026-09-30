@@ -21,8 +21,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Test installer offline
-        shell: ${{ matrix.shell }}
+      - name: Test installer offline (Windows PowerShell)
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: ./scripts/test_install_windows.ps1
+
+      - name: Test installer offline (PowerShell Core)
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
         run: ./scripts/test_install_windows.ps1
 
   installer:

@@ -134,7 +134,7 @@ jobs:
 
       - name: Upload Release Asset (Linux/macOS)
         if: runner.os != 'Windows'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ matrix.asset_name }}.tar.gz
@@ -150,7 +150,7 @@ jobs:
 
       - name: Upload Release Asset (Windows)
         if: runner.os == 'Windows'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ matrix.asset_name }}.zip
