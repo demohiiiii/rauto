@@ -4,6 +4,11 @@ The backend is a single Cargo package that produces the `rauto` binary. DDD
 boundaries are represented by Rust modules rather than separately published
 crates.
 
+Rust tooling is pinned to `1.94.0` in `rust-toolchain.toml`. CI and release
+workflows use the same version. Upgrade these pins together after validating the
+new toolchain; `Cargo.toml`'s `rust-version` only declares the minimum supported
+version.
+
 ## Database baseline
 
 `migrations/202609220001_initial.sql` is the consolidated initial schema. It
