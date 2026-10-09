@@ -176,38 +176,6 @@ export interface TxWorkflowVisualEditorDisplay {
   rootFieldRows: TxWorkflowFieldRow[];
 }
 
-export interface TxWorkflowFlowCommandRow {
-  kindText: string;
-  summaryText: string;
-  titleText: string;
-}
-
-export interface TxWorkflowFlowNodeData extends JsonObject {
-  readonly?: boolean;
-  blockIndex: number;
-  canMoveLeft: boolean;
-  canMoveRight: boolean;
-  commandRows: TxWorkflowFlowCommandRow[];
-  deleteLabel: string;
-  duplicateLabel: string;
-  emptyCommandText: string;
-  hasSource: boolean;
-  hasTarget: boolean;
-  isTemplate: boolean;
-  kind: "block";
-  metaText: string;
-  moveLeftLabel: string;
-  moveRightLabel: string;
-  onDelete: () => void;
-  onDuplicate: () => void;
-  onMoveLeft: () => void;
-  onMoveRight: () => void;
-  remainingCommandText: string;
-  sequenceText: string;
-  titleText: string;
-  vertical: boolean;
-}
-
 type TxWorkflowChangeHandler = (model: TxWorkflowFormModel) => void;
 
 function txWorkflowEditorModel(value: JsonObject): TxWorkflowEditorModel {

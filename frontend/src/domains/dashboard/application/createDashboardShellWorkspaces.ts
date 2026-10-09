@@ -195,6 +195,13 @@ export function createDashboardBodyWorkspace(
         recordLevel: $dashboardRecordLevelState,
       }),
   );
+  const connectionTargetDisplayStateStore = derived(
+    [dashboardShellResources.sidebarConnectionState, currentLanguageState],
+    ([$sidebarConnectionState, _currentLanguageState]) =>
+      dashboardShellResources.sidebarConnectionPresentation(
+        $sidebarConnectionState,
+      ),
+  );
   const pageOutletRowsStateStore = derived(
     [dashboardState, pageRegistry.components, pageRegistry.errors],
     ([$dashboardState, $loadedPageComponents, $pageLoadErrors]) =>
@@ -212,6 +219,10 @@ export function createDashboardBodyWorkspace(
 
   function openSidebar(): void {
     sidebarOpenStateStore.set(true);
+  }
+
+  function openConnectionEditorAction(): void {
+    dashboardShellResources.openConnectionEditor();
   }
 
   function setSidebarOpen(open: boolean): void {
@@ -245,7 +256,9 @@ export function createDashboardBodyWorkspace(
     applyShellState,
     bodyDisplayStateStore,
     closeSidebarAction,
+    connectionTargetDisplayStateStore,
     documentKeydownHandler,
+    openConnectionEditorAction,
     openRecordDrawerAction: openDashboardRecordDrawer,
     openSidebar,
     openSidebarAction: openSidebar,
@@ -262,13 +275,6 @@ export function createDashboardSidebarWorkspace() {
     currentLanguageState,
     (_currentLanguageState) => dashboardSidebarDisplay(),
   );
-  const sidebarConnectionDisplayStateStore = derived(
-    [dashboardShellResources.sidebarConnectionState, currentLanguageState],
-    ([$sidebarConnectionState, _currentLanguageState]) =>
-      dashboardShellResources.sidebarConnectionPresentation(
-        $sidebarConnectionState,
-      ),
-  );
   const navigationItemsStateStore = derived(
     [dashboardState, currentLanguageState],
     ([$dashboardState, _currentLanguageState]) =>
@@ -279,15 +285,9 @@ export function createDashboardSidebarWorkspace() {
     navigateDashboardRoute(routeId);
   }
 
-  function openConnectionEditor(): void {
-    dashboardShellResources.openConnectionEditor();
-  }
-
   return {
     navigationItemsStateStore,
     navigateRoute,
-    openConnectionEditor,
-    sidebarConnectionDisplayStateStore,
     sidebarDisplayStateStore,
   };
 }

@@ -4,6 +4,7 @@ import { get } from "svelte/store";
 import {
   createTxBlockCommandEditorWorkspace,
   txBlockCommandDraft,
+  txBlockOperationDraft,
 } from "../src/domains/transactions/index.js";
 import type { TxCommandModel } from "../src/domains/transactions/index.js";
 import {
@@ -105,12 +106,13 @@ test("blank transaction command mode initializes from the profile default", asyn
     null,
   );
   const initializedCommands: Array<Partial<TxCommandModel>> = [];
+  const rollbackCommand = txBlockOperationDraft("command").command;
+  assert.equal(rollbackCommand.mode, "");
   const workspace = createTxBlockCommandEditorWorkspace();
   workspace.setCommandEditorContext({
     command: {
-      ...txBlockCommandDraft(),
+      ...rollbackCommand,
       command: "show version",
-      mode: "",
     },
     onChange(nextCommand) {
       initializedCommands.push(nextCommand);

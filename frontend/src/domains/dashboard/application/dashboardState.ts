@@ -204,6 +204,7 @@ function dashboardPreferenceToolsPresentation({
     dashboardStateDefaults.currentThemeSettings;
   return {
     closeLabel: tr("close", "Close"),
+    githubRepositoryLabel: tr("githubRepositoryLabel"),
     languageMenuLabel: tr("langMenuLabel"),
     languageOptionChineseLabel: tr("langOptionChinese"),
     languageOptionEnglishLabel: tr("langOptionEnglish"),

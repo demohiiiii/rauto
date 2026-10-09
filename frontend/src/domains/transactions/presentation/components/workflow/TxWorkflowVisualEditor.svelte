@@ -1,17 +1,19 @@
 <script lang="ts">
-  import FlowInsertNode from "$components/fragments/FlowInsertNode.svelte";
-  import type { ComponentProps } from "svelte";
+  import FlowWorkflowGroupNode from "$components/fragments/FlowWorkflowGroupNode.svelte";
+  import FlowWorkflowBlockNode from "$components/fragments/FlowWorkflowBlockNode.svelte";
+  import { FLOW_WORKFLOW_FIT_OPTIONS } from "$components/fragments/flowWorkflowLayout.js";
   import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
-  import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
-  import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
+  import ArrowUpIcon from "@lucide/svelte/icons/arrow-up";
+  import ArrowDownIcon from "@lucide/svelte/icons/arrow-down";
   import BracesIcon from "@lucide/svelte/icons/braces";
   import CopyIcon from "@lucide/svelte/icons/copy";
   import EyeIcon from "@lucide/svelte/icons/eye";
   import GripVerticalIcon from "@lucide/svelte/icons/grip-vertical";
   import PanelRightCloseIcon from "@lucide/svelte/icons/panel-right-close";
-  import SlidersHorizontalIcon from "@lucide/svelte/icons/sliders-horizontal";
+  import PanelRightOpenIcon from "@lucide/svelte/icons/panel-right-open";
+  import PanelTopCloseIcon from "@lucide/svelte/icons/panel-top-close";
+  import PanelTopOpenIcon from "@lucide/svelte/icons/panel-top-open";
   import LayersIcon from "@lucide/svelte/icons/layers";
-  import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import {
@@ -19,6 +21,7 @@
     BackgroundVariant,
     Controls,
     MarkerType,
+    Panel,
     SvelteFlow,
   } from "@xyflow/svelte";
   import type { Edge, Node } from "@xyflow/svelte";
@@ -33,35 +36,37 @@
   import StatusCard from "$components/fragments/StatusCard.svelte";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import { classNames } from "$lib/ui.js";
-  import { txBlockTimelineDisplay } from "$domains/transactions/index.js";
+  import {
+    txWorkflowFlowGraph,
+    txWorkflowInspectorWidth,
+    TX_WORKFLOW_GROUP_ID,
+  } from "$domains/transactions/index.js";
   import { createTransactionBlockTemplateRegistry } from "$domains/transactions/index.js";
   import { browserConfirm } from "$lib/browser.js";
   import { readonlyFieldsContextKey } from "$lib/svelte.js";
   import { createTxWorkflowVisualEditorWorkspace } from "$domains/transactions/index.js";
   import TxWorkflowBlockEditor from "$domains/transactions/presentation/components/workflow/TxWorkflowBlockEditor.svelte";
-  import TxWorkflowFlowNode from "$domains/transactions/presentation/components/workflow/TxWorkflowFlowNode.svelte";
   import TxWorkflowFlowViewportController from "$domains/transactions/presentation/components/workflow/TxWorkflowFlowViewportController.svelte";
 
   import type {
     TxWorkflowBlockRow,
-    TxWorkflowFlowNodeData,
+    TxWorkflowCanvasBlockData,
+    TxWorkflowCanvasGroupData,
     TxWorkflowFormModel,
   } from "$domains/transactions/index.js";
 
   type TxWorkflowEditorView = "json" | "readonly";
-  type TxWorkflowBlockNode = Node<TxWorkflowFlowNodeData, "workflowNode">;
-  type TxWorkflowAppendNode = Node<
-    ComponentProps<typeof FlowInsertNode>["data"] & { kind: "append" },
-    "workflowAppend"
-  >;
-  type TxWorkflowGraphNode = TxWorkflowBlockNode | TxWorkflowAppendNode;
-  const appendNodeId = "workflow-append";
+  type TxWorkflowBlockNode = Node<TxWorkflowCanvasBlockData, "workflowNode">;
+  type TxWorkflowGroupNode = Node<TxWorkflowCanvasGroupData, "workflowGroup">;
+  type TxWorkflowGraphNode = TxWorkflowBlockNode | TxWorkflowGroupNode;
   type TxWorkflowGraphEdge = Edge<Record<string, never>, "smoothstep">;
   type TxWorkflowSelection =
     { blockIndex: number; kind: "block" } | { blockIndex: null; kind: "none" };
 
   interface Props {
     readonly?: boolean;
+    sourceKind?: "manual" | "template";
+    sourceName?: string;
     embedded?: boolean;
     model: TxWorkflowFormModel;
     onChange?: ((model: TxWorkflowFormModel) => void) | null;
@@ -71,6 +76,8 @@
 
   let {
     readonly = false,
+    sourceKind = "manual",
+    sourceName = "",
     model,
     onChange,
     onOpenView,
@@ -98,8 +105,8 @@
   const txWorkflowVisualEditorWorkspace =
     createTxWorkflowVisualEditorWorkspace();
   const nodeTypes = {
-    workflowNode: TxWorkflowFlowNode,
-    workflowAppend: FlowInsertNode,
+    workflowNode: FlowWorkflowBlockNode,
+    workflowGroup: FlowWorkflowGroupNode,
   };
   const {
     blockRowsStateStore,
@@ -129,13 +136,14 @@
       HTMLButtonElement | HTMLAnchorElement | null
     >
   >({ settings: null, inspector: null });
-  let inspectorWidth = $state(560);
+  let inspectorWidth = $state(860);
   let compactViewport = $state(
     typeof window !== "undefined" &&
       window.matchMedia("(max-width: 1023px)").matches,
   );
   let compactCanvas = $derived(compactViewport);
-  let canvasHost = $state<HTMLElement | null>(null);
+  let canvasWidth = $state(0);
+  let effectiveInspectorWidth = $derived(inspectorWidthLimit(inspectorWidth));
   let inspectorResizeCleanup = $state<(() => void) | null>(null);
   let selectedBlockRow = $derived(
     selectedTarget.kind === "block"
@@ -147,7 +155,7 @@
   let selectedNodeId = $derived(
     selectedTarget.kind === "block"
       ? `workflow-block-${selectedTarget.blockIndex}`
-      : appendNodeId,
+      : TX_WORKFLOW_GROUP_ID,
   );
   let canvasBlockCountText = $derived.by(() => {
     currentLanguage;
@@ -168,120 +176,81 @@
       ? blockMeta(selectedBlockRow)
       : t("txWorkflowInspectorNoSelectionHint");
   });
-  let graphNodes = $derived.by<TxWorkflowGraphNode[]>(() => {
+  let baseGraph = $derived.by(() => {
     currentLanguage;
-    const blockNodes = blockRows.map((blockRow): TxWorkflowBlockNode => {
-      const titleText = blockName(blockRow);
-      const metaText = blockMeta(blockRow);
-      const timelineRows = blockRow.showInlineBlock
-        ? txBlockTimelineDisplay(blockRow.block?.inlineBlock).stepRows
-        : [];
-      const remainingCount = Math.max(0, timelineRows.length - 4);
-      return {
-        id: `workflow-block-${blockRow.blockIndex}`,
-        type: "workflowNode",
-        position: compactCanvas
-          ? { x: 0, y: 340 + blockRow.blockIndex * 250 }
-          : { x: 100 + blockRow.blockIndex * 390, y: 300 },
-        data: {
-          readonly,
-          kind: "block",
-          blockIndex: blockRow.blockIndex,
-          titleText,
-          metaText,
-          sequenceText: String(blockRow.blockIndex + 1),
-          isTemplate: blockRow.showTemplateRef,
-          hasTarget: blockRow.blockIndex > 0,
-          hasSource: true,
-          vertical: compactCanvas,
-          commandRows: timelineRows.slice(0, 4),
-          emptyCommandText: blockRow.showTemplateRef
-            ? t("txWorkflowNodeTemplateCommands")
-            : t("txWorkflowNodeNoCommands"),
-          remainingCommandText:
-            remainingCount > 0
-              ? t("txWorkflowNodeMoreCommands").replace(
-                  "{count}",
-                  String(remainingCount),
-                )
-              : "",
-          canMoveLeft: blockRow.blockIndex > 0,
-          canMoveRight: blockRow.blockIndex < blockRows.length - 1,
-          moveLeftLabel: t("txWorkflowMoveBlockLeft"),
-          moveRightLabel: t("txWorkflowMoveBlockRight"),
-          duplicateLabel: t("txWorkflowDuplicateBlock"),
-          deleteLabel: t("txWorkflowDeleteBlock"),
-          onMoveLeft: () =>
-            moveBlock(blockRow.blockIndex, blockRow.blockIndex - 1),
-          onMoveRight: () =>
-            moveBlock(blockRow.blockIndex, blockRow.blockIndex + 1),
-          onDuplicate: () => duplicateBlock(blockRow.blockIndex),
-          onDelete: () => removeBlock(blockRow.blockIndex),
-        },
-        selected:
-          selectedTarget.kind === "block" &&
-          selectedTarget.blockIndex === blockRow.blockIndex,
-        draggable: false,
-        deletable: false,
-        connectable: false,
-        focusable: true,
-        ariaRole: "button",
-        ariaLabel: `${blockRow.blockIndex + 1}. ${titleText}. ${metaText}`,
-      };
-    });
-    const lastBlock = blockNodes.at(-1);
-    return [
-      ...blockNodes,
-      {
-        id: appendNodeId,
-        type: "workflowAppend",
-        position: lastBlock
-          ? compactCanvas
-            ? { x: lastBlock.position.x + 138, y: lastBlock.position.y + 250 }
-            : { x: lastBlock.position.x + 368, y: lastBlock.position.y + 58 }
-          : compactCanvas
-            ? { x: 138, y: 340 }
-            : { x: 238, y: 300 },
-        width: 44,
-        height: 44,
-        data: {
-          kind: "append",
-          afterNodeId: lastBlock?.id,
-          readonly,
-          hasSource: false,
-          hasTarget: !!lastBlock,
-          vertical: compactCanvas,
-          labelText: t("txWorkflowFormAddBlock"),
-          onInsert: addBlock,
-        },
-        draggable: false,
-        deletable: false,
-        connectable: false,
-        selectable: false,
-        focusable: false,
-      },
-    ];
+    return txWorkflowFlowGraph(model);
   });
-  let graphEdges = $derived.by<TxWorkflowGraphEdge[]>(() => {
-    return blockRows.map((blockRow, index) => ({
-      id: `workflow-edge-${index + 1}`,
-      source: `workflow-block-${blockRow.blockIndex}`,
-      target:
-        index === blockRows.length - 1
-          ? appendNodeId
-          : `workflow-block-${blockRows[index + 1].blockIndex}`,
-      type: "smoothstep",
+  let graphLayoutRevision = $derived(
+    [baseGraph.group, ...baseGraph.blocks]
+      .map((node) => `${node.id}:${node.width}:${node.height}`)
+      .join("|"),
+  );
+  let graphNodes = $derived.by<TxWorkflowGraphNode[]>(() => [
+    {
+      ...baseGraph.group,
+      data: {
+        ...baseGraph.group.data,
+        sourceKind,
+        sourceName,
+        sourceLabelText: t(
+          sourceKind === "template"
+            ? "commandSourceTemplate"
+            : "commandSourceManual",
+        ),
+        readonly,
+        onAddBlock: addBlock,
+      },
+      selected: selectedTarget.kind === "none",
+      draggable: false,
+      deletable: false,
+      connectable: false,
+      focusable: true,
+      ariaLabel: baseGraph.group.data.title,
+    },
+    ...baseGraph.blocks.map((block): TxWorkflowBlockNode => ({
+      ...block,
+      data: {
+        ...block.data,
+        readonly,
+        editable: !readonly,
+        canMovePrevious: block.data.blockIndex > 0,
+        canMoveNext: block.data.blockIndex < blockRows.length - 1,
+        movePreviousLabel: t("txWorkflowMoveBlockUp"),
+        moveNextLabel: t("txWorkflowMoveBlockDown"),
+        duplicateLabel: t("txWorkflowDuplicateBlock"),
+        deleteLabel: t("txWorkflowDeleteBlock"),
+        onMovePrevious: () =>
+          moveBlock(block.data.blockIndex, block.data.blockIndex - 1),
+        onMoveNext: () =>
+          moveBlock(block.data.blockIndex, block.data.blockIndex + 1),
+        onDuplicate: () => duplicateBlock(block.data.blockIndex),
+        onDelete: () => removeBlock(block.data.blockIndex),
+      },
+      selected:
+        selectedTarget.kind === "block" &&
+        selectedTarget.blockIndex === block.data.blockIndex,
+      draggable: false,
+      deletable: false,
+      connectable: false,
+      focusable: true,
+      ariaRole: "button",
+      ariaLabel: `${block.data.blockIndex + 1}. ${block.data.title}. ${block.data.metaText}`,
+    })),
+  ]);
+  let graphEdges = $derived.by<TxWorkflowGraphEdge[]>(() =>
+    baseGraph.edges.map((edge) => ({
+      ...edge,
       selectable: false,
       focusable: false,
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: "var(--primary)",
+        color: "var(--chart-2)",
         width: 14,
         height: 14,
       },
-      style: "stroke: var(--primary); stroke-width: 1.5;",
-    }));
-  });
+      style: "stroke:var(--chart-2);stroke-width:1.35;",
+    })),
+  );
 
   function blockName(blockRow: TxWorkflowBlockRow): string {
     if (blockRow.showTemplateRef) {
@@ -318,6 +287,8 @@
   function selectGraphNode({ node }: { node: TxWorkflowGraphNode }): void {
     if (node?.data?.kind === "block") {
       selectBlock(node.data.blockIndex);
+    } else if (node.data.kind === "workflow") {
+      expandSettings();
     }
   }
 
@@ -348,9 +319,11 @@
   }
 
   function inspectorWidthLimit(nextWidth: number): number {
-    const hostWidth = canvasHost?.clientWidth || 1024;
-    const maxWidth = Math.max(380, Math.min(860, hostWidth - 360));
-    return Math.min(Math.max(nextWidth, 380), maxWidth);
+    return txWorkflowInspectorWidth(
+      canvasWidth || 1024,
+      nextWidth,
+      baseGraph.group.width,
+    );
   }
 
   function clearInspectorResize(): void {
@@ -363,7 +336,7 @@
     event.preventDefault();
     clearInspectorResize();
     const startX = event.clientX;
-    const startWidth = inspectorWidth;
+    const startWidth = effectiveInspectorWidth;
     const resize = (moveEvent: PointerEvent): void => {
       inspectorWidth = inspectorWidthLimit(
         startWidth + startX - moveEvent.clientX,
@@ -382,7 +355,7 @@
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
     const delta = event.key === "ArrowLeft" ? 32 : -32;
-    inspectorWidth = inspectorWidthLimit(inspectorWidth + delta);
+    inspectorWidth = inspectorWidthLimit(effectiveInspectorWidth + delta);
   }
 
   function collapseInspector(): void {
@@ -446,7 +419,13 @@
 {#snippet panelToggle(kind: "settings" | "inspector")}
   {@const isSettings = kind === "settings"}
   {@const collapsed = isSettings ? settingsCollapsed : inspectorCollapsed}
-  {@const Icon = isSettings ? SlidersHorizontalIcon : LayersIcon}
+  {@const Icon = isSettings
+    ? collapsed
+      ? PanelTopOpenIcon
+      : PanelTopCloseIcon
+    : collapsed
+      ? PanelRightOpenIcon
+      : PanelRightCloseIcon}
   {@const label = isSettings
     ? t(collapsed ? "txWorkflowSettingsExpand" : "txWorkflowSettingsCollapse")
     : t(
@@ -454,44 +433,25 @@
       )}
   <Button
     bind:ref={panelToggles[kind]}
-    variant="ghost"
+    variant="secondary"
+    size="sm"
     type="button"
     aria-label={label}
     aria-expanded={!collapsed}
     aria-controls={`${panelId}-${kind}`}
     title={label}
-    class={classNames(
-      "pointer-events-auto group h-11 min-w-0 shrink gap-2 rounded-xl border px-2.5 shadow-sm backdrop-blur-xl transition-all duration-200 motion-reduce:transition-none sm:gap-3 sm:pr-3",
-      collapsed
-        ? "border-border/80 bg-background/95 hover:border-primary/30 hover:bg-background"
-        : "border-primary/25 bg-background text-primary ring-2 ring-primary/5 hover:bg-background aria-expanded:bg-background aria-expanded:text-primary",
-    )}
+    class="pointer-events-auto min-w-0 shadow-lg"
     onclick={() => {
       if (isSettings) settingsCollapsed ? expandSettings() : collapseSettings();
       else inspectorCollapsed ? openInspector() : collapseInspector();
     }}
   >
-    <span
-      class={classNames(
-        "flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors motion-reduce:transition-none",
-        collapsed
-          ? "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-          : "bg-primary/10 text-primary",
-      )}
-    >
-      <Icon class="size-3.5" />
-    </span>
-    <span class="truncate text-xs font-medium"
+    <Icon data-icon="inline-start" />
+    <span class="truncate"
       >{t(
         isSettings ? "txWorkflowSettingsTitle" : "txWorkflowInspectorTitle",
       )}</span
     >
-    <ChevronDownIcon
-      class={classNames(
-        "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none",
-        !collapsed && "rotate-180 text-primary",
-      )}
-    />
   </Button>
 {/snippet}
 
@@ -601,26 +561,26 @@
                     variant="ghost"
                     size="icon-sm"
                     type="button"
-                    title={t("txWorkflowMoveBlockLeft")}
-                    aria-label={t("txWorkflowMoveBlockLeft")}
+                    title={t("txWorkflowMoveBlockUp")}
+                    aria-label={t("txWorkflowMoveBlockUp")}
                     disabled={readonly || blockRow.blockIndex === 0}
                     onclick={() =>
                       moveBlock(blockRow.blockIndex, blockRow.blockIndex - 1)}
                   >
-                    <ArrowLeftIcon />
+                    <ArrowUpIcon />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     type="button"
-                    title={t("txWorkflowMoveBlockRight")}
-                    aria-label={t("txWorkflowMoveBlockRight")}
+                    title={t("txWorkflowMoveBlockDown")}
+                    aria-label={t("txWorkflowMoveBlockDown")}
                     disabled={readonly ||
                       blockRow.blockIndex === blockRows.length - 1}
                     onclick={() =>
                       moveBlock(blockRow.blockIndex, blockRow.blockIndex + 1)}
                   >
-                    <ArrowRightIcon />
+                    <ArrowDownIcon />
                   </Button>
                   <Button
                     disabled={readonly}
@@ -686,12 +646,12 @@
   </div>
 {:else}
   <div
-    bind:this={canvasHost}
+    bind:clientWidth={canvasWidth}
     data-testid="tx-workflow-editor-layout"
     class="relative min-w-0"
   >
     <div
-      class="flex h-[42rem] min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-muted/15 lg:h-[calc(100dvh-14rem)] lg:min-h-[44rem] lg:max-h-[58rem]"
+      class="tx-workflow-canvas flex h-[min(72dvh,52rem)] min-h-[36rem] min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-muted/15 lg:h-[calc(100dvh-12.5rem)] lg:min-h-[42rem] lg:max-h-none"
     >
       <div class="tx-workflow-flow min-h-0 flex-1">
         <SvelteFlow
@@ -701,12 +661,11 @@
           {nodeTypes}
           fitView
           fitViewOptions={{
-            padding: 0.12,
-            maxZoom: 0.9,
-            nodes: graphNodes.slice(0, 2).map((node) => ({ id: node.id })),
+            ...FLOW_WORKFLOW_FIT_OPTIONS,
+            nodes: graphNodes.map((node) => ({ id: node.id })),
           }}
-          minZoom={0.35}
-          maxZoom={1.5}
+          minZoom={0.25}
+          maxZoom={1.35}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable
@@ -730,16 +689,15 @@
           <TxWorkflowFlowViewportController
             compact={compactCanvas}
             focusNodeId={selectedNodeId}
-            endNodeId={selectedTarget.blockIndex === blockRows.length - 1
-              ? appendNodeId
-              : ""}
+            layoutRevision={graphLayoutRevision}
             inspectorOpen={!inspectorCollapsed}
-            {inspectorWidth}
+            inspectorWidth={effectiveInspectorWidth}
           />
 
           <Controls
             position="bottom-left"
             orientation="horizontal"
+            fitViewOptions={FLOW_WORKFLOW_FIT_OPTIONS}
             showLock={false}
             aria-label={t("txWorkflowCanvasControls")}
             buttonBgColor="var(--card)"
@@ -748,6 +706,21 @@
             buttonColorHover="var(--accent-foreground)"
             buttonBorderColor="var(--border)"
           />
+          <Panel
+            position="top-center"
+            class="nopan nowheel m-3 hidden sm:block"
+          >
+            <div
+              class="rounded-xl border border-border bg-background/90 px-3 py-2 shadow-sm backdrop-blur"
+            >
+              <div class="text-xs font-semibold text-foreground">
+                {canvasBlockCountText}
+              </div>
+              <div class="mt-0.5 text-[0.6875rem] text-muted-foreground">
+                {t("txWorkflowCanvasExecutionOrder")}
+              </div>
+            </div>
+          </Panel>
         </SvelteFlow>
       </div>
       <div
@@ -759,19 +732,23 @@
           variant="outline"
           size="sm"
           type="button"
+          title={t("txBlockEditorJsonTab")}
+          aria-label={t("txBlockEditorJsonTab")}
           onclick={() => openCanvasView("json")}
         >
           <BracesIcon data-icon="inline-start" />
-          {t("txBlockEditorJsonTab")}
+          <span class="hidden sm:inline">{t("txBlockEditorJsonTab")}</span>
         </Button>
         <Button
           variant="outline"
           size="sm"
           type="button"
+          title={t("txBlockEditorReadonlyTab")}
+          aria-label={t("txBlockEditorReadonlyTab")}
           onclick={() => openCanvasView("readonly")}
         >
           <EyeIcon data-icon="inline-start" />
-          {t("txBlockEditorReadonlyTab")}
+          <span class="hidden sm:inline">{t("txBlockEditorReadonlyTab")}</span>
         </Button>
       </div>
     </div>
@@ -788,7 +765,7 @@
         <section
           id={`${panelId}-settings`}
           aria-label={t("txWorkflowSettingsTitle")}
-          class="canvas-window pointer-events-auto overflow-hidden rounded-2xl border border-border/80 bg-background/95 shadow-lg backdrop-blur-xl"
+          class="canvas-window pointer-events-auto w-full min-w-0 overflow-hidden rounded-xl border border-border bg-background/95 shadow-lg backdrop-blur lg:w-[30rem]"
           transition:fly={{
             y: -8,
             duration: reducedMotion.current ? 0 : 180,
@@ -796,7 +773,7 @@
           }}
         >
           <div
-            class="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-4 py-3"
+            class="flex items-center justify-between gap-3 border-b border-border bg-muted/20 px-3 py-3"
           >
             <p class="text-xs leading-relaxed text-muted-foreground">
               {t("txWorkflowCanvasSettingsHint")}
@@ -805,7 +782,7 @@
               >{canvasBlockCountText}</Badge
             >
           </div>
-          <ReadonlyFields disabled={readonly} class="min-w-0 p-4">
+          <ReadonlyFields disabled={readonly} class="min-w-0 p-3">
             <PresenceFieldGrid
               fieldRows={workflowRootFieldRows}
               valueHandlerMode="event"
@@ -822,8 +799,8 @@
     {#if !inspectorCollapsed}
       <aside
         id={`${panelId}-inspector`}
-        class="canvas-window tx-workflow-inspector relative mt-3 min-w-0 rounded-2xl border border-border/80 bg-background/95 shadow-xl backdrop-blur-xl lg:absolute lg:bottom-[4.75rem] lg:right-3 lg:z-20 lg:mt-0 lg:flex lg:flex-col"
-        style={`--inspector-width: ${inspectorWidth}px; --inspector-top: ${toolbarHeight + 24}px`}
+        class="canvas-window tx-workflow-inspector relative mt-3 min-w-0 rounded-2xl border border-border bg-background/95 shadow-2xl backdrop-blur lg:absolute lg:bottom-[4.75rem] lg:right-3 lg:z-20 lg:mt-0 lg:flex lg:flex-col"
+        style={`--inspector-width: ${effectiveInspectorWidth}px; --inspector-top: ${toolbarHeight + 24}px`}
         aria-label={inspectorTitle}
         transition:fly={{
           x: compactCanvas ? 0 : 12,
@@ -848,14 +825,14 @@
         </button>
 
         <header
-          class="rounded-t-2xl border-b border-border/60 bg-muted/20 p-3 sm:p-4"
+          class="rounded-t-2xl border-b border-border bg-muted/20 p-3 sm:p-4"
         >
           <div
             class="flex min-w-0 flex-wrap items-center justify-between gap-3"
           >
             <div class="flex min-w-0 flex-1 items-center gap-3">
               <span
-                class="flex size-9 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 font-mono text-xs font-medium tabular-nums text-primary"
+                class="flex size-8 shrink-0 items-center justify-center rounded-md bg-chart-2/10 font-mono text-xs font-medium tabular-nums text-chart-2"
               >
                 {#if selectedBlockRow}
                   {String(selectedBlockRow.blockIndex + 1).padStart(2, "0")}
@@ -896,8 +873,8 @@
                 variant="ghost"
                 size="icon-sm"
                 type="button"
-                title={t("txWorkflowMoveBlockLeft")}
-                aria-label={t("txWorkflowMoveBlockLeft")}
+                title={t("txWorkflowMoveBlockUp")}
+                aria-label={t("txWorkflowMoveBlockUp")}
                 disabled={readonly || selectedBlockRow.blockIndex === 0}
                 onclick={() =>
                   moveBlock(
@@ -905,14 +882,14 @@
                     selectedBlockRow.blockIndex - 1,
                   )}
               >
-                <ArrowLeftIcon />
+                <ArrowUpIcon />
               </Button>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 type="button"
-                title={t("txWorkflowMoveBlockRight")}
-                aria-label={t("txWorkflowMoveBlockRight")}
+                title={t("txWorkflowMoveBlockDown")}
+                aria-label={t("txWorkflowMoveBlockDown")}
                 disabled={readonly ||
                   selectedBlockRow.blockIndex === blockRows.length - 1}
                 onclick={() =>
@@ -921,7 +898,7 @@
                     selectedBlockRow.blockIndex + 1,
                   )}
               >
-                <ArrowRightIcon />
+                <ArrowDownIcon />
               </Button>
               <Button
                 disabled={readonly}
@@ -994,12 +971,6 @@
 <style>
   .tx-workflow-inspector {
     width: 100%;
-  }
-
-  .canvas-window {
-    box-shadow:
-      0 8px 32px -12px color-mix(in oklch, var(--foreground) 16%, transparent),
-      0 2px 6px -2px color-mix(in oklch, var(--foreground) 6%, transparent);
   }
 
   @media (min-width: 64rem) {

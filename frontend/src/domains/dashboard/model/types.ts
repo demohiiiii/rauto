@@ -178,6 +178,7 @@ export interface DashboardThemeOptionRow {
 
 export interface DashboardPreferenceDisplay {
   closeLabel: string;
+  githubRepositoryLabel: string;
   languageMenuLabel: string;
   languageOptionChineseLabel: string;
   languageOptionEnglishLabel: string;

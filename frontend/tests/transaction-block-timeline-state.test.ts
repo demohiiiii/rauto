@@ -233,6 +233,98 @@ test("timeline rows expose localized operation summaries and movement flags", as
   assert.equal(display.stepRows[2].summaryText, "Empty command");
 });
 
+test("timeline rows pair each run with its rollback command and kind", async () => {
+  await loadI18nLanguage("en");
+  const interactiveRollback = operation("command", "restore config");
+  interactiveRollback.commandEditorKind = "interactive";
+  const display = txBlockTimelineDisplay(
+    model([
+      step(
+        "command",
+        "set hostname edge",
+        operation("command", "undo hostname"),
+      ),
+      step("command", "replace config", interactiveRollback),
+      step("command", "check", operation("flow")),
+      step("command", "restart", operation("command")),
+      step("command", "show interfaces"),
+    ]),
+  );
+
+  assert.deepEqual(
+    display.stepRows.map((row) => [
+      row.summaryText,
+      row.rollbackSummaryText,
+      row.rollbackKindText,
+    ]),
+    [
+      ["set hostname edge", "undo hostname", "Command"],
+      ["replace config", "restore config", "Interactive command"],
+      ["check", "show version", "Interactive command"],
+      ["restart", "Empty command", "Command"],
+      ["show interfaces", "", ""],
+    ],
+  );
+});
+
+test("inactive step rollback commands are excluded from canvas summaries", () => {
+  const source = model([
+    step("command", "deploy", operation("command", "undo")),
+  ]);
+  source.rollbackPolicy = { kind: "none" };
+  const display = txBlockTimelineDisplay(source);
+
+  assert.equal(display.stepRows[0].rollbackSummaryText, "");
+  assert.equal(display.stepRows[0].rollbackKindText, "");
+  assert.equal(display.wholeResourceRollback, null);
+});
+
+test("whole-resource rollback is displayed separately from step rollback", async () => {
+  await loadI18nLanguage("en");
+  const source = model([
+    step("command", "deploy", operation("command", "inactive undo")),
+  ]);
+  source.rollbackPolicy = {
+    kind: "whole_resource",
+    wholeResource: {
+      rollback: operation("command", "restore checkpoint"),
+      triggerStepIndex: 0,
+      hasTriggerStepIndex: true,
+      extra: {},
+    },
+  };
+
+  const display = txBlockTimelineDisplay(source);
+  assert.equal(display.stepRows[0].rollbackSummaryText, "");
+  assert.deepEqual(display.wholeResourceRollback, {
+    kindText: "Command",
+    summaryText: "restore checkpoint",
+  });
+});
+
+test("rollback summaries react to command edits and clearing rollback", () => {
+  const source = model([
+    step("command", "deploy", operation("command", "undo")),
+  ]);
+  const workspace = createTxBlockVisualEditorWorkspace({ model: source });
+  const updated = structuredClone(source);
+  updated.steps[0].rollback!.command.command = "restore checkpoint";
+  workspace.setVisualEditorContext({ model: updated });
+
+  assert.equal(
+    get(workspace.timelineDisplayStateStore).stepRows[0].rollbackSummaryText,
+    "restore checkpoint",
+  );
+  workspace.setVisualEditorContext({
+    model: txBlockSetStepRollbackEnabled(updated, 0, false),
+  });
+  assert.equal(
+    get(workspace.timelineDisplayStateStore).stepRows[0].rollbackSummaryText,
+    "",
+  );
+  assert.equal(source.steps[0].rollback!.command.command, "undo");
+});
+
 test("workspace selection follows add, duplicate, move, and delete actions", () => {
   const changes: TxBlockFormModel[] = [];
   const source = model([step("command", "one"), step("command", "two")]);

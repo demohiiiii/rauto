@@ -43,33 +43,40 @@ test("long page titles use compact sidebar labels", () => {
   assert.match(en, /navConfigHistory: "Config History"/);
 });
 
-test("the connection target card opens the connection workspace directly", () => {
+test("the topbar connection target opens the connection workspace directly", () => {
+  const bodySource = readFileSync(
+    "frontend/src/domains/dashboard/presentation/components/DashboardBody.svelte",
+    "utf8",
+  );
   const sidebarSource = readFileSync(
     "frontend/src/domains/dashboard/presentation/components/DashboardSidebar.svelte",
     "utf8",
   );
-  const displaySource = readFileSync(
-    "frontend/src/domains/connections/presentation/connectionTargetDisplayState.ts",
+  const triggerSource = readFileSync(
+    "frontend/src/domains/connections/presentation/components/ConnectionTargetTrigger.svelte",
+    "utf8",
+  );
+  const workspaceSource = readFileSync(
+    "frontend/src/domains/dashboard/application/createDashboardShellWorkspaces.ts",
     "utf8",
   );
 
   assert.match(
-    sidebarSource,
-    /<Button[\s\S]*aria-label=\{sidebarConnection\.helpLabel\}[\s\S]*onclick=\{openConnectionEditorAction\}/,
+    bodySource.match(/<header\b[\s\S]*?<\/header>/)?.[0] || "",
+    /<ConnectionTargetTrigger\s+display=\{connectionTargetDisplay\}\s+onSelect=\{openConnectionEditorAction\}/,
   );
-  assert.equal(
-    (sidebarSource.match(/onclick=\{openConnectionEditorAction\}/g) || [])
-      .length,
-    2,
+  assert.doesNotMatch(sidebarSource, /sidebarConnection|openConnectionEditor/);
+  assert.match(triggerSource, /aria-haspopup="dialog"/);
+  assert.match(triggerSource, /onclick=\{onSelect\}/);
+  assert.match(
+    workspaceSource,
+    /function openConnectionEditorAction\(\): void \{\s+dashboardShellResources\.openConnectionEditor\(\)/,
   );
-  assert.doesNotMatch(sidebarSource, /sidebarConnection\.openButtonLabel/);
-  assert.doesNotMatch(sidebarSource, /ChevronsUpDownIcon/);
-  assert.doesNotMatch(displaySource, /openButtonLabel/);
 });
 
-test("the connection target card and compact tooltip show current details", () => {
-  const sidebarSource = readFileSync(
-    "frontend/src/domains/dashboard/presentation/components/DashboardSidebar.svelte",
+test("the topbar connection target and tooltip show current details", () => {
+  const triggerSource = readFileSync(
+    "frontend/src/domains/connections/presentation/components/ConnectionTargetTrigger.svelte",
     "utf8",
   );
   const display = sidebarConnectionPresentation({
@@ -94,32 +101,14 @@ test("the connection target card and compact tooltip show current details", () =
   assert.equal("statusLabel" in display, false);
   assert.equal("badgeLabel" in display, false);
   assert.equal("showSavedIcon" in display, false);
-  assert.equal(
-    (sidebarSource.match(/sidebarConnection\.profileLabel/g) || []).length,
-    2,
-  );
-  assert.doesNotMatch(sidebarSource, /sidebarConnection\.statusLabel/);
-  assert.doesNotMatch(sidebarSource, /sidebarConnection\.profile\b/);
-  assert.doesNotMatch(sidebarSource, /BookmarkIcon|sidebarConnection\.title/);
-  assert.match(sidebarSource, /EthernetPortIcon/);
-  assert.equal((sidebarSource.match(/EthernetPortIcon/g) || []).length, 2);
+  assert.match(triggerSource, /aria-label=\{display\.connectionSummaryLabel\}/);
   assert.match(
-    sidebarSource,
-    /aria-label=\{sidebarConnection\.connectionSummaryLabel\}/,
+    triggerSource,
+    /\{display\.endpointLabel\} · \{display\.profileLabel\}/,
   );
   assert.match(
-    sidebarSource,
-    /\{sidebarConnection\.endpointLabel\} · \{sidebarConnection\.profileLabel\}/,
-  );
-  assert.match(
-    sidebarSource,
-    /\{sidebarConnection\.contextLabel\}[\s\S]*?class="mt-1 inline-flex max-w-full truncate rounded-md bg-accent px-1\.5 py-0\.5 text-\[9px\] font-semibold text-accent-foreground"[\s\S]*?\{sidebarConnection\.profileLabel\}/,
-  );
-  assert.doesNotMatch(
-    sidebarSource.match(
-      /\{:else if sidebarConnection\.hasCard\}[\s\S]*?\{:else\}/,
-    )?.[0] || "",
-    /uppercase/,
+    triggerSource,
+    /<Tooltip\.Content[^>]*side="bottom"[\s\S]*?\{display\.contextLabel\}[\s\S]*?\{display\.endpointLabel\} · \{display\.profileLabel\}/,
   );
 });
 
@@ -165,8 +154,6 @@ test("desktop sidebar collapses to icons and reveals expand over the logo", () =
     sidebarSource,
     /class="ml-auto shrink-0 border-sidebar-border bg-card shadow-none aria-expanded:bg-card hover:bg-sidebar-border hover:text-foreground hover:aria-expanded:bg-sidebar-border"[\s\S]*?variant="outline"[\s\S]*?size="icon-sm"/,
   );
-  assert.match(sidebarSource, /rounded-lg py-1\.5 text-\[13px\]/);
-  assert.match(sidebarSource, /"size-3\.5"/);
   assert.match(
     sidebarSource,
     /<Tooltip\.Provider delayDuration=\{100\} skipDelayDuration=\{0\}>/,

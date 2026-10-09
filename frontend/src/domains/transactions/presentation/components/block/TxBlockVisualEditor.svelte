@@ -1,7 +1,6 @@
 <script lang="ts">
   import { getContext } from "svelte";
   import { readonlyFieldsContextKey } from "$lib/svelte.js";
-  import * as Card from "$lib/components/ui/card";
   import { currentLanguageState } from "$lib/i18n.js";
   import TxBlockRootInspector from "$domains/transactions/presentation/components/block/TxBlockRootInspector.svelte";
   import TxBlockStepEditor from "$domains/transactions/presentation/components/block/TxBlockStepEditor.svelte";
@@ -99,31 +98,27 @@
 
   {#key currentLanguage}
     {#if selectedStepRow}
-      <Card.Root size="sm" class="min-w-0">
-        {@const stepRow = selectedStepRow}
-        <TxBlockStepEditor
-          step={stepRow.step}
-          {editorDisplay}
-          {validationErrors}
-          pathPrefix={`steps[${stepRow.stepIndex}]`}
-          runCommandMetadataFieldDefs={stepRunCommandMetadataFieldDefs || []}
-          rollbackCommandMetadataFieldDefs={stepRollbackCommandMetadataFieldDefs ||
-            []}
-          perStepRollbackEnabled={model.rollbackPolicy?.kind === "per_step"}
-          onRunChange={editorActionHandlers.stepRunChangeAction(
-            stepRow.stepIndex,
-          )}
-          onRollbackChange={editorActionHandlers.stepRollbackChangeAction(
-            stepRow.stepIndex,
-          )}
-          onRollbackEnabledChange={editorActionHandlers.stepRollbackEnabledAction(
-            stepRow.stepIndex,
-          )}
-          onStepChange={editorActionHandlers.stepChangeAction(
-            stepRow.stepIndex,
-          )}
-        />
-      </Card.Root>
+      {@const stepRow = selectedStepRow}
+      <TxBlockStepEditor
+        step={stepRow.step}
+        {editorDisplay}
+        {validationErrors}
+        pathPrefix={`steps[${stepRow.stepIndex}]`}
+        runCommandMetadataFieldDefs={stepRunCommandMetadataFieldDefs || []}
+        rollbackCommandMetadataFieldDefs={stepRollbackCommandMetadataFieldDefs ||
+          []}
+        perStepRollbackEnabled={model.rollbackPolicy?.kind === "per_step"}
+        onRunChange={editorActionHandlers.stepRunChangeAction(
+          stepRow.stepIndex,
+        )}
+        onRollbackChange={editorActionHandlers.stepRollbackChangeAction(
+          stepRow.stepIndex,
+        )}
+        onRollbackEnabledChange={editorActionHandlers.stepRollbackEnabledAction(
+          stepRow.stepIndex,
+        )}
+        onStepChange={editorActionHandlers.stepChangeAction(stepRow.stepIndex)}
+      />
     {/if}
   {/key}
 </div>

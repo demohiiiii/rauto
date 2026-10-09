@@ -10,6 +10,7 @@
   import DashboardAgentAuthPanel from "./DashboardAgentAuthPanel.svelte";
   import DashboardPreferenceTools from "./DashboardPreferenceTools.svelte";
   import DashboardSidebar from "./DashboardSidebar.svelte";
+  import ConnectionTargetTrigger from "$domains/connections/presentation/components/ConnectionTargetTrigger.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
   import { dashboardPageDefinitions } from "$domains/dashboard/index.js";
   import {
@@ -32,7 +33,9 @@
     applyShellState,
     bodyDisplayStateStore,
     closeSidebarAction,
+    connectionTargetDisplayStateStore,
     documentKeydownHandler,
+    openConnectionEditorAction,
     openRecordDrawerAction,
     openSidebarAction,
     pageOutletRowsStateStore,
@@ -45,9 +48,15 @@
   let shellState = $derived($dashboardState);
   let bodyDisplay = $derived($bodyDisplayStateStore);
   let recordToolsDisplay = $derived($recordToolsDisplayStateStore);
+  let connectionTargetDisplay = $derived($connectionTargetDisplayStateStore);
   let pageOutletRows = $derived($pageOutletRowsStateStore);
   let sidebarOpen = $derived($sidebarOpenStateStore);
   let desktopSidebarCollapsed = $state(false);
+  let pageContentClass = $derived(
+    shellState.currentTab === "orchestrated"
+      ? "w-full max-w-none"
+      : "mx-auto w-full max-w-6xl",
+  );
   let shellClass = $derived(
     cn(
       "min-h-screen lg:grid lg:h-dvh lg:min-h-0 lg:overflow-hidden lg:transition-[grid-template-columns] lg:duration-200 motion-reduce:transition-none",
@@ -57,17 +66,16 @@
     ),
   );
   const headerClass =
-    "sticky top-0 z-30 flex min-h-16 w-full items-center border-b border-border bg-background/80 px-6 backdrop-blur-lg max-lg:px-3.5";
+    "sticky top-0 z-30 flex min-h-16 w-full items-center gap-2 border-b border-border bg-background/80 px-6 backdrop-blur-lg max-lg:px-3.5";
   const mainScrollClass =
     "min-h-0 p-5 md:p-8 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain";
   const panelClass = "border-0 bg-transparent";
-  const topbarPrimaryClass =
-    "flex min-w-0 flex-1 items-center gap-2 max-lg:overflow-x-auto max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden";
-  const topbarActionsClass = "inline-flex flex-none items-center gap-3 px-2";
+  const topbarActionsClass =
+    "ml-auto inline-flex shrink-0 items-center gap-2 max-sm:gap-0 lg:gap-3";
   const topbarToolGroupClass =
-    "inline-flex min-h-10 items-center gap-0.5 rounded-2xl border border-border bg-card p-1";
+    "inline-flex min-h-10 items-center gap-0.5 rounded-2xl border border-border bg-card p-1 max-sm:border-0 max-sm:bg-transparent max-sm:p-0";
   const topbarToolButtonClass =
-    "min-h-8 justify-start gap-1.5 rounded-xl px-3 text-[0.82rem] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground";
+    "min-h-8 justify-start gap-1.5 rounded-xl px-3 text-[0.82rem] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground max-lg:size-8 max-lg:justify-center max-lg:px-0";
   const topbarToolMetaClass =
     "text-[0.7rem] font-bold text-muted-foreground max-lg:hidden";
   $effect(() => {
@@ -111,18 +119,26 @@
 
     <div class="flex min-w-0 flex-col lg:h-dvh lg:min-h-0">
       <header class={headerClass}>
-        <div class="flex-none lg:hidden">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            type="button"
-            aria-label={bodyDisplay.sidebarOpenAria}
-            onclick={openSidebarAction}
-          >
-            <MenuIcon />
-          </Button>
+        <div class="flex min-w-0 flex-1 items-center gap-2 max-sm:gap-1">
+          <div class="flex-none lg:hidden">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              type="button"
+              aria-label={bodyDisplay.sidebarOpenAria}
+              onclick={openSidebarAction}
+            >
+              <MenuIcon />
+            </Button>
+          </div>
+          <div class="min-w-0 max-w-xs flex-1 max-sm:flex-none">
+            <ConnectionTargetTrigger
+              display={connectionTargetDisplay}
+              onSelect={openConnectionEditorAction}
+            />
+          </div>
         </div>
-        <div class={topbarPrimaryClass}>
+        <div data-dashboard-topbar-actions class={topbarActionsClass}>
           <div class={topbarToolGroupClass}>
             <Button
               class={topbarToolButtonClass}
@@ -138,7 +154,7 @@
                 data-icon="inline-start"
                 aria-hidden="true"
               />
-              <span class="leading-none">
+              <span class="leading-none max-lg:sr-only">
                 {recordToolsDisplay.recordLevelLabel}
               </span>
               <span class={topbarToolMetaClass}>
@@ -151,22 +167,21 @@
               size="sm"
               type="button"
               title={recordToolsDisplay.recordFabTitle}
+              aria-label={recordToolsDisplay.recordFabTitle}
               onclick={openRecordDrawerAction}
             >
               <HistoryIcon data-icon="inline-start" aria-hidden="true" />
-              <span class="leading-none">
+              <span class="leading-none max-lg:sr-only">
                 {recordToolsDisplay.recordFabTitle}
               </span>
             </Button>
           </div>
-        </div>
-        <div class={topbarActionsClass}>
           <DashboardPreferenceTools />
         </div>
       </header>
 
       <main class={mainScrollClass}>
-        <div class="mx-auto w-full max-w-6xl space-y-4">
+        <div class={`${pageContentClass} space-y-4`}>
           <DashboardAgentAuthPanel />
 
           {#if bodyDisplay.pageLabelText}

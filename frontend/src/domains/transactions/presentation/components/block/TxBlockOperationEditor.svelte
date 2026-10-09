@@ -23,6 +23,7 @@
     onChange?: (operation: TxOperationModel) => void;
     operation: TxOperationModel;
     pathPrefix?: string;
+    showTitle?: boolean;
     title: string;
     validationErrors?: readonly TxValidationError[];
   }
@@ -31,6 +32,7 @@
     options,
     operation,
     title,
+    showTitle = true,
     editorDisplay,
     commandMetadataFieldDefs = [],
     onChange,
@@ -45,9 +47,11 @@
   }
 </script>
 
-<div class="grid gap-4">
-  <div class="grid gap-2">
-    <h3 class="text-sm font-semibold text-foreground">{title}</h3>
+<div class="grid min-w-0 gap-4">
+  <div class="grid min-w-0 gap-2">
+    {#if showTitle}<h3 class="text-sm font-semibold text-foreground">
+        {title}
+      </h3>{/if}
     {@render options?.()}
     <ReadonlyFields>
       <Tabs.Root
@@ -64,7 +68,7 @@
       </Tabs.Root>
     </ReadonlyFields>
   </div>
-  <div>
+  <div class="min-w-0">
     {#if operation.kind === "flow"}
       <TxBlockInteractiveEditor
         {operation}

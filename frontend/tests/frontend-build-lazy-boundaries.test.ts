@@ -10,6 +10,8 @@ const CODEMIRROR_MODULE_PATTERN =
 const LAZY_ONLY_MODULE_PATTERNS = [
   CODEMIRROR_MODULE_PATTERN,
   /[\\/]FlowInsertNode\.svelte(?:\?|$)/,
+  /[\\/]FlowWorkflowBlockNode\.svelte(?:\?|$)/,
+  /[\\/]FlowWorkflowGroupNode\.svelte(?:\?|$)/,
   /[\\/]domains[\\/]command[\\/]presentation[\\/]components[\\/]/,
   /[\\/]domains[\\/]orchestration[\\/]presentation[\\/]components[\\/]/,
   /[\\/]domains[\\/]transactions[\\/]presentation[\\/]components[\\/]/,

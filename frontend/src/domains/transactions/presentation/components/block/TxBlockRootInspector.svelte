@@ -1,8 +1,7 @@
 <script lang="ts">
   import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
-  import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
-  import Settings2Icon from "@lucide/svelte/icons/settings-2";
-  import { Separator } from "$lib/components/ui/separator/index.js";
+  import PresenceFieldGrid from "$components/fragments/PresenceFieldGrid.svelte";
+  import StringSelectField from "$components/fragments/StringSelectField.svelte";
   import { t } from "$lib/i18n.js";
   import { txBlockValidationErrorText } from "$domains/transactions/index.js";
   import type {
@@ -13,7 +12,6 @@
     TxValidationError,
   } from "$domains/transactions/index.js";
   import TxBlockRollbackPolicyEditor from "$domains/transactions/presentation/components/block/TxBlockRollbackPolicyEditor.svelte";
-  import TxBlockRootSettingsEditor from "$domains/transactions/presentation/components/block/TxBlockRootSettingsEditor.svelte";
 
   interface Props {
     editorActionHandlers: ReturnType<typeof txBlockVisualEditorBindings>;
@@ -40,43 +38,43 @@
   );
 </script>
 
-<details
+<section
   data-tx-block-settings
-  class="group/block-settings min-w-0 rounded-xl border border-border bg-card"
+  aria-label={t("txBlockInspectorRootTitle")}
+  class="block-settings grid min-w-0 gap-3"
 >
-  <summary
-    class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
-  >
-    <Settings2Icon class="size-4 text-primary" />
-    {t("txBlockInspectorRootTitle")}
-    <ChevronRightIcon
-      class="ml-auto size-4 text-muted-foreground transition-transform group-open/block-settings:rotate-90 motion-reduce:transition-none"
+  {#if stepsErrorText}
+    <p class="text-xs text-destructive" role="alert">{stepsErrorText}</p>
+  {/if}
+  <ReadonlyFields class="block-settings-fields grid min-w-0 gap-3">
+    <PresenceFieldGrid
+      fieldRows={rootPanel.fieldRows}
+      valueHandlerMode="event"
+      hostClass="contents"
+      itemClass="min-w-0"
+      presenceControlsMode="hidden"
+      onValueChangeForKey={editorActionHandlers.rootValueHandler}
+      onPresenceChangeForKey={editorActionHandlers.rootPresenceHandler}
     />
-  </summary>
-  <div class="grid min-w-0 gap-4 border-t border-border p-3">
-    {#if stepsErrorText}
-      <p class="text-xs text-destructive" role="alert">{stepsErrorText}</p>
-    {/if}
-    <ReadonlyFields>
-      <TxBlockRootSettingsEditor
-        fieldRows={rootPanel.fieldRows}
-        onValueChange={editorActionHandlers.rootValueHandler}
-        onPresenceChange={editorActionHandlers.rootPresenceHandler}
+    <label class="flex min-w-0 flex-col gap-2">
+      <span class="mb-1 text-sm font-medium text-foreground">
+        {t("txBlockFormRollbackPolicy")}
+      </span>
+      <StringSelectField
+        aria-label={t("txBlockFormRollbackPolicy")}
+        value={rollbackPanel.rollbackKindValue}
+        optionValues={[...editorDisplay.rollbackKindRows]}
+        onChange={editorActionHandlers.rollbackKindValueHandler()}
       />
-    </ReadonlyFields>
-
-    <Separator />
-
+    </label>
+  </ReadonlyFields>
+  {#if rollbackPanel.showWholeResource}
     <TxBlockRollbackPolicyEditor
       {editorDisplay}
       jsonValueTypeRows={editorDisplay.jsonValueTypeRows}
-      rollbackKindRows={editorDisplay.rollbackKindRows}
-      rollbackKindValue={rollbackPanel.rollbackKindValue}
-      showWholeResource={rollbackPanel.showWholeResource}
       wholeResourceFieldRows={rollbackPanel.wholeResourceFieldRows}
       wholeResourceExtra={rollbackPanel.wholeResourceExtra}
       wholeResourceRollback={rollbackPanel.wholeResourceRollback}
-      onRollbackKindChange={editorActionHandlers.rollbackKindValueHandler()}
       onWholeResourceFieldInput={editorActionHandlers.wholeFieldValueHandler}
       onWholeResourceFieldPresenceChange={editorActionHandlers.wholeFieldPresenceHandler}
       onWholeResourceExtraChange={editorActionHandlers.setWholeResourceExtra}
@@ -84,5 +82,17 @@
       {validationErrors}
       pathPrefix={`${pathPrefix ? `${pathPrefix}.` : ""}rollbackPolicy.wholeResource`}
     />
-  </div>
-</details>
+  {/if}
+</section>
+
+<style>
+  .block-settings {
+    container: block-settings / inline-size;
+  }
+
+  @container block-settings (min-width: 32rem) {
+    :global(.block-settings-fields) {
+      grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>

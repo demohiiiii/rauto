@@ -168,7 +168,7 @@
   });
 </script>
 
-<div class="grid gap-4">
+<div class="grid min-w-0 gap-4">
   <Card.Root class="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
     <WorkspaceActionHeader
       title={txWorkflowEditorDisplay.editorTitle}
@@ -222,41 +222,45 @@
         prefix="tx-workflow-direct"
         varsKey={directVarsKey}
       />
-      <TxJsonFormSurface
-        readonly={templateDisplay.readonly || !!templateDisplay.loadingAction}
-        {active}
-        editorDisplayMode="form"
-        editorKey={txWorkflowEditorDisplay.editorKey}
-        editorValue={txWorkflowJsonText}
-        editorTitle={txWorkflowEditorDisplay.editorTitle}
-        formError={txWorkflowFormError}
-        formErrorDetail={txWorkflowFormErrorDetail}
-        hostClass={txWorkflowEditorDisplay.hostClass}
-        navigationMode="hidden"
-        onEditorInput={changeCurrentJson}
-        placeholder={txWorkflowEditorDisplay.placeholder}
-        syncStatus={txWorkflowSyncStatus}
-        syncStatusText={txWorkflowSyncPresentation.text}
-        syncStatusTone={txWorkflowSyncPresentation.tone}
-      >
-        {#snippet formContent()}
-          <TxWorkflowVisualEditor
-            readonly={templateDisplay.readonly ||
-              !!templateDisplay.loadingAction}
-            model={txWorkflowFormModel}
-            onChange={changeCurrentFormModel}
-            onOpenView={openCanvasViewDialog}
-          />
-        {/snippet}
-        {#snippet readonlyContent()}
-          <TxWorkflowPreviewPanel
-            framed={false}
-            previewPresentation={txWorkflowReadonlyPreview}
-          />
-        {/snippet}
-      </TxJsonFormSurface>
     </Card.Content>
   </Card.Root>
+
+  <div class="min-w-0">
+    <TxJsonFormSurface
+      readonly={templateDisplay.readonly || !!templateDisplay.loadingAction}
+      {active}
+      editorDisplayMode="form"
+      editorKey={txWorkflowEditorDisplay.editorKey}
+      editorValue={txWorkflowJsonText}
+      editorTitle={txWorkflowEditorDisplay.editorTitle}
+      formError={txWorkflowFormError}
+      formErrorDetail={txWorkflowFormErrorDetail}
+      hostClass={txWorkflowEditorDisplay.hostClass}
+      navigationMode="hidden"
+      onEditorInput={changeCurrentJson}
+      placeholder={txWorkflowEditorDisplay.placeholder}
+      syncStatus={txWorkflowSyncStatus}
+      syncStatusText={txWorkflowSyncPresentation.text}
+      syncStatusTone={txWorkflowSyncPresentation.tone}
+    >
+      {#snippet formContent()}
+        <TxWorkflowVisualEditor
+          readonly={templateDisplay.readonly || !!templateDisplay.loadingAction}
+          sourceKind={templateDisplay.selectedName ? "template" : "manual"}
+          sourceName={templateDisplay.selectedName}
+          model={txWorkflowFormModel}
+          onChange={changeCurrentFormModel}
+          onOpenView={openCanvasViewDialog}
+        />
+      {/snippet}
+      {#snippet readonlyContent()}
+        <TxWorkflowPreviewPanel
+          framed={false}
+          previewPresentation={txWorkflowReadonlyPreview}
+        />
+      {/snippet}
+    </TxJsonFormSurface>
+  </div>
 </div>
 
 <Dialog.Root

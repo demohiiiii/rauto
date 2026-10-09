@@ -457,9 +457,15 @@ function txBlockLocalizedFallback(
 }
 
 function txBlockOperationKindText(
-  kind: TxOperationModel["kind"] | undefined,
+  operation: TxOperationModel | null | undefined,
 ): string {
-  if (kind === "flow") return t("txBlockOperationKindInteractive");
+  if (
+    operation?.kind === "flow" ||
+    operation?.commandEditorKind === "interactive" ||
+    (operation?.command?.interaction?.prompts?.length ?? 0) > 0
+  ) {
+    return t("txBlockOperationKindInteractive");
+  }
   return t("txBlockFormCommand");
 }
 
@@ -487,17 +493,31 @@ function txBlockOperationSummaryText(operation: JsonObject = {}): string {
 export function txBlockTimelineDisplay(model: JsonObject = {}) {
   const modelValue = txObject<TxBlockFormModel>(model);
   const steps = Array.isArray(modelValue.steps) ? modelValue.steps : [];
+  const perStepRollback = modelValue.rollbackPolicy?.kind === "per_step";
+  const wholeResourceRollback =
+    modelValue.rollbackPolicy?.kind === "whole_resource"
+      ? modelValue.rollbackPolicy.wholeResource?.rollback
+      : null;
   return {
+    wholeResourceRollback: wholeResourceRollback
+      ? {
+          kindText: txBlockOperationKindText(wholeResourceRollback),
+          summaryText: txBlockOperationSummaryText(wholeResourceRollback),
+        }
+      : null,
     stepRows: steps.map((step, stepIndex) => ({
       canMoveDown: stepIndex < steps.length - 1,
       canMoveUp: stepIndex > 0,
-      kindText:
-        step?.run?.kind === "command" &&
-        (step.run.commandEditorKind === "interactive" ||
-          (step.run.command?.interaction?.prompts?.length ?? 0) > 0)
-          ? t("txBlockOperationKindInteractive")
-          : txBlockOperationKindText(step?.run?.kind),
+      kindText: txBlockOperationKindText(step?.run),
       rollbackConfigured: !!step?.rollback,
+      rollbackKindText:
+        perStepRollback && step?.rollback
+          ? txBlockOperationKindText(step.rollback)
+          : "",
+      rollbackSummaryText:
+        perStepRollback && step?.rollback
+          ? txBlockOperationSummaryText(step.rollback)
+          : "",
       stepIndex,
       summaryText: txBlockOperationSummaryText(step?.run),
       titleText: txBlockOperationSummaryText(step?.run),

@@ -349,8 +349,8 @@ test("workflow block nodes display every command and expand without overlap", ()
     "show inventory",
     "show clock",
   ]);
-  assert.equal(blockNodes[0].height, 134);
-  assert.equal(blockNodes[1].position.y, 282);
+  assert.equal(blockNodes[0].height, 138);
+  assert.equal(blockNodes[1].position.y, 286);
   assert.ok(
     blockNodes[1].position.y >=
       blockNodes[0].position.y + blockNodes[0].height + 12,

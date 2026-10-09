@@ -56,11 +56,12 @@
     txWorkflowFormModelToJsonText,
   } from "$domains/transactions/index.js";
   import OrchestrationFlowInspector from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowInspector.svelte";
-  import OrchestrationFlowJobNode from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowJobNode.svelte";
+  import FlowWorkflowGroupNode from "$components/fragments/FlowWorkflowGroupNode.svelte";
   import FlowInsertNode from "$components/fragments/FlowInsertNode.svelte";
   import OrchestrationFlowStageNode from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowStageNode.svelte";
   import OrchestrationFlowViewportController from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowViewportController.svelte";
-  import OrchestrationFlowWorkflowBlockNode from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowWorkflowBlockNode.svelte";
+  import FlowWorkflowBlockNode from "$components/fragments/FlowWorkflowBlockNode.svelte";
+  import { FLOW_WORKFLOW_FIT_OPTIONS } from "$components/fragments/flowWorkflowLayout.js";
   import OrchestrationPlanSettingsEditor from "$domains/orchestration/presentation/components/editor/OrchestrationPlanSettingsEditor.svelte";
   import TxDirectVarsPanel from "$domains/transactions/presentation/components/shared/TxDirectVarsPanel.svelte";
 
@@ -70,6 +71,8 @@
     OrchestrationErrorChangeHandler,
     OrchestrationFlowEdge,
     OrchestrationFlowSelection,
+    OrchestrationJobFlowNode,
+    OrchestrationWorkflowBlockFlowNode,
     OrchestrationPlanChangeHandler,
     OrchestrationPlanFormModel,
     OrchestrationStageFlowNode,
@@ -84,12 +87,12 @@
     Record<string, unknown>;
   type StageInsertNodeData = ComponentProps<typeof FlowInsertNode>["data"] &
     Record<string, unknown>;
-  type JobNodeData = ComponentProps<typeof OrchestrationFlowJobNode>["data"] &
-    Record<string, unknown>;
+  type JobNodeData = ComponentProps<typeof FlowWorkflowGroupNode>["data"] &
+    OrchestrationJobFlowNode["data"];
   type WorkflowBlockNodeData = ComponentProps<
-    typeof OrchestrationFlowWorkflowBlockNode
+    typeof FlowWorkflowBlockNode
   >["data"] &
-    Record<string, unknown>;
+    Omit<OrchestrationWorkflowBlockFlowNode["data"], "commandRows">;
   type OrchestrationGraphNodeData =
     StageNodeData | StageInsertNodeData | JobNodeData | WorkflowBlockNodeData;
   type OrchestrationGraphNode = Node<
@@ -146,8 +149,8 @@
   const nodeTypes = {
     stage: OrchestrationFlowStageNode,
     stageInsert: FlowInsertNode,
-    job: OrchestrationFlowJobNode,
-    workflowBlock: OrchestrationFlowWorkflowBlockNode,
+    job: FlowWorkflowGroupNode,
+    workflowBlock: FlowWorkflowBlockNode,
   };
   const directVarsKey = TX_VARS.orchestrationDirect;
   const workflowPreviewWorkspace = createOrchestrationWorkflowPreviewWorkspace({
@@ -329,6 +332,9 @@
             ...node.data,
             readonly,
             sequenceText: String(blockIndex + 1),
+            commandRows: node.data.commandRows.map((summaryText) => ({
+              summaryText,
+            })),
             editable,
             canMovePrevious: editable && blockIndex > 0,
             canMoveNext: editable && blockIndex < blockCount - 1,
@@ -378,14 +384,13 @@
               ? "orchestrationFlowSourceTemplateRender"
               : "orchestrationFlowSourceManual",
           ),
-          unresolvedText: t("orchestrationFlowUnresolvedValues").replace(
-            "{count}",
-            String(node.data.unresolvedCount || 0),
-          ),
-          overflowText: t("orchestrationFlowPreviewOverflow").replace(
-            "{count}",
-            String(node.data.overflowCount || 0),
-          ),
+          unresolvedText:
+            node.data.unresolvedCount > 0
+              ? t("orchestrationFlowUnresolvedValues").replace(
+                  "{count}",
+                  String(node.data.unresolvedCount || 0),
+                )
+              : "",
           previewErrorText: node.data.previewError
             ? t("orchestrationFlowPreviewError")
             : "",
@@ -405,6 +410,8 @@
           ),
           emptyWorkflowText: t("txWorkflowNodeNoCommands"),
           addBlockLabel: t("txWorkflowFormAddBlock"),
+          editable: !readonly,
+          hasSerialHandles: node.data.stageStrategy === "serial",
           canMovePrevious: jobIndex > 0,
           canMoveNext: jobIndex < jobs.length - 1,
           movePreviousLabel: t("orchestrationFlowMoveJobUp"),
@@ -840,10 +847,7 @@
         edges={graphEdges}
         {nodeTypes}
         fitView
-        fitViewOptions={{
-          padding: compactCanvas ? 0.24 : 0.1,
-          maxZoom: 0.85,
-        }}
+        fitViewOptions={FLOW_WORKFLOW_FIT_OPTIONS}
         minZoom={0.25}
         maxZoom={1.35}
         nodesDraggable={false}
@@ -947,6 +951,7 @@
         <Controls
           position="bottom-left"
           orientation="horizontal"
+          fitViewOptions={FLOW_WORKFLOW_FIT_OPTIONS}
           showLock={false}
           aria-label={t("orchestrationFlowCanvasControls")}
           buttonBgColor="var(--card)"

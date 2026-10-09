@@ -49,7 +49,8 @@ export function txCommandPromptExtraSource(
 
 function txCommandDraft(command: Partial<TxCommandModel> = {}): TxCommandModel {
   return {
-    mode: command.mode || "User",
+    // Leave mode unresolved until the active device profile supplies its default.
+    mode: stringValue(command.mode),
     command: command.command || "",
     multilineMode: (command.multilineMode === "whole"
       ? "whole"

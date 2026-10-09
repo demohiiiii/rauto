@@ -312,6 +312,9 @@ export function sidebarConnectionPresentation(
   const helpLabel = tr("sidebarConnectionHint");
   const profileLabel = card?.profile || "autodetect";
   return {
+    actionLabel: tr(
+      hasCard ? "connectionTargetSwitchLabel" : "connectionTargetSelectLabel",
+    ),
     connectionSummaryLabel: hasCard
       ? [contextLabel, endpointLabel, profileLabel].filter(Boolean).join(" · ")
       : helpLabel,

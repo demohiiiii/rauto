@@ -1,4 +1,8 @@
 import { orchestrationInlineWorkflowPreview } from "../model/orchestrationWorkflowPreview.js";
+import {
+  flowWorkflowBlockHeight,
+  flowWorkflowGroupLayout,
+} from "../../../components/fragments/flowWorkflowLayout.js";
 import type {
   JsonObject,
   OrchestrationJobModel,
@@ -16,15 +20,6 @@ const STAGE_INSERT_SIZE = 44;
 const JOB_GAP = 28;
 const JOB_TOP = 92;
 const JOB_SIDE = 20;
-const JOB_HEADER_HEIGHT = 116;
-const WORKFLOW_BLOCK_TOP_GAP = 20;
-const JOB_EMPTY_BODY_HEIGHT = 72;
-const JOB_BOTTOM = 18;
-const JOB_ADD_BLOCK_HEIGHT = 44;
-const WORKFLOW_BLOCK_BASE_HEIGHT = 82;
-const WORKFLOW_COMMAND_ROW_HEIGHT = 26;
-const WORKFLOW_BLOCK_GAP = 12;
-const WORKFLOW_BLOCK_SIDE = 16;
 const STAGE_BOTTOM = 56;
 
 type WorkflowPreviewMap = Record<string, OrchestrationWorkflowPreview>;
@@ -218,31 +213,25 @@ function workflowBlockCommands(row: OrchestrationWorkflowPreviewRow): string[] {
 }
 
 function workflowBlockHeight(row: OrchestrationWorkflowPreviewRow): number {
-  return (
-    WORKFLOW_BLOCK_BASE_HEIGHT +
-    Math.max(0, workflowBlockCommands(row).length - 1) *
-      WORKFLOW_COMMAND_ROW_HEIGHT
-  );
+  return flowWorkflowBlockHeight({
+    commandRows: workflowBlockCommands(row).map((summaryText) => ({
+      summaryText,
+    })),
+  });
 }
 
-function jobBottomHeight(preview: OrchestrationWorkflowPreview): number {
-  return (
-    JOB_BOTTOM + (preview.sourceKind === "manual" ? JOB_ADD_BLOCK_HEIGHT : 0)
+function jobLayout(preview: OrchestrationWorkflowPreview) {
+  return flowWorkflowGroupLayout(
+    previewRows(preview).map(workflowBlockHeight),
+    {
+      width: STAGE_WIDTH - JOB_SIDE * 2,
+      canAddBlock: preview.sourceKind === "manual",
+    },
   );
 }
 
 function jobHeight(preview: OrchestrationWorkflowPreview): number {
-  const rows = previewRows(preview);
-  const bodyHeight = rows.length
-    ? rows.reduce((height, row) => height + workflowBlockHeight(row), 0) +
-      Math.max(0, rows.length - 1) * WORKFLOW_BLOCK_GAP
-    : JOB_EMPTY_BODY_HEIGHT;
-  return (
-    JOB_HEADER_HEIGHT +
-    WORKFLOW_BLOCK_TOP_GAP +
-    bodyHeight +
-    jobBottomHeight(preview)
-  );
+  return jobLayout(preview).height;
 }
 
 function stageHeight(
@@ -428,15 +417,14 @@ function workflowBlockNodes(
   );
   const jobId = `stage-${stageIndex}-job-${jobIndex}`;
   const rows = previewRows(preview);
-  let blockY = JOB_HEADER_HEIGHT + WORKFLOW_BLOCK_TOP_GAP;
+  const layout = jobLayout(preview);
   return rows.map((row, blockIndex) => {
-    const height = workflowBlockHeight(row);
     const node: OrchestrationWorkflowBlockFlowNode = {
       id: `${jobId}-block-${blockIndex}`,
       type: "workflowBlock",
       parentId: jobId,
       extent: "parent",
-      position: { x: WORKFLOW_BLOCK_SIDE, y: blockY },
+      ...layout.blocks[blockIndex],
       data: {
         kind: "workflow-block",
         stageIndex,
@@ -452,10 +440,7 @@ function workflowBlockNodes(
       },
       selectable: true,
       draggable: false,
-      width: STAGE_WIDTH - JOB_SIDE * 2 - WORKFLOW_BLOCK_SIDE * 2,
-      height,
     };
-    blockY += height + WORKFLOW_BLOCK_GAP;
     return node;
   });
 }

@@ -1,10 +1,11 @@
 <script lang="ts">
   import { useSvelteFlow } from "@xyflow/svelte";
+  import { TX_WORKFLOW_CANVAS_DESKTOP_ZOOM } from "../../transactionWorkflowCanvasState.js";
 
   interface Props {
     compact?: boolean;
     focusNodeId?: string;
-    endNodeId?: string;
+    layoutRevision?: string;
     inspectorOpen?: boolean;
     inspectorWidth?: number;
   }
@@ -12,7 +13,7 @@
   let {
     compact = false,
     focusNodeId = "workflow-root",
-    endNodeId = "",
+    layoutRevision = "",
     inspectorOpen = true,
     inspectorWidth = 560,
   }: Props = $props();
@@ -21,7 +22,7 @@
 
   $effect(() => {
     const nextNodeId = focusNodeId;
-    const nextEndNodeId = endNodeId;
+    layoutRevision;
     const nextCompact = compact;
     const nextInspectorOpen = inspectorOpen;
     const nextInspectorWidth = inspectorWidth;
@@ -30,27 +31,23 @@
       if (!node) return;
       const nodeWidth = node.measured?.width || node.width || 320;
       const nodeHeight = node.measured?.height || node.height || 160;
-      const endNode = nextEndNodeId ? getNode(nextEndNodeId) : undefined;
-      const focusWidth = endNode
-        ? Math.max(
-            nodeWidth,
-            endNode.position.x + (endNode.width || 44) - node.position.x,
-          )
-        : nodeWidth;
-      const focusHeight = endNode
-        ? Math.max(
-            nodeHeight,
-            endNode.position.y + (endNode.height || 44) - node.position.y,
-          )
-        : nodeHeight;
-      const zoom = nextCompact ? 0.82 : 0.9;
+      let x = node.position.x;
+      let y = node.position.y;
+      let parentId = node.parentId;
+      while (parentId) {
+        const parent = getNode(parentId);
+        if (!parent) break;
+        x += parent.position.x;
+        y += parent.position.y;
+        parentId = parent.parentId;
+      }
+      const zoom = nextCompact ? 0.82 : TX_WORKFLOW_CANVAS_DESKTOP_ZOOM;
       const inspectorOffset =
         !nextCompact && nextInspectorOpen ? nextInspectorWidth / (2 * zoom) : 0;
-      setCenter(
-        node.position.x + focusWidth / 2 + inspectorOffset,
-        node.position.y + focusHeight / 2,
-        { zoom, duration: 240 },
-      );
+      setCenter(x + nodeWidth / 2 + inspectorOffset, y + nodeHeight / 2, {
+        zoom,
+        duration: 240,
+      });
     }, 80);
 
     return () => window.clearTimeout(focusTimer);

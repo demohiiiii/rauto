@@ -9,48 +9,23 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { classNames } from "$lib/ui.js";
-  import type { OrchestrationJobFlowNode } from "$domains/orchestration/index.js";
+  import type { FlowWorkflowGroupNodeData } from "./flowWorkflowTypes.js";
 
-  type JobNodeData = OrchestrationJobFlowNode["data"] & {
-    readonly?: boolean;
-    addBlockLabel: string;
-    blockCountText: string;
-    canMoveNext: boolean;
-    canMovePrevious: boolean;
-    deleteLabel: string;
-    duplicateLabel: string;
-    emptyWorkflowText: string;
-    moveNextLabel: string;
-    movePreviousLabel: string;
-    onAddBlock?: () => void;
-    onDelete?: () => void;
-    onDuplicate?: () => void;
-    onMoveNext?: () => void;
-    onMovePrevious?: () => void;
-    overflowText: string;
-    previewErrorText: string;
-    previewLoadingText: string;
-    sequenceText: string;
-    sourceLabelText: string;
-    strategyText: string;
-    targetCountText: string;
-    unresolvedText: string;
-  };
-
-  interface Props {
-    data: JobNodeData;
+  let {
+    data,
+    selected = false,
+  }: {
+    data: FlowWorkflowGroupNodeData;
     selected?: boolean;
-  }
-
-  let { data, selected = false }: Props = $props();
+  } = $props();
 
   function runAction(event: MouseEvent, action?: () => void): void {
     event.stopPropagation();
-    if (typeof action === "function") action();
+    if (!data.readonly) action?.();
   }
 </script>
 
-{#if data.stageStrategy === "serial"}
+{#if data.hasSerialHandles}
   <Handle
     id="serial-in"
     type="target"
@@ -61,61 +36,63 @@
 {/if}
 
 <div
+  data-testid="flow-workflow-group-node"
   class={classNames(
-    "group relative h-full w-full rounded-xl border bg-card/80 text-card-foreground shadow-sm transition-[border-color,box-shadow]",
+    "group relative h-full w-full rounded-xl border bg-card/80 text-card-foreground shadow-sm transition-[border-color,box-shadow] motion-reduce:transition-none",
     selected
       ? "border-primary shadow-md ring-2 ring-primary/15"
       : "border-border hover:border-primary/40",
   )}
 >
-  <div
-    role="group"
-    aria-label={data.title}
-    class="nodrag nopan absolute right-2 top-0 z-30 flex -translate-y-[calc(100%+0.375rem)] items-center gap-1 rounded-xl border border-border bg-background/95 p-1 opacity-0 shadow-lg backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-  >
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      type="button"
-      title={data.movePreviousLabel}
-      aria-label={data.movePreviousLabel}
-      disabled={data.readonly || !data.canMovePrevious}
-      onclick={(event) => runAction(event, data.onMovePrevious)}
-      ><ArrowUpIcon /></Button
+  {#if data.editable}
+    <div
+      role="group"
+      aria-label={data.title}
+      class="nodrag nopan absolute right-2 top-0 z-30 flex -translate-y-[calc(100%+0.375rem)] items-center gap-1 rounded-xl border border-border bg-background/95 p-1 opacity-0 shadow-lg backdrop-blur transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none"
     >
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      type="button"
-      title={data.moveNextLabel}
-      aria-label={data.moveNextLabel}
-      disabled={data.readonly || !data.canMoveNext}
-      onclick={(event) => runAction(event, data.onMoveNext)}
-      ><ArrowDownIcon /></Button
-    >
-    <Button
-      disabled={data.readonly}
-      variant="ghost"
-      size="icon-sm"
-      type="button"
-      title={data.duplicateLabel}
-      aria-label={data.duplicateLabel}
-      onclick={(event) => runAction(event, data.onDuplicate)}
-      ><CopyIcon /></Button
-    >
-    <Button
-      disabled={data.readonly}
-      class="text-destructive hover:text-destructive"
-      variant="ghost"
-      size="icon-sm"
-      type="button"
-      title={data.deleteLabel}
-      aria-label={data.deleteLabel}
-      onclick={(event) => runAction(event, data.onDelete)}
-      ><Trash2Icon /></Button
-    >
-  </div>
-
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        type="button"
+        title={data.movePreviousLabel}
+        aria-label={data.movePreviousLabel}
+        disabled={data.readonly || !data.canMovePrevious}
+        onclick={(event) => runAction(event, data.onMovePrevious)}
+        ><ArrowUpIcon /></Button
+      >
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        type="button"
+        title={data.moveNextLabel}
+        aria-label={data.moveNextLabel}
+        disabled={data.readonly || !data.canMoveNext}
+        onclick={(event) => runAction(event, data.onMoveNext)}
+        ><ArrowDownIcon /></Button
+      >
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        type="button"
+        title={data.duplicateLabel}
+        aria-label={data.duplicateLabel}
+        disabled={data.readonly}
+        onclick={(event) => runAction(event, data.onDuplicate)}
+        ><CopyIcon /></Button
+      >
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        type="button"
+        title={data.deleteLabel}
+        aria-label={data.deleteLabel}
+        disabled={data.readonly}
+        class="text-destructive hover:text-destructive"
+        onclick={(event) => runAction(event, data.onDelete)}
+        ><Trash2Icon /></Button
+      >
+    </div>
+  {/if}
   <header
     class="relative z-10 flex h-[7.25rem] min-w-0 items-start gap-3 border-b border-primary/15 bg-primary/[0.035] p-3"
   >
@@ -131,8 +108,12 @@
     </span>
     <span class="min-w-0 flex-1">
       <span class="flex min-w-0 items-center justify-between gap-2">
-        <span class="truncate text-sm font-semibold">{data.title}</span>
-        <Badge variant="secondary">{data.sequenceText}</Badge>
+        <span class="truncate text-sm font-semibold" title={data.title}
+          >{data.title}</span
+        >
+        {#if data.sequenceText}<Badge variant="secondary"
+            >{data.sequenceText}</Badge
+          >{/if}
       </span>
       <span class="mt-1 flex min-w-0 items-center gap-1.5 text-xs">
         <Badge
@@ -142,33 +123,30 @@
             : "border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"}
           >{data.sourceLabelText}</Badge
         >
-        {#if data.sourceName}
-          <span class="truncate text-muted-foreground">{data.sourceName}</span>
-        {/if}
+        {#if data.sourceName}<span class="truncate text-muted-foreground"
+            >{data.sourceName}</span
+          >{/if}
       </span>
       <span class="mt-2 flex min-w-0 items-center justify-between gap-2">
-        <span class="truncate text-xs font-medium text-foreground">
-          {data.workflowName}
-        </span>
+        {#if data.workflowName}<span
+            class="truncate text-xs font-medium text-foreground"
+            >{data.workflowName}</span
+          >{/if}
         <Badge variant="outline">{data.strategyText}</Badge>
       </span>
       <span
         class="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[0.6875rem] text-muted-foreground"
       >
-        <span>{data.targetCountText}</span>
+        {#if data.targetCountText}<span>{data.targetCountText}</span>{/if}
         <span>{data.blockCountText}</span>
-        {#if data.unresolvedCount > 0}
-          <Badge
+        {#if data.unresolvedText}<Badge
             variant="outline"
             class="border-amber-500/40 text-amber-700 dark:text-amber-300"
-          >
-            {data.unresolvedText}
-          </Badge>
-        {/if}
+            >{data.unresolvedText}</Badge
+          >{/if}
       </span>
     </span>
   </header>
-
   <div
     class={classNames(
       "pointer-events-none absolute left-3 right-3 top-32 rounded-lg border border-dashed border-border bg-muted/15",
@@ -196,7 +174,6 @@
       </p>
     {/if}
   </div>
-
   {#if data.canAddBlock}
     <div class="nodrag nopan absolute bottom-2.5 left-3 right-3 z-20">
       <Button
@@ -207,14 +184,13 @@
         type="button"
         onclick={(event) => runAction(event, data.onAddBlock)}
       >
-        <PlusIcon data-icon="inline-start" />
-        {data.addBlockLabel}
+        <PlusIcon data-icon="inline-start" />{data.addBlockLabel}
       </Button>
     </div>
   {/if}
 </div>
 
-{#if data.stageStrategy === "serial"}
+{#if data.hasSerialHandles}
   <Handle
     id="serial-out"
     type="source"
@@ -223,7 +199,6 @@
     style="width:0.5rem;height:0.5rem;border:2px solid var(--background);background:var(--primary);"
   />
 {/if}
-
 {#if data.connectsToStageOutput}
   <Handle
     id="stage-out"

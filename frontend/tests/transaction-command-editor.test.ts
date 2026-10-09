@@ -19,6 +19,7 @@ import {
 function commandWithResponses(responses: string[]) {
   return {
     ...txBlockCommandDraft(),
+    mode: "User",
     command: "configure",
     dynParams: { EnablePassword: "{{ password }}" },
     interaction: {
