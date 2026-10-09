@@ -7,11 +7,6 @@ $parseErrors = $null
 $tokens = $null
 $null = [Management.Automation.Language.Parser]::ParseFile($installer, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
-if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
-    Write-Host 'PowerShell syntax OK. Windows is required for installation tests.'
-    return
-}
-
 $root = Join-Path ([IO.Path]::GetTempPath()) ('rauto-installer-test-' + [Guid]::NewGuid().ToString('N'))
 $originalUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $originalEnvironment = @{}
@@ -19,39 +14,92 @@ foreach ($name in @('TEMP', 'TMP', 'PATH', 'RAUTO_HOME', 'PROCESSOR_ARCHITECTURE
     $originalEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 $originalTls = [Net.ServicePointManager]::SecurityProtocol
-$script:requests = [Collections.Generic.List[string]]::new()
-$script:mode = ''
+$fixture = @{
+    Requests = [Collections.Generic.List[string]]::new()
+    Mode = ''
+    Digest = ''
+    Archive = ''
+}
 $script:passed = 0
 
 function Assert-True($Condition, $Message) {
     if (-not $Condition) { throw $Message }
 }
 
-function Invoke-RestMethod {
+# Bind mutable fixture state to each mock instead of the caller's script scope.
+Set-Item -Path Function:Invoke-RestMethod -Value ({
     param($Uri, $Headers, $TimeoutSec)
-    $script:requests.Add($Uri)
+    $fixture.Requests.Add($Uri)
     if ($Uri.EndsWith('/latest')) { return @{ tag_name = 'v9.8.7' } }
-    return @{ assets = @(@{ name = 'rauto-windows-amd64.exe.zip'; digest = "sha256:$script:digest" }) }
-}
+    return @{ assets = @(@{ name = 'rauto-windows-amd64.exe.zip'; digest = "sha256:$($fixture.Digest)" }) }
+}.GetNewClosure())
 
-function Invoke-WebRequest {
+Set-Item -Path Function:Invoke-WebRequest -Value ({
     param([switch]$UseBasicParsing, $Uri, $OutFile, $Headers, $TimeoutSec)
-    $script:requests.Add($Uri)
-    if ($script:mode -eq 'download-failure') { throw 'Fixture download failed' }
+    $fixture.Requests.Add($Uri)
+    if ($fixture.Mode -eq 'download-failure') { throw 'Fixture download failed' }
     if ($Uri.EndsWith('.sha256')) {
-        if ($script:mode -eq 'missing-checksum') { throw 'Fixture checksum unavailable' }
-        $checksum = $script:digest
-        if ($script:mode -eq 'mismatch') { $checksum = '0' * 64 }
-        if ($script:mode -eq 'invalid-checksum') { $checksum = 'invalid' }
+        if ($fixture.Mode -eq 'missing-checksum') { throw 'Fixture checksum unavailable' }
+        $checksum = $fixture.Digest
+        if ($fixture.Mode -eq 'mismatch') { $checksum = '0' * 64 }
+        if ($fixture.Mode -eq 'invalid-checksum') { $checksum = 'invalid' }
         "$checksum  rauto-windows-amd64.exe.zip" | Set-Content -LiteralPath $OutFile -Encoding ascii
     }
-    else { Copy-Item -LiteralPath $script:archive -Destination $OutFile }
+    else { Copy-Item -LiteralPath $fixture.Archive -Destination $OutFile }
+}.GetNewClosure())
+
+function Test-DownloadMockScopes {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ('rauto-mock-scope-test-' + [Guid]::NewGuid().ToString('N'))
+    try {
+        $null = New-Item -ItemType Directory -Path $directory
+        $fixture.Archive = Join-Path $directory 'source.zip'
+        $fixture.Digest = 'a' * 64
+        'fixture archive' | Set-Content -LiteralPath $fixture.Archive -Encoding ascii
+        $probe = Join-Path $directory 'probe.ps1'
+        @'
+param([string]$OutputDir)
+Set-StrictMode -Version Latest
+$release = Invoke-RestMethod -Uri 'https://fixture/latest'
+if ($release.tag_name -ne 'v9.8.7') { throw 'Mock release version mismatch' }
+$release = Invoke-RestMethod -Uri 'https://fixture/tags/v9.8.7'
+Invoke-WebRequest -Uri 'https://fixture/release.zip' -OutFile (Join-Path $OutputDir 'download.zip')
+Invoke-WebRequest -Uri 'https://fixture/release.zip.sha256' -OutFile (Join-Path $OutputDir 'checksum')
+$expected = $release.assets[0].digest.Substring(7)
+$checksum = (Get-Content -LiteralPath (Join-Path $OutputDir 'checksum') -Raw).Trim().Split(' ')[0]
+if ($checksum -ne $expected) { throw 'Mock checksum mismatch' }
+'@ | Set-Content -LiteralPath $probe -Encoding ascii
+        foreach ($scriptBlock in @($false, $true)) {
+            $fixture.Requests.Clear()
+            if ($scriptBlock) { & ([scriptblock]::Create((Get-Content -LiteralPath $probe -Raw))) -OutputDir $directory }
+            else { & $probe -OutputDir $directory }
+            Assert-True ($fixture.Requests.Count -eq 4) 'Mock requests were not shared across script scopes'
+            Assert-True ((Get-FileHash -LiteralPath (Join-Path $directory 'download.zip')).Hash -eq (Get-FileHash -LiteralPath $fixture.Archive).Hash) 'Mock archive was not copied'
+        }
+        $fixture.Mode = 'download-failure'
+        $failure = $null
+        try { & $probe -OutputDir $directory } catch { $failure = $_ }
+        Assert-True ($null -ne $failure -and $failure.Exception.Message -eq 'Fixture download failed') 'Mock did not observe an updated failure mode'
+        Write-Host 'PASS: download mocks share state across file and scriptblock invocations'
+    }
+    finally {
+        $fixture.Requests.Clear()
+        $fixture.Mode = ''
+        $fixture.Archive = ''
+        $fixture.Digest = ''
+        if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force }
+    }
+}
+
+Test-DownloadMockScopes
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
+    Write-Host 'PowerShell syntax and mock scopes OK. Windows is required for installation tests.'
+    return
 }
 
 function Test-Install {
     param([string]$Name, [string]$Mode = '', [string]$RequestedVersion, [switch]$Fails, [switch]$UpdatePath, [switch]$ScriptBlock, [switch]$Fresh)
-    $script:mode = $Mode
-    $script:requests.Clear()
+    $fixture.Mode = $Mode
+    $fixture.Requests.Clear()
     $bin = Join-Path $root 'installed bin'
     if (Test-Path -LiteralPath $bin) { Remove-Item -LiteralPath $bin -Recurse -Force }
     $null = New-Item -ItemType Directory -Path $bin
@@ -68,9 +116,9 @@ function Test-Install {
     if ($Mode -eq 'legacy') { $env:RAUTO_FIXTURE_VERSION = '0.5.2' }
     if ($Mode -eq 'unrunnable') { $env:RAUTO_FIXTURE_EXIT = '1' }
     if ($Mode -eq 'unsupported') { $env:PROCESSOR_ARCHITECTURE = 'ARM64' }
-    $script:archive = Join-Path $root 'release.zip'
-    if ($Mode -eq 'missing-binary') { $script:archive = Join-Path $root 'missing.zip' }
-    $script:digest = (Get-FileHash -LiteralPath $script:archive -Algorithm SHA256).Hash.ToLowerInvariant()
+    $fixture.Archive = Join-Path $root 'release.zip'
+    if ($Mode -eq 'missing-binary') { $fixture.Archive = Join-Path $root 'missing.zip' }
+    $fixture.Digest = (Get-FileHash -LiteralPath $fixture.Archive -Algorithm SHA256).Hash.ToLowerInvariant()
     $parameters = @{ InstallDir = $bin; NoPathUpdate = -not $UpdatePath }
     if ($RequestedVersion) { $parameters.Version = $RequestedVersion }
     $lock = $null
@@ -147,16 +195,16 @@ class Fixture {
 
     Test-Install 'first installation' -Fresh
     Test-Install 'latest release'
-    Assert-True ($script:requests[0].EndsWith('/latest')) 'Latest release was not resolved'
+    Assert-True ($fixture.Requests[0].EndsWith('/latest')) 'Latest release was not resolved'
     Test-Install 'explicit version' -RequestedVersion 'v9.8.7'
-    Assert-True (-not ($script:requests -match '/latest$')) 'Explicit version queried latest'
+    Assert-True (-not ($fixture.Requests -match '/latest$')) 'Explicit version queried latest'
     Test-Install 'README scriptblock invocation' -ScriptBlock
     Test-Install '0.5.2 API digest' -Mode legacy -RequestedVersion '0.5.2'
     foreach ($mode in @('mismatch', 'invalid-checksum', 'missing-checksum', 'download-failure', 'missing-binary', 'wrong-version', 'unrunnable', 'locked', 'unsupported')) {
         Test-Install $mode -Mode $mode -Fails
     }
     Test-Install 'invalid version' -RequestedVersion '../bad' -Fails
-    Assert-True ($script:requests.Count -eq 0) 'Invalid version attempted a download'
+    Assert-True ($fixture.Requests.Count -eq 0) 'Invalid version attempted a download'
     Test-Install 'user PATH registration' -UpdatePath
     Test-Install 'PATH registration is idempotent' -UpdatePath
     $entries = [Environment]::GetEnvironmentVariable('Path', 'User') -split ';'
