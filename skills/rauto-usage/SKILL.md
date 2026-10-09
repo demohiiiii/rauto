@@ -1,172 +1,74 @@
 ---
 name: rauto-usage
-description: "Operate, author, validate, and troubleshoot current rauto CLI and Web workflows. Prefer show objects for reads; use rollback-aware tx-workflow or orchestrate for changes; handle SSH device discovery, reusable credentials and saved connections, multi-target execution, configuration collection history, persisted cron schedules, session retries and replay, templates, TextFSM, inventory, backup, upload, local Web startup, and managed-agent startup. Use when Codex needs to run rauto, start its services, build valid plans/templates or schedules, manage devices and configuration history, or diagnose CLI/runtime behavior."
+description: "Operate and troubleshoot rauto CLI, Web workbench, and managed agents; author interactive templates, transaction workflows, orchestration plans, and schedules. Use for rauto device discovery, saved connections, execution, configuration collection, and runtime diagnostics."
 ---
 
 # Rauto Usage
 
-Execute `rauto` operations directly when possible.
-Avoid tutorial-only responses when execution can be done in-session.
+Use the current CLI and native models to carry out the requested operation.
+These references were checked against the rauto checkout on 2026-10-09.
+Installed releases can lag the checkout: inspect `rauto --version` and the
+relevant `--help` before relying on an option. In a checkout, use its built
+binary explicitly when validating new contracts; Rust is pinned to 1.94.0.
 
-## Work Mode
+## Choose The Surface
 
-Apply action-first behavior:
+| Task | Current entry point | Reference |
+| --- | --- | --- |
+| Inspect device state | `show --list`, then `show <object>`; `exec` for uncatalogued reads | [CLI](references/cli-runbook.md) |
+| Collect configuration and drift hashes | `config fetch`, `config history` | [CLI](references/cli-runbook.md) |
+| Discover and import SSH devices | `device discover`, `device discover list\|save` | [Discovery](references/device-discovery.md) |
+| Handle prompts for one command | `interactive`, `interactive-template` | [Interactive templates](references/interactive-templates.md) |
+| Execute changes with rollback | `tx-workflow`; `orchestrate` for multiple devices | [JSON plans](references/json-templates.md) |
+| Check JSON plans without executing | Bundled helper and native previews, with different validation scopes | [Validation](references/json-validation.md) |
+| Run the browser workbench | `web` | [Web](references/web-runbook.md) |
+| Schedule recurring execution | `schedule`; execution requires a running Web scheduler | [Schedules](references/schedules.md) |
+| Start a managed agent | `agent` | [Agent](references/agent-runbook.md) |
+| Diagnose runtime failures | Connection, profile, storage, parsing, and discovery checks | [Troubleshooting](references/troubleshooting.md) |
 
-1. Classify request as read-only, network discovery, config-changing, scheduled automation, local Web startup, or managed-agent startup.
-2. For device state/config retrieval, prefer `rauto show <object>` before raw `exec`.
-3. Execute safe read-only operations immediately.
-4. Prefer rollback-aware flows (`tx-workflow`, `orchestrate`) for config changes.
-5. Use `rauto device discover` for SSH network discovery and the latest persisted discovery snapshot.
-6. Start local Web or managed-agent mode directly when the user asks for `rauto web` or `rauto agent`.
-7. Ask confirmation before running destructive or ambiguous change operations.
-8. Return concise result summary with the exact command used.
+## Operational Invariants
 
-## Execution Rules
+- Resolve a target from `--connection <saved-name>` or `--host` plus a reusable
+  `--credential <name-or-id>`. Connection flags override saved values.
+  Credentials and saved connections are separate records.
+- Let the selected profile supply default modes when the entry point supports
+  omission. Candidate expressions such as `Root,User` or `Enable|Config` are
+  validated case-insensitively against that profile. Do not force `User` or
+  `Enable` across platforms. Raw workflow JSON requires explicit `mode` strings.
+- `exec`, `interactive`, `show`, and `config fetch` support repeatable saved
+  `--target`, `--group`, and `--label` selectors as a deduplicated union, with
+  `--max-parallel`. Orchestration jobs use saved names and selectors, never
+  inline host/auth objects.
+- The default profile is `autodetect`, SSH security is `legacy-compatible`, and
+  successful autodetection is cached by host/port. Use `--force-autodetect` after
+  endpoint replacement. Linux shell flavors are `posix` and `fish`.
+- `show` parses with TextFSM unless `--no-parse`; command and interactive
+  execution parse when requested or required by a template/Excel export.
+  Platform selection follows the device profile. Default parsing filters
+  fallback Error rules; `--textfsm-strict-errors` retains them.
+- Session retries default to zero and can repeat an already executed command.
+  Use them only for repeat-safe ordinary operations. Workflows, orchestration
+  actions, and uploads are not automatically retried.
+- Transactions are workflow blocks, including reusable block templates. There
+  is no standalone `tx` execution command or transaction-block execution page.
+  Interactive TOML defines one command with prompts, not a list of steps.
+- Templates, profiles, inventory, and execution records live in SQLite under
+  `RAUTO_HOME` (default `~/.rauto`). Do not use deprecated template-directory
+  options. Use isolated temporary `RAUTO_HOME` for tests and sample validation;
+  inspect real persisted state only within the user's requested scope.
 
-1. Execute read/query commands immediately (for example `device list`, `device discover list`, `session list`, `templates list`, or `session replay <record-file> --list`).
-2. Prefer the show catalog for operational reads:
-   - use `rauto show --list` to discover objects
-   - use `rauto show <object>` for supported reads such as `version`, `interfaces`, `route`, `arp`, `vlan`, `mac`, `lldp`, `access-list`, `policy` (`security-policy`), `nat-policy` (`nat`), and platform-specific objects
-   - use multi-target show for saved connections, groups, and labels
-   - fall back to `exec` only when no show object or custom show object fits.
-3. Keep discovery commands distinct:
-   - start a scan with `rauto device discover <target...> --credential <name>` or ordered, repeatable `--probe-credential` values
-   - inspect the latest result with `rauto device discover list`; this never starts a scan and does not require a credential
-   - save importable results with `rauto device discover save`; this also does not require a probe credential
-   - default result filtering is `identified`, which excludes endpoints already represented by saved connections.
-4. Execute `rauto web` or `rauto agent` immediately when the corresponding service startup is explicitly requested. Keep the Web service on its loopback default unless network access is requested explicitly.
-5. Use transaction-family execution with the correct entrypoint (high priority):
-   - `tx-workflow`: workflow JSON
-   - `orchestrate`: multi-device plan JSON whose jobs select saved devices, persisted device groups, or saved-device labels and execute only `tx_workflow` actions
-6. Treat interactive commands as the reusable single-command prompt/response path:
-   - run with `rauto interactive`
-   - manage with `rauto interactive-template`
-   - run the rauto-owned Cisco-like copy interactive template as `--template builtin:cisco_like_copy`; built-ins are executable but are not saved-template records
-7. Resolve connection using:
-   - explicit host flags > `--connection <name>` > ask only for missing must-have inputs.
-8. Keep SSH/profile defaults current:
-   - default device profile is `autodetect`
-   - default SSH security is `legacy-compatible`
-   - successful autodetect results are cached by `host:port`
-   - use `--force-autodetect` when the device behind an IP/port may have changed.
-9. Keep mode behavior profile-aware:
-   - do not force `Enable`
-   - let profile default apply when mode is omitted
-   - accept one mode or ordered comma/pipe-separated candidates such as `Enable,Config` or `Root|User`
-   - canonicalize candidates case-insensitively, reject any unknown candidate, preserve candidate order, and let rneter use or reach an available candidate
-   - if mode validation fails, return the invalid candidates, profile default, and available modes
-   - do not classify parenthesized Cisco-like prompts as Enable; current rneter templates reserve them for Config/submodes.
-10. Keep TextFSM behavior current:
-   - `show` parses with TextFSM by default unless `--no-parse`
-   - `exec/template/interactive` parse only when requested, when a template is supplied, or when Excel export needs parsed rows
-   - default parsing filters TextFSM fallback Error rules such as `^. -> Error`; use strict mode only when user asks to preserve template errors.
-11. Use shared multi-target selectors for `exec`, `interactive`, `show`, and `config fetch`: repeat `--target`, `--group`, or `--label`/`--tag`, then bound concurrency with `--max-parallel`. Treat selectors as a deduplicated union and preserve preflight-before-execute behavior.
-12. Use `rauto config fetch` for running/startup configuration retrieval, raw and normalized SHA-256 drift hashes, exact single-device output paths, or timestamped multi-device archives. Every successful CLI fetch creates a raw configuration collection record and reports its `snapshot_id`; device-error output must not become a snapshot.
-13. Use `rauto config history` to inspect collection records without starting Web. Treat unchanged collections as distinct audit records that share one deduplicated raw content body; do not describe them as missing history.
-14. Use `rauto schedule` for persisted cron automation. Create/update from a complete `ScheduleDefinition` JSON, preview five-field cron expressions before mutation, and remember that `schedule run` only queues work for a running `rauto web` scheduler.
-15. Keep retries opt-in: `--session-retries` has at-least-once semantics and applies to ordinary commands/flows/show/config fetch, not transactions, workflows, or uploads. Enable it only for repeat-safe operations; authentication errors remain excluded unless explicitly requested.
-16. Preserve concise, high-signal output summaries (target, mode, success/failure, key error, next action).
-17. Keep multiline behavior explicit where the model supports it: use `split_lines` to execute non-empty trimmed lines separately and stop after the first failed command; use `whole` to preserve and submit the full text once; normalize legacy missing values to `split_lines`.
+## Authoring And Results
 
-## Preferred Execution Matrix
+For automation JSON, start from [the current models](references/json-templates.md)
+and run [the bundled check](references/json-validation.md). A successful CLI
+workflow dry-run means deserialization/rendering succeeded; it is not a complete
+invariant, profile, rollback, or device check. Keep that distinction in reports.
 
-- Reading device state/config: `show` first, `exec` only as fallback.
-- Fetching complete running/startup configuration and hashes: `config fetch`.
-- Inspecting raw configuration collection records: `config history devices|list|show`.
-- Managing recurring orchestration, configuration collection, or single-device workflows: `schedule`.
-- Discovering SSH devices or importing the latest scan: `device discover` / `device discover list|save`.
-- Running one harmless raw command: `exec`.
-- Running one command or interactive template across saved targets/groups/labels: multi-target `exec` or `interactive`.
-- Running saved command text with vars: `template`.
-- Handling interactive prompts or wizard-like workflows: `interactive`.
-- Changing config on one target: `tx-workflow` with one or more blocks.
-- Changing config through reusable multi-block workflow: `tx-workflow`.
-- Changing config across devices/groups/sites: `orchestrate`.
-- Querying many saved devices/groups/labels: multi-target `show`.
+Prefer workflow rollback for changes that need compensation. Review the actual
+targets, concurrency, failure policy, and rollback behavior before execution;
+do not treat authoring or a dry-run request as authorization to execute changes.
+Honor existing user authorization without adding redundant confirmation steps.
 
-## Tx / Workflow / Orchestration Authoring Protocol
-
-When user asks to create JSON plans, always follow:
-
-1. Pick one target type (`tx-block`, `tx-workflow`, `orchestration`) and start from reference templates.
-2. Generate full runnable JSON (not partial snippets) unless user asks otherwise.
-3. Validate with `scripts/validate_json_plans.py` before presenting final output.
-   - This validator is CLI-backed and calls `rauto ... --dry-run` internally.
-   - Orchestration validation resolves device groups from the active rauto SQLite store. Treat an unknown group or missing saved-device error as an environment prerequisite, not permission to rewrite a valid selector into an inline target.
-4. If validation reports a schema/model error, fix JSON and rerun validation. If it reports missing persisted state, list devices/groups and validate in the intended runtime environment.
-5. For risky changes, suggest native dry-run before real execution when the chosen entrypoint supports it.
-6. Use only transaction operation kinds `command` and `flow`; do not generate retired `kind: "template"` or `kind: "command_flow"` operations.
-
-Validation command:
-
-```bash
-python3 skills/rauto-usage/scripts/validate_json_plans.py --kind <tx-block|tx-workflow|orchestration> --file <plan.json>
-```
-
-## Risk Guardrails
-
-Require explicit confirmation before destructive actions:
-
-- `rauto backup restore ... --replace`
-- profile/template/connection delete operations
-- schedule deletion and configuration-history record deletion
-- tx-workflow/orchestrate execution when user intent is ambiguous
-- raw `exec` or command-template config changes when a rollback-capable transaction path is available
-
-Enforce safety for config changes:
-
-- prefer rollback-capable plans
-- include precheck/read steps with `show` where useful
-- use preview/dry-run style checks when available
-- review orchestration scope, `fail_fast`, and concurrency
-- include rollback strategy before execution
-
-If user explicitly asks to execute destructive action, proceed.
-
-## Missing Input Strategy
-
-Ask only for missing mandatory fields:
-
-- `exec/template/interactive/tx-workflow/upload/device test`:
-  require either complete host credentials or a valid `--connection`.
-- `orchestrate`:
-  require every job to resolve at least one saved device through `targets`, `target_groups`, or `target_tags`; never generate inline connection objects.
-- `show`:
-  require an object unless the user asks to list/discover objects; require a saved target, group, label, or complete connection for execution.
-- `device discover`:
-  require at least one IP/CIDR/range target and one effective probe credential for a new scan; do not require a credential for `device discover list` or `device discover save`.
-- `config fetch`:
-  require a saved target/group/label or complete direct connection; default `--kind` to `running`.
-- `config history`:
-  has no device connection requirement; use a snapshot ID only for `show` or `delete`.
-- `schedule`:
-  create/update require one complete definition source (`--file` or `--content`); action references must resolve to saved templates/connections, while `preview` needs only cron/timezone input and `run` needs a running Web scheduler for execution.
-- `agent`:
-  require effective `manager_url` and `agent_name` values from flags, environment, or agent config.
-- `web`:
-  has no mandatory connection input; `rauto web` starts on `127.0.0.1:3000`, and connection flags only preconfigure the workbench.
-- `session`:
-  has no mandatory input and defaults to the most recent saved record; use a record file, record ID, or connection filter only when the user requests a specific source.
-
-## Response Format
-
-Report executed operations with:
-
-1. `Operation`: what was run
-2. `Command`: exact rauto command
-3. `Result`: key output summary
-4. `Notes`: risk, errors, or next step
-
-## Reference Map (Load On Demand)
-
-- CLI quick commands and operator runbook: `references/cli-runbook.md`
-- Persisted cron schedule definitions, actions, execution, and diagnostics: `references/scheduled-automation.md`
-- SSH device discovery, latest-result filtering, TUI, and saving: `references/device-discovery.md`
-- Current Web workbench pages and interaction rules: `references/web-runbook.md`
-- Transaction/workflow/orchestration JSON templates: `references/json-templates.md`
-- JSON validation command guide: `references/json-validation.md`
-- JSON failure-to-fix cookbook: `references/json-common-errors.md`
-- Scenario-driven tx/workflow/orchestration patterns: `references/tx-orchestration-use-cases.md`
-- Interactive template model and runtime vars: `references/interactive-templates.md`
-- Agent mode + manager integration pointers: `references/agent-runbook.md`
-- Troubleshooting and recovery checklist: `references/troubleshooting.md`
+Report the command or API used, target scope, outcome, and actionable errors.
+Do not expose passwords, private keys, tokens, resolved secret variables, or
+master keys in previews or reports.

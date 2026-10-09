@@ -1,78 +1,86 @@
-# JSON Validation Runbook
+# JSON Checks And Their Limits
 
-Use this file when validating newly generated tx/workflow/orchestration JSON.
+## Bundled Helper
 
-## Tool
+Run `scripts/validate_json_plans.py` relative to this skill directory, not the
+project directory. Select the current checkout's built binary explicitly:
 
-`skills/rauto-usage/scripts/validate_json_plans.py`
-
-This tool is **CLI-backed**:
-
-- `tx-workflow` -> `rauto tx-workflow <file> --dry-run --json`
-- `orchestration` -> `rauto orchestrate <file> --dry-run --json`
-- `tx-block` -> wraps block into a temporary one-block workflow, then runs `rauto tx-workflow --dry-run --json`
-
-## Quick Commands
-
-```bash
-# 1) Auto-detect plan kind and validate (prefer local binary if installed)
-python3 skills/rauto-usage/scripts/validate_json_plans.py --file ./plan.json
-
-# 2) Validate tx block
-python3 skills/rauto-usage/scripts/validate_json_plans.py --kind tx-block --file ./tx-block.json
-
-# 3) Validate tx workflow
-python3 skills/rauto-usage/scripts/validate_json_plans.py --kind tx-workflow --file ./workflow.json
-
-# 4) Validate orchestration
-python3 skills/rauto-usage/scripts/validate_json_plans.py --kind orchestration --file ./orchestration.json
-
-# 5) JSON output for pipelines
-python3 skills/rauto-usage/scripts/validate_json_plans.py --file ./plan.json --json
-
-# 6) Force source-tree execution (no installed binary required)
-python3 skills/rauto-usage/scripts/validate_json_plans.py --file ./plan.json --rauto-bin "cargo run --quiet --"
+```sh
+python3 scripts/validate_json_plans.py --file ./workflow.json \
+  --rauto-bin /path/to/rauto/target/debug/rauto --json
+python3 scripts/validate_json_plans.py --kind tx-block --file ./block.json
+python3 scripts/validate_json_plans.py --kind orchestration --file ./plan.json
 ```
 
-## What This Validation Guarantees
+Kinds are `auto`, `tx-block`, `tx-workflow`, and `orchestration`. The helper
+accepts bare payloads or wrappers containing `tx_block`, `workflow`, or `plan`.
+It unwraps a request before calling the CLI; connection options, vars, and other
+request fields are not forwarded. Render templates first when checking these
+bare payloads. A block is wrapped in a temporary one-block workflow.
 
-- The JSON can be parsed by current `rauto` implementation for the target command.
-- Current in-code validation checks in `rauto` pass (the same checks used before real execution).
-- Future model/schema changes in `rauto` are automatically inherited by this validator.
+Binary selection is explicit `--rauto-bin`, then `$RAUTO_BIN`, installed
+`rauto`, then `cargo run --quiet --` from the current working directory. A
+source fallback requires the project's toolchain and build dependencies.
+`--timeout` bounds the subprocess (default 120 seconds); increase it if source
+compilation needs longer. Exit 0 means the native check passed, 1 means rauto
+rejected the document, and 2 means input/launch/timeout failure.
 
-## Persisted-State Boundary
+For offline fixtures, export a temporary `RAUTO_HOME`. For real group/label
+resolution, use the intended runtime store within the user's requested scope.
+The helper inherits `RAUTO_HOME`; it does not isolate or change it for you.
 
-Orchestration dry-run resolves `target_groups` and `target_tags` against the
-active rauto SQLite store. Validation can therefore fail when a plan is valid
-but the current machine does not contain the referenced device group or saved
-devices.
+## Actual Validation Scope
 
-When the only failure is unknown/missing persisted state:
+| Check | What it establishes | What it does not establish |
+| --- | --- | --- |
+| CLI `tx-workflow <file> --dry-run --json` | Native deserialization; saved-template rendering when invoked with `--template` | `TxWorkflow.validate()`, nonempty commands/blocks, rollback trigger bounds, profile modes, blacklist, SSH execution |
+| Helper `tx-block` | Same workflow deserialization for one wrapped block | Block/operation invariants or rollback effectiveness |
+| CLI `orchestrate <file> --dry-run --json` | Plan rules, action source exclusivity, stage/job settings, group/label selector expansion | Direct saved-name existence/authentication, nested workflow rendering/validation, prompt matching, device execution |
+| Web `POST /api/tx/workflow` with `dry_run: true` | Template rendering, nested block expansion, native workflow invariants | SSH success, profile mode compatibility, blacklist at real execution, actual compensation |
+| Web saved-workflow `.../preview` | Variable rendering preview with unresolved paths | Workflow invariants, full connection context, nested block expansion, execution |
 
-1. Do not replace saved-device names with inline host or credential objects;
-   orchestration rejects inline targets.
-2. Inspect the intended environment with `rauto device list` and
-   `rauto inventory group list --json`.
-3. Re-run validation with the intended `RAUTO_HOME` or after creating the
-   required saved devices/groups.
-4. Treat SSH reachability and credentials as execution-time checks; dry-run
-   does not connect to every target.
+The helper reports `scope` and notes alongside `ok`. Never interpret `ok: true`
+as a full execution-readiness guarantee. Native CLI workflow preview currently
+accepts some structurally invalid workflows, including empty blocks and
+out-of-range rollback triggers. Do not build a second full validator in a skill
+to conceal those application limitations.
 
-## Common Failure Classes
+When a running Web service is available and full native workflow invariants
+need checking, use the authenticated dry-run endpoint with this request shape:
 
-- Invalid JSON syntax before `rauto` runs.
-- Missing required fields such as `rollback_policy`, `steps`, `blocks`, or `stages`.
-- Invalid `SessionOperation.kind` values.
-- Invalid `whole_resource.trigger_step_index`.
-- Invalid workflow or orchestration source combinations.
-- Invalid stage strategy or unresolved persisted device-group/label selectors.
+```json
+{
+  "workflow": {"name": "example", "fail_fast": true, "blocks": []},
+  "dry_run": true
+}
+```
 
-## Recommended Workflow
+That empty example must be rejected. A saved-template request keeps required
+`workflow: null` and adds `workflow_template_name` and `workflow_vars`.
+Supply connection context if template variables need it. API authentication
+and response shapes are documented in [Web](web-runbook.md).
 
-1. Generate JSON from template or AI output.
-2. Run validator script and fix all errors.
-   If dry-run output is unclear, check `references/json-common-errors.md` for direct repair patterns.
-3. If the plan is for direct CLI execution, run the matching native dry-run manually:
-   - `rauto tx-workflow ... --dry-run`
-   - `rauto orchestrate ... --dry-run`
-4. Execute actual run.
+## Failure To Remedy
+
+| Failure | Remedy |
+| --- | --- |
+| JSON parser line/column error | Fix syntax before inspecting device state |
+| Missing `mode`, `command`, `blocks`, `steps`, `fail_fast`, or `rollback_policy` | Follow [native models](json-templates.md); do not rely on UI defaults in CLI files |
+| Unknown operation kind | Use `command` with optional prompt rules; retain `flow` only for its actual native wire format |
+| Invalid strategy/source combination | Use `serial`/`parallel`, positive parallelism, exactly one workflow source |
+| Unknown group or selectors resolve no targets | Inspect `inventory group list/show` and saved connection labels in the intended runtime; do not replace selectors with unsupported inline targets |
+| Unresolved placeholder in raw CLI file | Use saved-template execution or render the file first |
+| Nested block reference rejected by CLI workflow | Expand it into a concrete block or use Web/orchestration |
+| Workflow preview passes but execution rejects it | Check the native invariants listed above; passing the parse preview is insufficient |
+
+Repair demonstrated schema errors and rerun the relevant check. Report missing
+runtime state and any unperformed validation separately from the checks that
+passed. Do not test a change by executing it against real devices without an
+execution request.
+
+The helper's behavior tests use isolated runtime directories and never connect
+to devices. To run both unit and native checks:
+
+```sh
+RAUTO_BIN=/path/to/rauto/target/debug/rauto python3 scripts/test_validate_json_plans.py
+```

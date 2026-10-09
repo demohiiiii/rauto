@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-CLI-backed validator for rauto JSON plans.
+Check rauto JSON plans through native dry-run entry points.
 
-Validation is delegated to rauto itself via --dry-run so schema/validation
-changes in rauto are picked up automatically.
+Workflow dry-run checks deserialization, not native execution invariants.
+Orchestration dry-run checks plan rules and selector expansion, not nested
+workflow validity or device readiness. Reports make that scope explicit.
 """
 
 from __future__ import annotations
@@ -18,13 +19,14 @@ import sys
 import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
 class ValidateResult:
     ok: bool
     kind: str
+    scope: str
     command: List[str]
     exit_code: int
     stdout: str
@@ -35,9 +37,16 @@ class ValidateResult:
         return asdict(self)
 
 
+def positive_seconds(value: str) -> int:
+    seconds = int(value)
+    if seconds <= 0:
+        raise argparse.ArgumentTypeError("timeout must be greater than zero")
+    return seconds
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Validate tx/workflow/orchestration JSON using rauto dry-run."
+        description="Check block/workflow/orchestration JSON with scoped rauto dry-run."
     )
     parser.add_argument(
         "--kind",
@@ -57,6 +66,12 @@ def parse_args() -> argparse.Namespace:
             "rauto command prefix. "
             "auto: use $RAUTO_BIN if set, else `rauto`, else `cargo run --quiet --`."
         ),
+    )
+    parser.add_argument(
+        "--timeout",
+        type=positive_seconds,
+        default=120,
+        help="Native subprocess timeout in seconds (default: 120).",
     )
     parser.add_argument(
         "--json",
@@ -94,7 +109,11 @@ def unwrap_payload(data: Any, kind: str) -> Any:
         return data
     if kind == "tx-block" and "tx_block" in data and isinstance(data["tx_block"], dict):
         return data["tx_block"]
-    if kind == "tx-workflow" and "workflow" in data and isinstance(data["workflow"], dict):
+    if (
+        kind == "tx-workflow"
+        and "workflow" in data
+        and isinstance(data["workflow"], dict)
+    ):
         return data["workflow"]
     if kind == "orchestration" and "plan" in data and isinstance(data["plan"], dict):
         return data["plan"]
@@ -121,7 +140,7 @@ def resolve_rauto_prefix(raw: str) -> List[str]:
     return ["cargo", "run", "--quiet", "--"]
 
 
-def run_cmd(command: List[str]) -> subprocess.CompletedProcess[str]:
+def run_cmd(command: List[str], timeout: int) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         command,
         stdout=subprocess.PIPE,
@@ -129,6 +148,7 @@ def run_cmd(command: List[str]) -> subprocess.CompletedProcess[str]:
         text=True,
         encoding="utf-8",
         errors="replace",
+        timeout=timeout,
     )
 
 
@@ -141,7 +161,7 @@ def orchestration_state_note(proc: subprocess.CompletedProcess[str]) -> Optional
     )
     if proc.returncode != 0 and (missing_saved_connection or missing_selector_state):
         return (
-            "orchestration validation depends on saved devices/groups in the active "
+            "orchestration selector checks depend on saved devices/groups in the active "
             "RAUTO_HOME; verify persisted state instead of replacing selectors with "
             "unsupported inline target objects"
         )
@@ -153,74 +173,65 @@ def validate_via_dry_run(
     input_path: Path,
     payload: Any,
     rauto_prefix: List[str],
+    timeout: int = 120,
 ) -> ValidateResult:
     notes: List[str] = []
-    actual_path = input_path
 
     with tempfile.TemporaryDirectory(prefix="rauto-validate-") as tmp_dir:
         if kind == "tx-block":
-            # rauto CLI does not accept tx-block JSON file directly.
-            # Wrap into TxWorkflow to reuse the native workflow parser/validator.
-            workflow_payload = {
+            payload = {
                 "name": "__validate_tx_block__",
                 "fail_fast": True,
                 "blocks": [payload],
             }
-            actual_path = Path(tmp_dir) / "wrapped-tx-workflow.json"
-            actual_path.write_text(
-                json.dumps(workflow_payload, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
             notes.append(
-                "tx-block validation is executed through tx-workflow dry-run with one wrapped block"
-            )
-            command = [*rauto_prefix, "tx-workflow", str(actual_path), "--dry-run", "--json"]
-            proc = run_cmd(command)
-            return ValidateResult(
-                ok=proc.returncode == 0,
-                kind=kind,
-                command=command,
-                exit_code=proc.returncode,
-                stdout=proc.stdout,
-                stderr=proc.stderr,
-                notes=notes,
+                "block is checked as one workflow block; no standalone block execution exists"
             )
 
-        if kind == "tx-workflow":
-            command = [*rauto_prefix, "tx-workflow", str(actual_path), "--dry-run", "--json"]
-            proc = run_cmd(command)
-            return ValidateResult(
-                ok=proc.returncode == 0,
-                kind=kind,
-                command=command,
-                exit_code=proc.returncode,
-                stdout=proc.stdout,
-                stderr=proc.stderr,
-                notes=notes,
+        if kind in ("tx-block", "tx-workflow"):
+            subcommand = "tx-workflow"
+            scope = "workflow_parse_preview"
+            notes.append(
+                "workflow dry-run checks deserialization only; it does not run "
+                "TxWorkflow.validate(), check modes/blacklist, or prove execution readiness"
             )
+        elif kind == "orchestration":
+            subcommand = "orchestrate"
+            scope = "orchestration_plan_and_selectors"
+            notes.append(
+                "orchestration dry-run checks plan rules and selector expansion; "
+                "it does not verify direct saved-name existence, nested workflows, or SSH readiness"
+            )
+        else:
+            raise ValueError(f"unsupported kind: {kind}")
 
+        # Serialize the unwrapped payload for every kind, not the original HTTP request.
+        actual_path = Path(tmp_dir) / input_path.name
+        actual_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        command = [*rauto_prefix, subcommand, str(actual_path), "--dry-run", "--json"]
+        proc = run_cmd(command, timeout)
         if kind == "orchestration":
-            command = [*rauto_prefix, "orchestrate", str(actual_path), "--dry-run", "--json"]
-            proc = run_cmd(command)
             state_note = orchestration_state_note(proc)
             if state_note:
                 notes.append(state_note)
-            return ValidateResult(
-                ok=proc.returncode == 0,
-                kind=kind,
-                command=command,
-                exit_code=proc.returncode,
-                stdout=proc.stdout,
-                stderr=proc.stderr,
-                notes=notes,
-            )
-
-        raise ValueError(f"unsupported kind: {kind}")
+        return ValidateResult(
+            ok=proc.returncode == 0,
+            kind=kind,
+            scope=scope,
+            command=command,
+            exit_code=proc.returncode,
+            stdout=proc.stdout,
+            stderr=proc.stderr,
+            notes=notes,
+        )
 
 
 def print_human(result: ValidateResult) -> None:
     status = "PASS" if result.ok else "FAIL"
     print(f"[{status}] kind={result.kind}")
+    print(f"scope: {result.scope}")
     print(f"command: {' '.join(shlex.quote(x) for x in result.command)}")
     print(f"exit_code: {result.exit_code}")
     for note in result.notes:
@@ -271,7 +282,12 @@ def main() -> int:
         return 2
 
     try:
-        result = validate_via_dry_run(kind, file_path, payload, rauto_prefix)
+        result = validate_via_dry_run(
+            kind, file_path, payload, rauto_prefix, args.timeout
+        )
+    except subprocess.TimeoutExpired:
+        print(f"[FAIL] native check timed out after {args.timeout}s", file=sys.stderr)
+        return 2
     except Exception as exc:
         print(f"[FAIL] validation failed to execute: {exc}", file=sys.stderr)
         return 2

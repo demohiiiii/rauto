@@ -1,93 +1,111 @@
-# Troubleshooting
+# Runtime Troubleshooting
 
-Use this checklist when `rauto` execution does not behave as expected.
+## Binary And Runtime State
 
-## 1) Connection and Credentials
+Check `rauto --version`, the executable path, and relevant `--help`. A source
+checkout and installed release can differ even if their package version is
+the same. Source Rust is pinned to 1.94.0; use `cargo build --locked` with the
+checkout toolchain and its Cargo.lock-pinned rneter revision. Restart an old
+running service before diagnosing behavior already fixed by a new binary.
 
-- Verify target resolution (`--connection` vs inline host args).
-- Verify device profile and mode compatibility.
-- Re-test with:
+`RAUTO_HOME` selects the data root; the default is `~/.rauto`. A missing device,
+group, template, or history row can mean the CLI and Web use different roots.
+Do not reset SQLx migration metadata, delete the database, or overwrite runtime
+data as a diagnostic shortcut. Tests need isolated temporary runtime paths.
 
-```bash
-rauto device test --connection <name>
-rauto device test --connection <name> --force-autodetect
+## Connections, Shells, And Modes
+
+```sh
+rauto device show core-01 --json
+rauto profile show linux
+rauto profile diagnose linux --json
+rauto device test --connection core-01
+rauto profile autodetect --connection core-01 --force-autodetect
 ```
 
-- If autodetect previously succeeded but the device changed, retry with `--force-autodetect`.
-- If old devices fail key exchange, remember the default is `legacy-compatible`; only raise to `balanced` or `secure` when the target supports stricter algorithms.
+Confirm the selected credential, saved endpoint, profile, SSH port, and security
+policy. Default SSH security is `legacy-compatible`; stricter `balanced` or
+`secure` profiles must match the device's capabilities.
 
-## 2) Mode / Prompt Mismatch
+Modes are profile-owned. Comma/pipe expressions are split, trimmed, and
+canonicalized case-insensitively; any unknown candidate invalidates the
+expression. Report the profile's available modes/default when this fails.
+rneter can keep a currently acceptable candidate or transition to another;
+do not describe `Root,User` as two successive command executions.
 
-- If mode invalid, return profile default and available mode list.
-- Split candidate expressions on comma or pipe, trim blanks, and validate every candidate case-insensitively. One unknown candidate invalidates the full expression.
-- Preserve candidate order when diagnosing transitions; `Root,User` and `User,Root` express different preferences.
-- For `show`, remember explicit `--mode` / UI mode overrides mapping mode; otherwise object mapping mode wins before profile default.
-- For Linux shells, validate shell flavor and prompt matching assumptions.
-- If execution times out but output shows success markers, suspect prompt-detection mismatch in profile/template settings.
-- Current rneter Cisco-like built-ins treat plain `device#` as Enable and parenthesized prompts such as `device(config)#` / `device(config-if)#` as Config. If both modes match, verify the running binary uses the locked rneter version from `Cargo.lock` and restart the service.
+For Linux fish, check the connection's `linux_shell_flavor` is `fish`.
+Discovery/import saves the value returned by rneter; explicit Linux connections
+can use `--linux-shell-flavor fish`. `posix` is the CLI value for POSIX/bash.
+Inspect prompt/command transcript failures before changing profile regexes.
+Prompt identity can change after commands; use the pinned rneter behavior
+rather than assuming the returned prompt must exactly equal the initial text.
 
-## 3) Show Objects and TextFSM
+## Show, TextFSM, And Templates
 
-- If a query object is missing, run `rauto show --list --device-profile <profile>` or list all objects without a profile to discover available names.
-- If a saved/custom profile lacks a show object, add a custom show object with `rauto show-object set`.
-- If parsed output is empty or wrong, verify the resolved real command with `rauto show <object> --print-command`.
-- If TextFSM auto-selection chooses the wrong template, check the device profile or use a custom `(profile, command) -> template` mapping.
-- If NTC templates fail on unmatched lines, keep the default lenient parsing that filters fallback Error rules. Use `--textfsm-strict-errors` only when debugging template state-machine behavior.
-- If a custom template is needed, save it with `rauto textfsm template` and bind it with `rauto textfsm mapping` or a custom show object.
+```sh
+rauto show --list --device-profile linux
+rauto show interfaces --connection core-01 --print-command
+rauto textfsm mapping list --profile cisco_ios
+```
 
-## 4) Template and Vars Rendering
+Show availability is platform-specific, and batch queries require a supported
+object on every selected target. For missing objects, use a custom show-object
+mapping or a raw read command. Inspect the real mapped command before blaming
+the parser. TextFSM platform comes from the device profile, with custom
+profile/command mappings or explicit templates for exceptions.
+`--textfsm-strict-errors` retains fallback Error rules normally filtered out.
 
-- Validate required vars before execution.
-- For tx/workflow/orchestrate, validate JSON before submit.
-- For interactive templates, verify runtime vars and connection alias values are present.
-- For unexpected multiline behavior, verify `multiline_mode`: `split_lines` is fail-fast per line, while `whole` submits the complete text once.
+Interactive TOML has one root command plus `[[prompts]]`; old step-array
+templates are rejected. Inline tokens are not Jinja control flow. Check vars,
+connection aliases, regexes, newline submission, and timeout separately.
+Command/JSON templates use Jinja; raw CLI workflow/plan files do not render
+placeholders. See [Interactive](interactive-templates.md) and
+[JSON validation](json-validation.md), including dry-run limitations.
 
-## 5) Config Change Safety
+## Execution, Recording, And Retry
 
-- If the user is about to push config with raw `exec` or `template`, prefer `tx-workflow` or `orchestrate`.
-- Add precheck/read commands with `show` when useful.
-- Use dry-run/view validation where available before real tx/workflow/orchestrate execution.
-- Confirm rollback commands or rollback policy before irreversible changes.
+A workflow's JSON result can report a failed transaction even when the CLI
+process exits successfully. Inspect `committed`, block/step failures, and
+rollback errors. Orchestration requires saved-name/group/label selectors and
+only `tx_workflow` actions. Group variables and inline auth targets do not exist.
 
-For orchestration selector failures:
+Retries have at-least-once semantics and default to zero. Do not enable them to
+mask failures in unsafe-to-repeat commands. Preserve diagnostic transcripts
+without credentials. Session replay reads recorded output, not live device
+state. SFTP upload requires a remote SFTP subsystem and a valid destination.
 
-- list direct targets with `rauto device list`
-- list membership-only groups with `rauto inventory group list --json`
-- remember that `targets` accepts saved-device names only
-- remember that every action is `kind: "tx_workflow"` with either inline `workflow` or saved `workflow_template_name`
+## Storage And Encryption
 
-## 6) Upload and Transfer Errors
+Credential secret values are AES-256-GCM encrypted in SQLite. The master key
+uses the OS credential store when available; without a default credential
+store, current binaries fall back to `RAUTO_HOME/keys/master.key` with private
+Unix permissions. The old "No default store has been set" failure should not
+require installing a desktop keyring to use a headless Linux host.
 
-- SFTP requires remote `sftp` subsystem support.
-- Ensure remote path includes filename when required by target behavior.
-- Keep raw error detail; remove duplicated wrapped layers when presenting errors.
+If encryption still fails, check the current binary, runtime path, file
+ownership/permissions, and whether the original master key is available. Do
+not display, replace, or delete that key: existing credentials depend on it.
+When moving/restoring data, retain the corresponding file or OS-store key;
+the database alone cannot decrypt credentials. Errors are cached in-process,
+so restart after correcting the external storage problem.
 
-## 7) Agent-Manager Issues
+SQLite uses WAL and a busy timeout. For persistent lock errors, inspect running
+processes and long-lived external transactions instead of deleting the store.
+For schema errors such as missing `linux_shell_flavor`, use the current binary
+and its migrations; do not silently default away the missing column.
 
-- Check manager URL/token/report mode.
-- Check heartbeat and task-event/task-callback endpoint reachability.
-- If manager is HTTP-only, prefer HTTP report mode.
+## Discovery, History, Scheduler, And Agent
 
-## 8) Storage and Security
+Discovery list/save require no probe credential and do not rescan. TCP scan
+completion is separate from SSH identification. Active runs use leases;
+current binaries recover expired leases after interruption. Existing/imported
+endpoints are not eligible for reimport. See [Discovery](device-discovery.md).
 
-- Saved connections are stored in SQLite metadata.
-- Secrets rely on keyring-based storage and app-level encrypted data flow.
-- If keyring init/read fails, validate keyring availability and permissions on host OS.
-- SQLite connections use a busy timeout and WAL-oriented settings for concurrent task writes. If `database is locked` persists, verify all running processes use the current binary and are not holding an external long-lived transaction.
+Bottom Sheet history persists only in browser session storage; it is shared
+across execution functions and filtered to the current one initially. Check
+filters before treating another function's retained results as missing.
+Backend session/configuration histories are separate persisted data.
 
-## 9) Device Discovery
-
-- `device discover list` and `device discover save` read the latest snapshot and must not be given or require probe credentials.
-- A TCP connect is not enough for SSH reachability; rauto must receive a valid SSH identification line before credential/profile probing.
-- If a run is reported active after interruption, retry with the current binary so stale persisted leases can be recovered; do not delete saved connections or the database.
-- When progress reaches the TCP total, inspect the phase: SSH probing has its own `probed_targets / reachable_count` progress.
-- Existing connections and newly identified devices are exclusive result states. Existing/imported rows cannot be selected for saving.
-
-## 10) Configuration History and Schedules
-
-- A successful `rauto config fetch` prints `snapshot_id`; query it with `rauto config history show <id>` or list records by connection and kind.
-- History stores raw content only. `--normalized` controls fetch output and drift display, not the persisted history body.
-- An unchanged collection is still a new audit record with `changed_from_previous=false`; identical raw content is deduplicated behind those records.
-- If `schedule run` remains queued, verify `rauto web` is running against the same `RAUTO_HOME` and inspect `rauto schedule runs <id-or-name> --json`. Allow for scheduler polling and available concurrency before declaring it stuck.
-- A skipped manual run is final and will not execute. Inspect `skip_reason`; with overlap policy `skip`, an existing queued/running record causes the new run to be skipped.
-- Before changing a schedule, run `rauto schedule preview '<cron>' --timezone <iana-zone>` and verify referenced connections, groups, labels, and saved templates exist.
+Queued schedules require the matching runtime's Web scheduler. Agent failures
+need manager endpoint/transport/token and callback reachability checks. Read
+[Schedules](schedules.md) or [Agent](agent-runbook.md) for their actual settings.

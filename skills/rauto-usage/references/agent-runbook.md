@@ -1,51 +1,61 @@
-# Agent Runbook
-
-Use this file when configuring or troubleshooting managed-agent mode.
+# Managed Agent
 
 ## Startup
 
-```bash
-rauto agent \
-  --bind 0.0.0.0 \
-  --port 8123 \
-  --manager-url http://manager:50051 \
-  --agent-name edge-sh-01 \
-  --report-mode grpc \
-  --probe-report-interval 300
+```sh
+rauto agent --bind 0.0.0.0 --port 8123 \
+  --manager-url http://manager:50051 --agent-name edge-sh-01 --report-mode grpc
 ```
 
-The listener defaults to `0.0.0.0:8123`. Manager URL and agent name may come
-from flags, environment, or `~/.rauto/agent.toml`; do not claim they are
-missing until all three sources have been checked.
+The listener defaults to `0.0.0.0:8123`. Manager registration needs an effective
+manager URL and agent name. Values resolve from flags/environment before the
+TOML configuration (`RAUTO_HOME/agent.toml` by default). Check those sources
+before asking for missing settings. `--agent-config` chooses another file.
 
-## Startup Options
+| CLI option | Environment |
+| --- | --- |
+| `--manager-url` | `RAUTO_MANAGER_URL` |
+| `--agent-name` | `RAUTO_AGENT_NAME` |
+| `--agent-token` | `RAUTO_AGENT_TOKEN` |
+| `--report-mode` | `RAUTO_MANAGER_REPORT_MODE` |
+| `--probe-report-interval` | `RAUTO_AGENT_PROBE_REPORT_INTERVAL` |
 
-| Option                           | Environment variable                | Meaning                                                    |
-| -------------------------------- | ----------------------------------- | ---------------------------------------------------------- |
-| `--bind <ADDRESS>`               | -                                   | Agent callback/listen address; defaults to `0.0.0.0`.      |
-| `--port <PORT>`                  | -                                   | Agent callback/listen port; defaults to `8123`.            |
-| `--manager-url <URL>`            | `RAUTO_MANAGER_URL`                 | Manager registration and reporting endpoint.               |
-| `--agent-name <NAME>`            | `RAUTO_AGENT_NAME`                  | Unique agent registration name.                            |
-| `--agent-token <TOKEN>`          | `RAUTO_AGENT_TOKEN`                 | Authentication token; prefer environment/config over argv. |
-| `--report-mode <MODE>`           | `RAUTO_MANAGER_REPORT_MODE`         | Manager reporting transport: `http` or `grpc`.             |
-| `--agent-config <PATH>`          | -                                   | Agent TOML path; defaults to `~/.rauto/agent.toml`.        |
-| `--probe-report-interval <SECS>` | `RAUTO_AGENT_PROBE_REPORT_INTERVAL` | Liveness probe interval; `0` disables periodic probes.     |
+Prefer token configuration through the existing environment/config over
+secret command-line values. Agent APIs use token authentication rather than
+the standalone Web password login.
 
-## Reporting Modes
+## Configuration
 
-- `grpc`: full manager-agent path, recommended when manager can expose gRPC.
-- `http`: useful when manager is HTTP-only (for example Vercel-style exposure).
+```toml
+[manager]
+url = "http://manager:50051"
+report_mode = "grpc"
 
-## Capabilities Expected in Current Mode
+[agent]
+name = "edge-sh-01"
+heartbeat_interval = 30
+probe_report_interval = 300
+```
 
-- Registration + heartbeat + periodic status reporting.
-- Task callback and task event reporting.
-- gRPC agent task service endpoints aligned with current agent execution features.
+Report mode defaults to `grpc`. Choose `http` for an HTTP-only manager and use
+the manager's actual endpoint/port. `probe_report_interval = 0` disables
+periodic device liveness probes, not registration or heartbeats. CLI/env
+overrides are available for the probe interval; heartbeat is configured in
+TOML and defaults to 30 seconds.
 
-## Common Checks
+The agent registers, sends heartbeat/status, reports task events, and accepts
+manager tasks over its current HTTP/gRPC adapters. Device changes still execute
+through command/interactive or transaction-workflow/orchestration capabilities;
+there is no standalone transaction-block executor.
 
-1. Confirm effective manager URL, token, agent name, and config path are correct.
-2. Confirm report mode matches manager deployment constraints.
-3. Confirm local listen bind/port is reachable when manager requires callbacks.
-4. Confirm `--probe-report-interval` is intentional; use `0` to disable periodic device probes.
-5. Confirm agent and manager both use consistent API versions.
+## Diagnose
+
+Confirm manager endpoint, chosen transport, unique agent name, authentication,
+and manager-to-agent callback reachability. Keep token values out of logs and
+reports. Verify the agent and manager agree on current task/proto contracts
+before changing persisted data. For device failures use
+[Troubleshooting](troubleshooting.md); for a local workbench use
+[Web](web-runbook.md).
+
+Source: `src/agent/config.rs`, `src/agent/report_mode.rs`, `src/cli/args.rs`,
+`src/agent/`, and `proto/`.

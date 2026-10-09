@@ -1,4 +1,4 @@
 interface:
   display_name: "Rauto Operations"
-  short_description: "Operate rauto CLI, schedules, config history, and Web workflows"
-  default_prompt: "Use $rauto-usage to run or troubleshoot a current rauto CLI or Web workflow, including device discovery, configuration history, schedules, and validated automation plans."
+  short_description: "Run rauto discovery, interactive commands, and workflows"
+  default_prompt: "Use $rauto-usage to run or troubleshoot current rauto operations and author checked interactive templates, workflows, orchestration plans, or schedules."

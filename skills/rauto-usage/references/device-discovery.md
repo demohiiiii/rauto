@@ -1,82 +1,94 @@
-# Device Discovery Runbook
+# SSH Device Discovery
 
-Use this file for CLI or Web SSH device discovery, latest-result inspection, filtering, and connection imports.
+## Scan
 
-## Start A Scan
-
-```bash
-rauto device discover 192.168.60.0/24 --credential network-admin
-
-rauto device discover 192.168.60.0/24 \
-  --probe-credential network-admin \
-  --probe-credential fallback-admin \
-  --port 22,2222 \
-  --status all
+```sh
+rauto device discover 192.0.2.10 --credential network-admin
+rauto device discover 192.0.2.10-30 \
+  --probe-credential network-admin --probe-credential fallback-admin \
+  --port 22,2222 --no-tui --status all
 ```
 
-- Accept individual IPs, CIDRs, and last-octet ranges such as `192.168.2.10-30`; multiple target arguments are allowed.
-- Limit one run to 4,096 unique addresses, 16 ports, and 3 ordered probe credentials.
-- `--probe-credential` overrides the global `--credential`; credentials are tried in supplied order.
-- Tune scanning with `--concurrency`, `--tcp-timeout-ms`, and `--probe-timeout-secs`.
-- TCP success becomes `reachable` only after a valid SSH identification line; otherwise the endpoint is `not-ssh`.
-- Press `Ctrl+C` during scanning to request cancellation.
+Targets can be individual IPs, CIDRs, or last-octet ranges. Multiple target
+arguments form a deduplicated set. Limits: 4096 addresses, 16 nonzero ports,
+and 3 ordered credentials. `--probe-credential` overrides `--credential`.
+New scans require an effective credential; result list/save do not.
 
-## Output Modes
+| Setting | Default | Bounds |
+| --- | --- | --- |
+| `--concurrency` | 32 | 1-256 |
+| `--tcp-timeout-ms` | 1000 | 1-30000 |
+| `--probe-timeout-secs` | 15 | 1-120 per credential |
 
-- Interactive terminal: show phase-aware progress, then open the result TUI.
-- `--no-tui`: keep progress, then print the filtered table.
-- `--json`: suppress progress and TUI so stdout remains machine-readable; result `status` uses the same derived `identified`, `existing`, or `imported` state as filtering and the TUI.
-- Non-interactive stdin/stdout: automatically use plain output.
+The TCP phase requires a valid SSH identification line; an open non-SSH port
+is not a successful identification. TCP progress uses
+`scanned_targets / total_targets`; SSH probing uses
+`probed_targets / reachable_count`. Reaching the TCP total is not scan
+completion. `Ctrl+C` requests cancellation.
 
-Progress has two phases: TCP scan uses `scanned_targets / total_targets`; SSH identification/profile probing uses `probed_targets / reachable_count`. Do not report completion merely because the TCP phase reached 100%.
+Interactive terminals open the result TUI after scanning. `--no-tui` prints a
+table; noninteractive terminals use plain output. `--json` suppresses progress
+and the TUI to leave machine-readable stdout.
 
-## Filter Results
+## Latest Results And Saving
 
-The default status is `identified`, meaning newly identified devices that do not already have saved endpoint connections. Available statuses are:
-
-`all`, `identified`, `existing`, `imported`, `reachable`, `failed`, `not-ssh`, `probe-failed`, `unreachable`, `cancelled`.
-
-`identified`, `existing`, and `imported` are exclusive effective states. Existing/imported devices are not importable.
-
-```bash
+```sh
 rauto device discover list
 rauto device discover list --status existing --json
-rauto device discover list --profile fortinet,linux --port 22,2222 --search branch
+rauto device discover list --profile linux,cisco_ios --port 22,2222 --search branch
+rauto device discover save --profile linux
+rauto device discover save 192.0.2.10:22 --connection-name branch-linux
+rauto device discover 192.0.2.10 --credential network-admin --auto-save
 ```
 
-`device discover list` reads only the latest persisted snapshot. It does not scan and must work without `--credential` or `--probe-credential`.
+Default filtering is `identified`: newly identified endpoints with no saved
+connection. Other CLI filters are `all`, `existing`, `imported`, `reachable`,
+`failed`, `not-ssh`, `probe-failed`, `unreachable`, and `cancelled`.
+Existing/imported states are derived from connection associations and exclude
+the row from new imports. JSON/TUI filtering uses these effective states.
 
-## Save Connections
+Without endpoint arguments, `save` imports all matching newly identified rows.
+An endpoint selector can be a host or host:port. `--connection-name` requires
+exactly one matching row; `--overwrite` permits replacing a name, but does not
+bypass the rule against importing an already saved endpoint.
 
-```bash
-rauto device discover save --profile fortinet
-rauto device discover save 192.168.60.98:22 --connection-name branch-fw
-rauto device discover 192.168.60.0/24 --credential network-admin --auto-save
-```
+Default connection names are detected platform + hyphen + IP with underscores:
+`linux-192_0_2_10`, `cisco_ios-192_0_2_10`. Nonstandard ports append `-2222`.
+CLI, TUI, and Web use this same format. Before identification, a provisional
+row can use a `device` prefix; identified live rows should use the platform.
 
-- With no endpoint arguments, `save` imports every matching newly identified result.
-- Endpoint selectors accept `host` or `host:port`.
-- `--connection-name` requires exactly one match; `--overwrite` permits replacing the selected name.
-- Default names combine detected platform and IP, for example `cisco_ios-192-168-60-98`; append nonstandard SSH ports to avoid collisions.
-- TUI save, `discover save`, Web import, and `--auto-save` share endpoint, credential, and connection-name validation.
+Imported connections retain the successful credential reference, profile,
+model/version, and `linux_shell_flavor` returned by rneter. Fish detection is
+saved as `fish`, not silently defaulted to POSIX/bash. Web imports refresh
+saved connections/inventory so imported devices are available immediately.
 
-## TUI Keys
+## TUI
 
 | Key | Action |
 | --- | --- |
-| `Up` / `Down`, `j` / `k` | Move through results |
-| `Space` | Toggle the current importable device |
-| `a` | Toggle all importable devices in the current filter |
-| `f` / `Shift+f`, `Right` / `Left` | Cycle status filters |
-| `/` | Search endpoint, profile, model, version, connection name, or error |
-| `e` | Edit the current connection name |
-| `s` | Save selected devices |
-| `q`, `Ctrl+C` | Exit |
+| Up/Down or j/k | Move |
+| Space | Toggle one importable row |
+| a | Toggle all importable rows in the filter |
+| f / Shift+f or Right/Left | Cycle status |
+| / | Search |
+| e | Edit connection name |
+| s | Save selected rows |
+| q / Ctrl+C | Exit |
 
-Newly identified devices are selected by default. Existing, imported, and failed results cannot be selected.
+New identified rows are initially selected. Failed/existing/imported rows cannot
+be selected. Web likewise preserves failed import selections after a partial
+import and removes rows that were successfully imported.
 
-## Persistence
+## Persistence And Diagnosis
 
-Only the latest run and results are retained. Starting a new scan replaces the prior run, result rows, and discovery Task Center entry, but never deletes saved connections. A second active scan is rejected. Current binaries recover stale run leases after interrupted processes and preserve persisted progress when a run fails.
+Only the latest discovery snapshot is retained. A new scan replaces previous
+discovery rows and its discovery Task Center entry, never saved connections.
+Only one active run is allowed; current binaries recover expired leases after
+interrupted processes. List/save inspect the latest snapshot without rescanning.
 
-The compatibility spelling `rauto device discovery list|save` remains available, but use `rauto device discover list|save` in new instructions.
+For fish prompt timeouts, verify the running binary matches the pinned rneter
+revision and inspect the probe transcript rather than adding a second SSH
+engine. Linux version/inspection commands use profile-appropriate Root/User
+candidates. Source: `src/web/handlers/device_discovery.rs`,
+`src/cli/discovery.rs`, `src/infrastructure/db/device_discovery_store.rs`, and
+`frontend/src/domains/device-discovery/`.

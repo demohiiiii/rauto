@@ -1,81 +1,99 @@
 # Interactive Templates
 
-Use this file when creating or debugging interactive templates (`rauto interactive-template` / `rauto interactive`).
+## Current Model
 
-## Core Model
+An interactive template is one command and its prompt responses. Use a
+transaction workflow to compose multiple operations. TOML accepts only `name`,
+`command`, `mode`, `multiline_mode`, `timeout_secs`, and `prompts` at the root:
 
-- Template format: TOML.
-- Runtime rendering: inline `{{var}}`.
-- Each template defines one top-level `command`, explicit multiline mode, optional single/candidate mode expression, timeout, and `[[prompts]]` response rules. Compose multiple operations with workflows. Legacy `steps`, `default_mode`, and `stop_on_error` fields are rejected.
-- Template inputs are inferred from inline references instead of declared in a vars schema.
-- Current target fields are flat values such as `{{host}}` and `{{username}}`.
-- Saved connections can be referenced through runtime aliases such as `{{peer.host}}`.
-- TextFSM parsing can be enabled for interactive output; repeated `--textfsm-template` values match command order and the last template is reused for remaining commands.
+```toml
+name = "confirm-command"
+command = "{{command}}"
+mode = "Enable"
+multiline_mode = "split_lines"
+timeout_secs = 30
 
-## Usage Boundary
+[[prompts]]
+patterns = ['(?i)continue\?\s*\[y/n\]']
+response = "{{answer}}"
+append_newline = true
+record_input = false
+```
 
-- Use `interactive` for reusable prompt/response interactions, device-side copy wizards, installers, and a single command with multiple prompt/response exchanges.
-- Do not use `interactive` as the first choice for simple state retrieval; prefer `show`.
-- Do not use `interactive` as the first choice for config changes that need rollback; compose command operations in `tx-workflow` when rollback-aware execution is needed.
+`mode` and `timeout_secs` are optional. Omitted mode falls back to the active
+profile through the runtime. Modes can be comma/pipe-separated candidates.
+`multiline_mode` defaults to `split_lines`: trim and execute nonempty lines,
+stopping on the first failure. `whole` submits the original text once, for
+example a heredoc or a shell block.
 
-## Built-In Cisco-Like Copy Command
+`patterns` are regexes identifying a prompt that needs a response.
+`append_newline` defaults to false and appends LF when enabled. `record_input`
+defaults to false and controls retention of the matched prompt in captured
+output; it does not mean that secret responses are safe to log.
 
-Run the rauto-owned built-in directly:
+The parser rejects root `steps`, `default_mode`, `stop_on_error`, `max_steps`,
+and declared variable schemas. There is no conversion of old multi-step TOML.
+Runtime `default_mode` is an internal/API context field, not a template field.
 
-```bash
-rauto interactive \
-  --template builtin:cisco_like_copy \
-  --connection core-01 \
+## Run And Save
+
+```sh
+rauto interactive-template create confirm-command --file ./confirm-command.toml
+rauto interactive-template show confirm-command
+rauto interactive --template confirm-command --connection core-01 \
+  --vars-json '{"command":"example-command","answer":"y"}'
+rauto interactive --file ./confirm-command.toml --target core-01 --target core-02
+```
+
+Choose either `--file` or `--template`. Runtime vars come from a JSON file
+(`--vars`) or inline JSON (`--vars-json`). `interactive` executes; it has no
+dry-run flag. The Web inspect endpoint parses TOML and returns inferred fields
+without executing: `POST /api/interactive-templates/inspect` with
+`{"content":"<TOML text>"}`. Parsing alone does not test prompt matching or
+the remote command.
+
+The immutable built-in copy interaction runs as:
+
+```sh
+rauto interactive --template builtin:cisco_like_copy --connection core-01 \
   --vars-json '{"command":"copy scp: flash:/new.bin"}'
 ```
 
-The `builtin:` prefix selects immutable built-in content. Built-ins are not
-saved template records, so do not expect `rauto interactive-template list` or
-`rauto interactive-template show` to return them. Save a custom copy only when the
-user needs editable content.
+Supply the other fields needed by the actual copy prompts. Built-ins do not
+appear as saved records in `interactive-template list/show`. Web lists them
+separately with a localized badge and allows copying, not editing the built-in.
 
-## Practical Pattern: Current + Peer Connection
+## Runtime Variables
+
+Rendering substitutes `{{name}}` tokens, not general Jinja expressions or
+control flow. Implicit current-connection values include `host`, `port`,
+`username`, `password`, `enable_password`, `device_profile`,
+`linux_shell_flavor`, `ssh_security`, `connection_name`, and `name`.
+
+Saved connections can be addressed as `{{edge94.host}}` or through a runtime
+alias: `{"peer":"edge94"}` allows `{{peer.host}}` and `{{peer.username}}`.
+For example:
 
 ```toml
-name = "linux_scp_with_current_and_peer"
-mode = "Root,User"
-
+name = "peer-copy"
 command = "scp {{local_path}} {{peer.username}}@{{peer.host}}:{{remote_path}}"
-multiline_mode = "split_lines"
-```
-
-Run example:
-
-```bash
-rauto interactive \
-  --template linux_scp_with_current_and_peer \
-  --connection edge92 \
-  --vars-json '{"peer":"edge94","local_path":"/tmp/app.tar","remote_path":"/tmp/app.tar"}'
-```
-
-## Mode Resolution
-
-- Runtime mode overrides template `mode`; if neither is set, use the device profile default.
-- `mode` accepts ordered comma/pipe-separated candidates such as `Root,User` or `Enable|Config`.
-- rauto canonicalizes candidates against the profile case-insensitively and rejects the whole expression when any candidate is unknown.
-
-## Multiline Submission
-
-- `multiline_mode = "split_lines"` executes every non-empty trimmed line as a separate command.
-- `multiline_mode = "whole"` preserves newline characters and submits the complete text once, which is useful for heredocs and shell blocks.
-- `split_lines` stops after the first concrete command failure; later lines are not executed.
-- The default is `split_lines`; visual and TOML editors write the normalized field explicitly.
-
-```toml
-name = "configure-interface"
-mode = "Config"
-command = "interface Gi0/1\nno shutdown"
-multiline_mode = "split_lines"
-```
-
-```toml
-name = "write-file"
 mode = "Root,User"
-command = "cat <<'EOF'\nline one\nline two\nEOF"
-multiline_mode = "whole"
+
+[[prompts]]
+patterns = ['(?i)password:\s*$']
+response = "{{peer.password}}"
+append_newline = true
 ```
+
+Provide `peer`, `local_path`, and `remote_path` at runtime. Only use this pattern
+when the device supports that transfer command and prompt. Runtime string
+values that name connection fields can themselves resolve as aliases; avoid
+using those reserved names when a literal string was intended.
+
+Backend inspection scans template references to infer editable variables.
+Implicit connection fields are excluded; referenced alias roots are exposed.
+See `src/domain/template/interactive.rs` and `src/config/interactive_vars.rs`
+for rendering/resolution, and `src/web/handlers/interactive_templates.rs` for
+inspection. Native workflow prompt JSON differs: it uses
+`interaction.prompts` and includes newlines directly in `response`; see
+[JSON plans](json-templates.md).
