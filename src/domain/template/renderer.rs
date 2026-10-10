@@ -49,6 +49,24 @@ impl<'source> Renderer<'source> {
         Ok(rendered)
     }
 
+    pub fn evaluate_expression(
+        &self,
+        expression: &str,
+        context: &Value,
+        max_length: usize,
+    ) -> Result<Value> {
+        let value = self.env.compile_expression(expression)?.eval(context)?;
+        if value.is_undefined() {
+            return Err(anyhow!(
+                "workflow expression evaluated to an undefined value"
+            ));
+        }
+        if value.len().is_some_and(|length| length > max_length) {
+            return Err(anyhow!("workflow expression exceeds {max_length} items"));
+        }
+        serde_json::to_value(value).map_err(Into::into)
+    }
+
     /// Returns external variable paths from this template, without rendering it.
     /// Nested attribute paths are retained so adapters can resolve context namespaces.
     /// Referenced templates and computed attribute names require runtime context

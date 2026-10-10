@@ -4,6 +4,7 @@
   interface Props {
     compact?: boolean;
     focusNodeId?: string;
+    focusBlockId?: string | null;
     inspectorOpen?: boolean;
     inspectorWidth?: number;
     layoutRevision?: string;
@@ -13,16 +14,18 @@
   let {
     compact = false,
     focusNodeId = "",
+    focusBlockId = null,
     layoutRevision = "",
     inspectorOpen = true,
     inspectorWidth = 520,
     topWindowOpen = false,
   }: Props = $props();
 
-  const { getNode, setCenter } = useSvelteFlow();
+  const { getNode, setCenter, screenToFlowPosition } = useSvelteFlow();
 
   $effect(() => {
     const nextNodeId = focusNodeId;
+    const nextBlockId = focusBlockId;
     const nextLayoutRevision = layoutRevision;
     const nextCompact = compact;
     const nextInspectorOpen = inspectorOpen;
@@ -41,11 +44,25 @@
       const topOffset = nextTopWindowOpen
         ? (nextCompact ? 112 : 144) / zoom
         : 0;
-      setCenter(
-        node.position.x + nodeWidth / 2 + inspectorOffset,
-        node.position.y + nodeHeight / 2 - topOffset,
-        { zoom, duration: 240 },
-      );
+      const element = nextBlockId
+        ? document.querySelector<HTMLElement>(
+            `[data-flow-block-id="${CSS.escape(nextBlockId)}"]`,
+          )
+        : null;
+      const rect = element?.getBoundingClientRect();
+      const center = rect
+        ? screenToFlowPosition({
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+          })
+        : {
+            x: node.position.x + nodeWidth / 2,
+            y: node.position.y + nodeHeight / 2,
+          };
+      setCenter(center.x + inspectorOffset, center.y - topOffset, {
+        zoom,
+        duration: 240,
+      });
     }, 80);
 
     return () => window.clearTimeout(focusTimer);

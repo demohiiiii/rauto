@@ -1,15 +1,21 @@
-import { orchestrationInlineWorkflowPreview } from "../model/orchestrationWorkflowPreview.js";
 import {
-  flowWorkflowBlockHeight,
-  flowWorkflowGroupLayout,
-} from "../../../components/fragments/flowWorkflowLayout.js";
+  orchestrationInlineWorkflowPreview,
+  orchestrationWorkflowPreview,
+  orchestrationWorkflowPreviewFormState,
+} from "../model/orchestrationWorkflowPreview.js";
+import {
+  txWorkflowFlowGraph,
+  txWorkflowFormModelFromJson,
+  txWorkflowFindBlock,
+} from "$domains/transactions/index.js";
+import type { TxWorkflowFormModel } from "$domains/transactions/index.js";
+import type { FlowWorkflowBlockNodeData } from "../../../components/fragments/flowWorkflowTypes.js";
 import type {
   JsonObject,
   OrchestrationJobModel,
   OrchestrationPlanFormModel,
   OrchestrationStageModel,
   OrchestrationWorkflowPreview,
-  OrchestrationWorkflowPreviewRow,
 } from "../model/types.js";
 
 const STAGE_WIDTH = 380;
@@ -23,12 +29,15 @@ const JOB_SIDE = 20;
 const STAGE_BOTTOM = 56;
 
 type WorkflowPreviewMap = Record<string, OrchestrationWorkflowPreview>;
+type WorkflowModelMap = Record<string, TxWorkflowFormModel>;
+type WorkflowGraphMap = Record<string, ReturnType<typeof txWorkflowFlowGraph>>;
 
 export type OrchestrationFlowSelection =
   | { kind: "job"; jobIndex: number; stageIndex: number }
   | { kind: "stage"; stageIndex: number }
   | {
       blockIndex: number;
+      editorId?: string;
       jobIndex: number;
       kind: "workflow-block";
       stageIndex: number;
@@ -85,9 +94,7 @@ export interface OrchestrationJobFlowNode extends OrchestrationFlowNodeBase {
     emptyWorkflow: boolean;
     jobIndex: number;
     kind: "job";
-    overflowCount: number;
     previewError: string;
-    previewRows: OrchestrationWorkflowPreviewRow[];
     previewStatus: OrchestrationWorkflowPreview["previewStatus"];
     sourceKind: OrchestrationWorkflowPreview["sourceKind"];
     sourceName: string;
@@ -103,17 +110,11 @@ export interface OrchestrationJobFlowNode extends OrchestrationFlowNodeBase {
 }
 
 export interface OrchestrationWorkflowBlockFlowNode extends OrchestrationFlowNodeBase {
-  data: {
+  data: FlowWorkflowBlockNodeData & {
     blockIndex: number;
-    commandRows: string[];
-    hasSource: boolean;
-    hasTarget: boolean;
     jobIndex: number;
     kind: "workflow-block";
-    operationText: string;
-    sourceKind: OrchestrationWorkflowPreview["sourceKind"];
     stageIndex: number;
-    title: string;
     unresolvedCount: number;
   };
   type: "workflowBlock";
@@ -179,79 +180,40 @@ function jobWorkflowPreview(
   const templateName = textValue(workflow?.workflowTemplateName);
   if (templateName) {
     return (
-      workflowPreviews[previewKey(stageIndex, jobIndex)] || {
-        allRows: [],
+      workflowPreviews[previewKey(stageIndex, jobIndex)] ||
+      orchestrationWorkflowPreview({
         sourceKind: "template",
         sourceName: templateName,
-        previewStatus: "loading",
-        workflowName: "Template preview",
-        blockCount: 0,
-        rows: [],
-        overflowCount: 0,
-        unresolvedCount: 0,
-        unresolvedPaths: [],
-        errorMessage: "",
-        workflow: {},
-      }
+        status: "loading",
+      })
     );
   }
   return orchestrationInlineWorkflowPreview(workflow?.workflow ?? {});
 }
 
-function previewRows(
-  preview: OrchestrationWorkflowPreview,
-): OrchestrationWorkflowPreviewRow[] {
-  const rows = preview.allRows || preview.rows;
-  return Array.isArray(rows) ? rows : [];
+function jobLayout(job: OrchestrationJobModel, graphs: WorkflowGraphMap) {
+  return graphs[job.editorId].group;
 }
 
-function workflowBlockCommands(row: OrchestrationWorkflowPreviewRow): string[] {
-  const commands = row.operationTexts
-    .map((command) => command.trim())
-    .filter(Boolean);
-  return commands.length ? commands : [textValue(row.operationText, "-")];
-}
-
-function workflowBlockHeight(row: OrchestrationWorkflowPreviewRow): number {
-  return flowWorkflowBlockHeight({
-    commandRows: workflowBlockCommands(row).map((summaryText) => ({
-      summaryText,
-    })),
-  });
-}
-
-function jobLayout(preview: OrchestrationWorkflowPreview) {
-  return flowWorkflowGroupLayout(
-    previewRows(preview).map(workflowBlockHeight),
-    {
-      width: STAGE_WIDTH - JOB_SIDE * 2,
-      canAddBlock: preview.sourceKind === "manual",
-    },
+function stageWidth(
+  stage: OrchestrationStageModel,
+  graphs: WorkflowGraphMap,
+): number {
+  return Math.max(
+    STAGE_WIDTH,
+    ...stage.jobs.map((job) => jobLayout(job, graphs).width + JOB_SIDE * 2),
   );
-}
-
-function jobHeight(preview: OrchestrationWorkflowPreview): number {
-  return jobLayout(preview).height;
 }
 
 function stageHeight(
   stage: OrchestrationStageModel,
-  stageIndex: number,
-  workflowPreviews: WorkflowPreviewMap,
+  graphs: WorkflowGraphMap,
 ): number {
   const jobs = stage.jobs ?? [];
-  const contentHeight = jobs.reduce<number>(
-    (height, job, jobIndex) =>
-      height +
-      jobHeight(
-        jobWorkflowPreview(job, stageIndex, jobIndex, workflowPreviews),
-      ),
-    0,
-  );
   return Math.max(
     220,
     JOB_TOP +
-      contentHeight +
+      jobs.reduce((sum, job) => sum + jobLayout(job, graphs).height, 0) +
       Math.max(0, jobs.length - 1) * JOB_GAP +
       STAGE_BOTTOM,
   );
@@ -259,26 +221,15 @@ function stageHeight(
 
 function jobTop(
   stage: OrchestrationStageModel,
-  stageIndex: number,
   jobIndex: number,
-  workflowPreviews: WorkflowPreviewMap,
+  graphs: WorkflowGraphMap,
 ): number {
   return (
     JOB_TOP +
-    (stage.jobs ?? [])
+    stage.jobs
       .slice(0, jobIndex)
-      .reduce<number>(
-        (offset, previousJob, previousIndex) =>
-          offset +
-          jobHeight(
-            jobWorkflowPreview(
-              previousJob,
-              stageIndex,
-              previousIndex,
-              workflowPreviews,
-            ),
-          ) +
-          JOB_GAP,
+      .reduce(
+        (offset, job) => offset + jobLayout(job, graphs).height + JOB_GAP,
         0,
       )
   );
@@ -287,18 +238,16 @@ function jobTop(
 function stageNode(
   stage: OrchestrationStageModel,
   stageIndex: number,
-  _workflowPreviews: WorkflowPreviewMap,
+  width: number,
   height: number,
+  x: number,
   centerY: number,
 ): OrchestrationStageFlowNode {
   const jobs = stage.jobs ?? [];
   return {
     id: `stage-${stageIndex}`,
     type: "stage",
-    position: {
-      x: stageIndex * (STAGE_WIDTH + STAGE_GAP),
-      y: centerY - height / 2,
-    },
+    position: { x, y: centerY - height / 2 },
     data: {
       kind: "stage",
       stageIndex,
@@ -310,7 +259,7 @@ function stageNode(
     },
     selectable: true,
     draggable: false,
-    width: STAGE_WIDTH,
+    width,
     height,
   };
 }
@@ -318,21 +267,13 @@ function stageNode(
 function stageInsertNode(
   insertIndex: number,
   stageCount: number,
+  x: number,
   centerY: number,
 ): OrchestrationStageInsertFlowNode {
-  const previousStageIndex = Math.max(0, insertIndex - 1);
   return {
     id: `stage-insert-${insertIndex}`,
     type: "stageInsert",
-    position: {
-      x:
-        stageCount === 0
-          ? 0
-          : previousStageIndex * (STAGE_WIDTH + STAGE_GAP) +
-            STAGE_WIDTH +
-            (STAGE_GAP - STAGE_INSERT_SIZE) / 2,
-      y: centerY - STAGE_INSERT_SIZE / 2,
-    },
+    position: { x, y: centerY - STAGE_INSERT_SIZE / 2 },
     data: {
       kind: "stage-insert",
       insertIndex,
@@ -352,8 +293,8 @@ function jobNode(
   stage: OrchestrationStageModel,
   stageIndex: number,
   jobIndex: number,
-  jobCount: number,
   workflowPreviews: WorkflowPreviewMap,
+  graphs: WorkflowGraphMap,
 ): OrchestrationJobFlowNode {
   const stageStrategy = stage.strategy === "parallel" ? "parallel" : "serial";
   const preview = jobWorkflowPreview(
@@ -362,13 +303,13 @@ function jobNode(
     jobIndex,
     workflowPreviews,
   );
-  const y = jobTop(stage, stageIndex, jobIndex, workflowPreviews);
+  const layout = jobLayout(job, graphs);
   return {
     id: `stage-${stageIndex}-job-${jobIndex}`,
     type: "job",
     parentId: `stage-${stageIndex}`,
     extent: "parent",
-    position: { x: JOB_SIDE, y },
+    position: { x: JOB_SIDE, y: jobTop(stage, jobIndex, graphs) },
     data: {
       kind: "job",
       stageIndex,
@@ -377,7 +318,7 @@ function jobNode(
       strategy: job.strategy === "parallel" ? "parallel" : "serial",
       stageStrategy,
       connectsToStageOutput:
-        stageStrategy === "parallel" || jobIndex === jobCount - 1,
+        stageStrategy === "parallel" || jobIndex === stage.jobs.length - 1,
       actionKind: "tx_workflow",
       actionSource:
         preview.sourceKind === "template"
@@ -388,18 +329,16 @@ function jobNode(
       sourceName: preview.sourceName,
       previewStatus: preview.previewStatus,
       workflowName: preview.workflowName,
-      blockCount: preview.blockCount,
-      previewRows: previewRows(preview),
-      overflowCount: preview.overflowCount,
+      blockCount: graphs[job.editorId].blocks.length,
       unresolvedCount: preview.unresolvedCount,
       previewError: preview.errorMessage,
-      emptyWorkflow: previewRows(preview).length === 0,
+      emptyWorkflow: graphs[job.editorId].blocks.length === 0,
       canAddBlock: preview.sourceKind === "manual",
     },
     selectable: true,
     draggable: false,
-    width: STAGE_WIDTH - JOB_SIDE * 2,
-    height: jobHeight(preview),
+    width: layout.width,
+    height: layout.height,
   };
 }
 
@@ -408,6 +347,7 @@ function workflowBlockNodes(
   stageIndex: number,
   jobIndex: number,
   workflowPreviews: WorkflowPreviewMap,
+  graphs: WorkflowGraphMap,
 ): OrchestrationWorkflowBlockFlowNode[] {
   const preview = jobWorkflowPreview(
     job,
@@ -416,33 +356,25 @@ function workflowBlockNodes(
     workflowPreviews,
   );
   const jobId = `stage-${stageIndex}-job-${jobIndex}`;
-  const rows = previewRows(preview);
-  const layout = jobLayout(preview);
-  return rows.map((row, blockIndex) => {
-    const node: OrchestrationWorkflowBlockFlowNode = {
-      id: `${jobId}-block-${blockIndex}`,
-      type: "workflowBlock",
-      parentId: jobId,
-      extent: "parent",
-      ...layout.blocks[blockIndex],
-      data: {
-        kind: "workflow-block",
-        stageIndex,
-        jobIndex,
-        blockIndex,
-        title: textValue(row.blockName, `Block ${blockIndex + 1}`),
-        operationText: textValue(row.operationText, "-"),
-        commandRows: workflowBlockCommands(row),
-        sourceKind: preview.sourceKind,
-        unresolvedCount: preview.unresolvedCount,
-        hasTarget: blockIndex > 0,
-        hasSource: blockIndex < rows.length - 1,
-      },
-      selectable: true,
-      draggable: false,
-    };
-    return node;
-  });
+  return graphs[job.editorId].blocks.map((block, blockIndex) => ({
+    ...block,
+    id: `${jobId}-block-${blockIndex}`,
+    type: "workflowBlock",
+    parentId: jobId,
+    extent: "parent",
+    data: {
+      ...block.data,
+      kind: "workflow-block",
+      stageIndex,
+      jobIndex,
+      blockIndex,
+      sourceKind:
+        preview.sourceKind === "template" ? "template" : block.data.sourceKind,
+      unresolvedCount: preview.unresolvedCount,
+    },
+    selectable: true,
+    draggable: false,
+  }));
 }
 
 function stageEdges(
@@ -518,12 +450,10 @@ function jobEdges(
 function workflowBlockEdges(
   stage: OrchestrationStageModel,
   stageIndex: number,
-  workflowPreviews: WorkflowPreviewMap,
+  graphs: WorkflowGraphMap,
 ): OrchestrationFlowEdge[] {
   return (stage.jobs ?? []).flatMap((job, jobIndex) => {
-    const rows = previewRows(
-      jobWorkflowPreview(job, stageIndex, jobIndex, workflowPreviews),
-    );
+    const rows = graphs[job.editorId].blocks;
     const jobId = `stage-${stageIndex}-job-${jobIndex}`;
     return rows.slice(0, -1).map((_row, blockIndex) => ({
       id: `${jobId}-block-edge-${blockIndex}-${blockIndex + 1}`,
@@ -540,52 +470,76 @@ function workflowBlockEdges(
 export function orchestrationFlowGraph(
   model: Pick<OrchestrationPlanFormModel, "stages"> = { stages: [] },
   workflowPreviews: WorkflowPreviewMap = {},
+  workflowModels: WorkflowModelMap = {},
 ): OrchestrationFlowGraph {
   const stages = model.stages ?? [];
-  const stageHeights = stages.map((stage, stageIndex) =>
-    stageHeight(stage, stageIndex, workflowPreviews),
-  );
-  const stageCenterY =
-    STAGE_TOP + Math.max(STAGE_HEADER_HEIGHT, ...stageHeights) / 2;
-  const nodes: OrchestrationFlowNode[] = stages.flatMap((stage, stageIndex) => {
-    const jobs = stage.jobs ?? [];
-    return [
-      stageNode(
-        stage,
+  const graphs: WorkflowGraphMap = {};
+  stages.forEach((stage, stageIndex) =>
+    stage.jobs.forEach((job, jobIndex) => {
+      const preview = jobWorkflowPreview(
+        job,
         stageIndex,
+        jobIndex,
         workflowPreviews,
-        stageHeights[stageIndex],
-        stageCenterY,
-      ),
-      ...jobs.flatMap((job, jobIndex) => [
-        jobNode(
-          job,
-          stage,
-          stageIndex,
-          jobIndex,
-          jobs.length,
-          workflowPreviews,
-        ),
-        ...workflowBlockNodes(job, stageIndex, jobIndex, workflowPreviews),
-      ]),
-    ];
+      );
+      graphs[job.editorId] = txWorkflowFlowGraph(
+        workflowModels[job.editorId] ??
+          orchestrationWorkflowPreviewFormState(preview.workflow).formModel ??
+          txWorkflowFormModelFromJson({}),
+        { canAddBlock: preview.sourceKind === "manual" },
+      );
+    }),
+  );
+  const heights = stages.map((stage) => stageHeight(stage, graphs));
+  const widths = stages.map((stage) => stageWidth(stage, graphs));
+  let nextX = 0;
+  const positions = widths.map((width) => {
+    const x = nextX;
+    nextX += width + STAGE_GAP;
+    return x;
   });
-  if (stages.length === 0) {
-    nodes.push(stageInsertNode(0, 0, stageCenterY));
-  } else {
+  const centerY = STAGE_TOP + Math.max(STAGE_HEADER_HEIGHT, ...heights) / 2;
+  const nodes: OrchestrationFlowNode[] = stages.flatMap((stage, stageIndex) => [
+    stageNode(
+      stage,
+      stageIndex,
+      widths[stageIndex],
+      heights[stageIndex],
+      positions[stageIndex],
+      centerY,
+    ),
+    ...stage.jobs.flatMap((job, jobIndex) => [
+      jobNode(job, stage, stageIndex, jobIndex, workflowPreviews, graphs),
+      ...workflowBlockNodes(
+        job,
+        stageIndex,
+        jobIndex,
+        workflowPreviews,
+        graphs,
+      ),
+    ]),
+  ]);
+  if (!stages.length) nodes.push(stageInsertNode(0, 0, 0, centerY));
+  else
     nodes.push(
-      ...stages.map((_stage, stageIndex) =>
-        stageInsertNode(stageIndex + 1, stages.length, stageCenterY),
+      ...stages.map((_stage, index) =>
+        stageInsertNode(
+          index + 1,
+          stages.length,
+          positions[index] +
+            widths[index] +
+            (STAGE_GAP - STAGE_INSERT_SIZE) / 2,
+          centerY,
+        ),
       ),
     );
-  }
   return {
     nodes,
     edges: [
       ...stageEdges(stages),
-      ...stages.flatMap((stage, stageIndex) => jobEdges(stage, stageIndex)),
-      ...stages.flatMap((stage, stageIndex) =>
-        workflowBlockEdges(stage, stageIndex, workflowPreviews),
+      ...stages.flatMap((stage, index) => jobEdges(stage, index)),
+      ...stages.flatMap((stage, index) =>
+        workflowBlockEdges(stage, index, graphs),
       ),
     ],
   };
@@ -595,6 +549,7 @@ export function orchestrationNormalizeFlowSelection(
   model: Pick<OrchestrationPlanFormModel, "stages"> = { stages: [] },
   selection: unknown,
   workflowPreviews: WorkflowPreviewMap = {},
+  workflowModels: WorkflowModelMap = {},
 ): OrchestrationFlowSelection | null {
   const selectionValue = objectValue(selection);
   if (!Object.keys(selectionValue).length) return null;
@@ -620,22 +575,41 @@ export function orchestrationNormalizeFlowSelection(
       : { kind: "job", stageIndex, jobIndex };
   }
   if (selectionValue.kind !== "workflow-block") return null;
-  const blockIndex = Number(selectionValue.blockIndex);
+  const editorId =
+    typeof selectionValue.editorId === "string"
+      ? selectionValue.editorId
+      : null;
+  let location =
+    editorId && workflowModels[jobs[jobIndex].editorId]
+      ? txWorkflowFindBlock(workflowModels[jobs[jobIndex].editorId], editorId)
+      : null;
+  if (editorId && !location) return null;
+  while (location?.parentId)
+    location = txWorkflowFindBlock(
+      workflowModels[jobs[jobIndex].editorId],
+      location.parentId,
+    );
+  const blockIndex = location?.blockIndex ?? Number(selectionValue.blockIndex);
   if (!Number.isInteger(blockIndex) || blockIndex < 0) return null;
   const job = jobs[jobIndex];
   const txWorkflow = job.action?.txWorkflow;
   const templateName = textValue(txWorkflow?.workflowTemplateName);
-  const blockCount = templateName
-    ? previewRows(
-        jobWorkflowPreview(job, stageIndex, jobIndex, workflowPreviews),
-      ).length
-    : Array.isArray(txWorkflow?.workflow?.blocks)
-      ? txWorkflow.workflow.blocks.length
-      : 0;
+  const workflow = templateName
+    ? jobWorkflowPreview(job, stageIndex, jobIndex, workflowPreviews).workflow
+    : txWorkflow?.workflow;
+  const blockCount =
+    workflowModels[job.editorId]?.blocks.length ??
+    (Array.isArray(workflow?.blocks) ? workflow.blocks.length : 0);
   if (blockIndex >= blockCount) return null;
   return selectionValue.stageIndex === stageIndex &&
     selectionValue.jobIndex === jobIndex &&
     selectionValue.blockIndex === blockIndex
     ? (selectionValue as OrchestrationFlowSelection)
-    : { kind: "workflow-block", stageIndex, jobIndex, blockIndex };
+    : {
+        kind: "workflow-block",
+        stageIndex,
+        jobIndex,
+        blockIndex,
+        ...(editorId ? { editorId } : {}),
+      };
 }

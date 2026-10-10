@@ -155,49 +155,5 @@ pub(crate) fn template_context(vars: Value, conn: Option<&crate::EffectiveConnec
 }
 
 pub(crate) fn render_json_template_value(input: &Value, context: &mut Value) -> Result<Value> {
-    let renderer = Renderer::new();
-    render_json_template_value_with_renderer(input, context, &renderer)
-}
-
-fn render_json_template_value_with_renderer(
-    input: &Value,
-    context: &mut Value,
-    renderer: &Renderer<'_>,
-) -> Result<Value> {
-    match input {
-        Value::Object(map) => {
-            let mut out = serde_json::Map::with_capacity(map.len());
-            for (key, value) in map {
-                out.insert(
-                    key.clone(),
-                    render_json_template_value_with_renderer(value, context, renderer)?,
-                );
-            }
-            Ok(Value::Object(out))
-        }
-        Value::Array(items) => {
-            let mut out = Vec::with_capacity(items.len());
-            for item in items {
-                out.push(render_json_template_value_with_renderer(
-                    item, context, renderer,
-                )?);
-            }
-            Ok(Value::Array(out))
-        }
-        Value::String(text) => {
-            if !text.contains("{{") && !text.contains("{%") {
-                return Ok(Value::String(text.clone()));
-            }
-            let rendered = renderer.render_string(text, context.clone())?;
-            let trimmed = rendered.trim();
-            if trimmed.is_empty() {
-                return Ok(Value::String(rendered));
-            }
-            if let Ok(parsed) = serde_json::from_str::<Value>(trimmed) {
-                return Ok(parsed);
-            }
-            Ok(Value::String(rendered))
-        }
-        _ => Ok(input.clone()),
-    }
+    Renderer::new().render_json_value(input, context)
 }

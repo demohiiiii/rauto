@@ -91,6 +91,18 @@ fn render_workflow_template_preview(
     let context = workflow_preview_context(workflow_vars);
     let renderer = Renderer::new();
     let mut unresolved_paths = Vec::new();
+    if crate::domain::execution::workflow_template::has_workflow_controls(&workflow) {
+        return Ok(match renderer.render_json_value(&workflow, &context) {
+            Ok(workflow) => TxWorkflowTemplatePreviewResponse {
+                workflow,
+                unresolved_paths,
+            },
+            Err(_) => TxWorkflowTemplatePreviewResponse {
+                workflow,
+                unresolved_paths: vec!["$.blocks".into()],
+            },
+        });
+    }
     let workflow =
         render_workflow_preview_value(workflow, "$", &context, &renderer, &mut unresolved_paths);
     Ok(TxWorkflowTemplatePreviewResponse {
@@ -361,6 +373,24 @@ mod tests {
                 "$.blocks[0].steps[0].run.command".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn workflow_preview_expands_controls_and_reports_unresolved_control_vars() {
+        let source = json!({"name":"preview","fail_fast":true,"blocks":[
+            {"kind":"loop","iterations":"vars.count","blocks":[
+                {"kind":"choice","condition":"item == 0","then":[{"name":"first"}],"else":[{"name":"other-{{ loop.index }}"}]}
+            ]}
+        ]});
+        let preview = render_workflow_template_preview(source.clone(), json!({"count":2})).unwrap();
+        assert_eq!(
+            preview.workflow["blocks"],
+            json!([{"name":"first"},{"name":"other-2"}])
+        );
+        assert!(preview.unresolved_paths.is_empty());
+        let unresolved = render_workflow_template_preview(source.clone(), json!({})).unwrap();
+        assert_eq!(unresolved.workflow, source);
+        assert_eq!(unresolved.unresolved_paths, vec!["$.blocks"]);
     }
 
     #[test]

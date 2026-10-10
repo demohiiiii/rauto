@@ -1106,6 +1106,8 @@ rauto tx-workflow ./workflow.json --dry-run
 rauto tx-workflow ./workflow.json --dry-run --json
 ```
 
+Workflow canvases also support nested loops and conditional choices, expanded from variables before execution. See [workflow control structures](docs/workflow-control.md) for the JSON format and limits.
+
 **Transaction workflow JSON example**
 
 ```json

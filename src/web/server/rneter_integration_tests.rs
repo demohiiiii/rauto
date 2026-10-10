@@ -1736,6 +1736,152 @@ fn http_interactive_retry_exhaustion_stops_before_later_steps() {
 }
 
 #[test]
+fn http_orchestration_expands_inline_controls_for_each_saved_target() {
+    run_route_test(|context| async move {
+        let target_a = context
+            .spawn_cisco("control-a", FaultInjection::new())
+            .await;
+        let target_b = context
+            .spawn_cisco("control-b", FaultInjection::new())
+            .await;
+        let operation = |command: &str| json!({"kind":"command", "mode":"Enable", "command":command, "timeout":10});
+        let block = |name: &str, command: &str| {
+            json!({
+                "name":name, "fail_fast":true, "rollback_policy":"none", "steps":[{"run":operation(command)}]
+            })
+        };
+        let plan = json!({"name":"control-plan", "stages":[{
+            "name":"execute", "strategy":"serial", "jobs":[{
+                "strategy":"serial", "targets":"{{ vars.targets }}",
+                "action":{"kind":"tx_workflow", "workflow":{"name":"control-workflow", "fail_fast":true, "blocks":[
+                    {"kind":"loop", "iterations":"vars.commands", "blocks":[
+                        block("iteration-{{ loop.index }}", "{{ item }}")]},
+                    {"kind":"choice", "branches":[{
+                        "condition":"connection.name == 'control-a'", "blocks":[block("a", "show version")]
+                    }], "else":[block("b", "show interfaces")]}
+                ]}}
+            }]
+        }]});
+        let mut cursor_a = 0;
+        let mut cursor_b = 0;
+        for selected_connection in [
+            Value::Null,
+            json!({"connection_name":target_a.connection_name}),
+        ] {
+            let response = context.post_json("/api/orchestrate", json!({
+                "connection":selected_connection,
+                "plan":plan,
+                "plan_vars":{"targets":[target_a.connection_name,target_b.connection_name], "commands":["show clock","show inventory"]}
+            })).await;
+            let body = response.assert_ok();
+            assert_eq!(body["orchestration_result"]["success"], true);
+            assert_eq!(
+                body["plan"]["stages"][0]["jobs"][0]["action"]["workflow"]["blocks"][0]["kind"],
+                "loop"
+            );
+            assert!(
+                body["plan"]["stages"][0]["jobs"][0]["action"]
+                    .get("inline_template_context")
+                    .is_none()
+            );
+            assert_next_commands(
+                &target_a.handle,
+                &mut cursor_a,
+                &["show clock", "show inventory", "show version"],
+            );
+            assert_next_commands(
+                &target_b.handle,
+                &mut cursor_b,
+                &["show clock", "show inventory", "show interfaces"],
+            );
+        }
+    });
+}
+
+#[test]
+fn http_orchestration_dry_run_rejects_empty_target_resolution() {
+    run_route_test(|context| async move {
+        let response = context
+            .post_json(
+                "/api/orchestrate",
+                json!({
+                    "dry_run":true,
+                    "plan":{"name":"plan", "stages":[{"name":"stage", "strategy":"serial", "jobs":[{
+                        "strategy":"serial", "target_tags":["nonexistent-tag"],
+                        "action":{"kind":"tx_workflow", "workflow":{"name":"workflow", "blocks":[]}}
+                    }]}]}
+                }),
+            )
+            .await;
+        assert!(!response.status.is_success());
+        assert!(response.body.to_string().contains("resolved no targets"));
+    });
+}
+
+#[test]
+fn http_workflow_controls_expand_and_preserve_cross_iteration_rollback() {
+    run_route_test(|context| async move {
+        let device = context
+            .spawn_cisco("control-target", FaultInjection::new())
+            .await;
+        let operation = |command: &str| json!({"kind":"command", "mode":"Enable", "command":command,"timeout":10});
+        let workflow = json!({"name":"control-test","fail_fast":true,"blocks":[
+            {"kind":"loop","name":"repeat","iterations":"vars.commands","item_variable":"action","blocks":[
+                {"name":"iteration-{{ loop.index }}","fail_fast":true,"rollback_policy":"per_step","steps":[
+                    {"run":operation("{{ action }}"),"rollback":operation("show version")}
+                ]}
+            ]},
+            {"kind":"choice","name":"finish","branches":[
+                {"condition":"false","blocks":[{"name":"{{ missing }}"}]},
+                {"condition":"vars.fail","blocks":[
+                {"name":"failure","fail_fast":true,"rollback_policy":"none","steps":[{"run":operation("make-error")}]}
+            ]}],"else":[
+                {"name":"verify","fail_fast":true,"rollback_policy":"none","steps":[{"run":operation("show interfaces")}]}
+            ]}
+        ]});
+        let mut cursor = 0;
+        for fail in [false, true] {
+            let body = context.post_json("/api/tx/workflow",json!({
+                "connection":{"connection_name":device.connection_name},
+                "workflow":workflow,"workflow_vars":{"commands":["show clock","show inventory"],"fail":fail},
+            })).await;
+            let body = body.assert_ok();
+            assert_eq!(body["tx_workflow_result"]["committed"], json!(!fail));
+            assert_eq!(body["workflow"]["blocks"].as_array().unwrap().len(), 3);
+            assert_eq!(body["workflow"]["blocks"][0]["name"], "iteration-1");
+            assert_eq!(body["workflow"]["blocks"][1]["name"], "iteration-2");
+            if fail {
+                assert_eq!(body["tx_workflow_result"]["rollback_attempted"], true);
+                assert_eq!(body["tx_workflow_result"]["rollback_succeeded"], true);
+                assert_next_commands(
+                    &device.handle,
+                    &mut cursor,
+                    &[
+                        "show clock",
+                        "show inventory",
+                        "make-error",
+                        "show version",
+                        "show version",
+                    ],
+                );
+            } else {
+                assert_next_commands(
+                    &device.handle,
+                    &mut cursor,
+                    &["show clock", "show inventory", "show interfaces"],
+                );
+            }
+        }
+        let invalid = context.post_json("/api/tx/workflow",json!({
+            "connection":{"connection_name":device.connection_name},
+            "dry_run":true,
+            "workflow":{"name":"invalid","fail_fast":true,"blocks":[{"kind":"loop","iterations":"-1","blocks":[]}]}
+        })).await;
+        assert_eq!(invalid.status, StatusCode::BAD_REQUEST);
+    });
+}
+
+#[test]
 fn http_single_block_workflow_preserves_results_rollback_and_recording() {
     run_route_test(|context| async move {
         let device = context

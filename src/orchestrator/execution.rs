@@ -1037,6 +1037,7 @@ mod tests {
             })),
             workflow_template_name: None,
             workflow_vars: serde_json::Value::Null,
+            inline_template_context: None,
         })
     }
 

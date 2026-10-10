@@ -1,0 +1,475 @@
+use crate::domain::template::renderer::Renderer;
+use anyhow::{Context, Result, anyhow, ensure};
+use serde::Deserialize;
+use serde_json::{Value, json};
+
+const MAX_DEPTH: usize = 16;
+const MAX_EXPANSIONS: usize = 1_000;
+
+#[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+enum WorkflowControl {
+    Loop {
+        #[serde(default)]
+        name: String,
+        iterations: String,
+        #[serde(default = "default_item")]
+        item_variable: String,
+        blocks: Vec<Value>,
+    },
+    Choice(WorkflowChoice),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WorkflowChoice {
+    #[serde(default)]
+    name: String,
+    branches: Option<Vec<WorkflowChoiceBranch>>,
+    condition: Option<String>,
+    then: Option<Vec<Value>>,
+    #[serde(default, rename = "else")]
+    otherwise: Vec<Value>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WorkflowChoiceBranch {
+    condition: String,
+    blocks: Vec<Value>,
+}
+
+impl WorkflowChoice {
+    fn select(
+        self,
+        context: &Value,
+        renderer: &Renderer<'_>,
+        expansions: &mut usize,
+    ) -> Result<Vec<Value>> {
+        let branches = match (self.branches, self.condition, self.then) {
+            (Some(branches), None, None) => branches,
+            (None, Some(condition), Some(blocks)) => {
+                vec![WorkflowChoiceBranch { condition, blocks }]
+            }
+            _ => {
+                return Err(anyhow!(
+                    "choice requires branches; do not combine branches with condition/then"
+                ));
+            }
+        };
+        ensure!(
+            !branches.is_empty(),
+            "choice requires at least one condition branch"
+        );
+        ensure!(
+            branches.len() <= MAX_EXPANSIONS,
+            "choice exceeds {MAX_EXPANSIONS} branches"
+        );
+        ensure!(
+            branches
+                .iter()
+                .all(|branch| !branch.condition.trim().is_empty()),
+            "choice conditions cannot be empty"
+        );
+        for (index, branch) in branches.into_iter().enumerate() {
+            *expansions += 1;
+            ensure!(
+                *expansions <= MAX_EXPANSIONS,
+                "workflow expansion exceeds {MAX_EXPANSIONS} nodes"
+            );
+            let value = renderer
+                .evaluate_expression(&branch.condition, context, MAX_EXPANSIONS)
+                .with_context(|| {
+                    format!(
+                        "invalid choice expression in '{}' at branches[{index}]",
+                        self.name
+                    )
+                })?;
+            match value {
+                Value::Bool(true) => return Ok(branch.blocks),
+                Value::Bool(false) => {}
+                _ => {
+                    return Err(anyhow!(
+                        "choice condition at branches[{index}] must return a boolean"
+                    ));
+                }
+            }
+        }
+        Ok(self.otherwise)
+    }
+}
+
+fn default_item() -> String {
+    "item".into()
+}
+
+pub fn has_workflow_controls(value: &Value) -> bool {
+    match value {
+        Value::Object(map) => {
+            map.get("blocks")
+                .and_then(Value::as_array)
+                .is_some_and(|blocks| {
+                    blocks.iter().any(|block| {
+                        matches!(
+                            block.get("kind").and_then(Value::as_str),
+                            Some("loop" | "choice")
+                        )
+                    })
+                })
+                || map.values().any(has_workflow_controls)
+        }
+        Value::Array(items) => items.iter().any(has_workflow_controls),
+        _ => false,
+    }
+}
+
+pub fn render_json_template_value(
+    input: &Value,
+    context: &Value,
+    renderer: &Renderer<'_>,
+) -> Result<Value> {
+    render_value(input, context, renderer, 0, &mut 0)
+}
+
+fn render_value(
+    input: &Value,
+    context: &Value,
+    renderer: &Renderer<'_>,
+    depth: usize,
+    expansions: &mut usize,
+) -> Result<Value> {
+    match input {
+        Value::Object(map) => {
+            let mut out = serde_json::Map::with_capacity(map.len());
+            for (key, value) in map {
+                let rendered = if key == "blocks"
+                    && value.as_array().is_some_and(|blocks| {
+                        blocks.iter().any(|block| {
+                            matches!(
+                                block.get("kind").and_then(Value::as_str),
+                                Some("loop" | "choice")
+                            )
+                        })
+                    }) {
+                    Value::Array(render_blocks(
+                        value.as_array().expect("checked array"),
+                        context,
+                        renderer,
+                        depth,
+                        expansions,
+                    )?)
+                } else {
+                    render_value(value, context, renderer, depth, expansions)?
+                };
+                out.insert(key.clone(), rendered);
+            }
+            Ok(Value::Object(out))
+        }
+        Value::Array(items) => items
+            .iter()
+            .map(|value| render_value(value, context, renderer, depth, expansions))
+            .collect(),
+        Value::String(text) if text.contains("{{") || text.contains("{%") => {
+            let rendered = renderer.render_string(text, context.clone())?;
+            Ok(serde_json::from_str(rendered.trim()).unwrap_or(Value::String(rendered)))
+        }
+        _ => Ok(input.clone()),
+    }
+}
+
+fn render_blocks(
+    blocks: &[Value],
+    context: &Value,
+    renderer: &Renderer<'_>,
+    depth: usize,
+    expansions: &mut usize,
+) -> Result<Vec<Value>> {
+    ensure!(
+        depth <= MAX_DEPTH,
+        "workflow control nesting exceeds {MAX_DEPTH}"
+    );
+    let mut out = Vec::new();
+    for (index, block) in blocks.iter().enumerate() {
+        *expansions += 1;
+        ensure!(
+            *expansions <= MAX_EXPANSIONS,
+            "workflow expansion exceeds {MAX_EXPANSIONS} nodes"
+        );
+        match block.get("kind").and_then(Value::as_str) {
+            Some("loop" | "choice") => {
+                let control: WorkflowControl = serde_json::from_value(block.clone())
+                    .with_context(|| format!("invalid workflow control at blocks[{index}]"))?;
+                match control {
+                    WorkflowControl::Loop {
+                        name,
+                        iterations,
+                        item_variable,
+                        blocks,
+                    } => {
+                        validate_item_variable(&item_variable)?;
+                        let value = renderer
+                            .evaluate_expression(&iterations, context, MAX_EXPANSIONS)
+                            .with_context(|| format!("invalid loop expression in '{name}'"))?;
+                        let items = match value {
+                            Value::Array(items) => items,
+                            Value::Number(number) => {
+                                let count = number.as_u64().ok_or_else(|| {
+                                    anyhow!("loop count must be a nonnegative integer")
+                                })?;
+                                ensure!(
+                                    count <= MAX_EXPANSIONS as u64,
+                                    "loop count exceeds {MAX_EXPANSIONS}"
+                                );
+                                (0..count).map(|index| json!(index)).collect()
+                            }
+                            _ => {
+                                return Err(anyhow!(
+                                    "loop expression must return a nonnegative integer or a list"
+                                ));
+                            }
+                        };
+                        ensure!(
+                            items.len() <= MAX_EXPANSIONS,
+                            "loop list exceeds {MAX_EXPANSIONS} items"
+                        );
+                        let length = items.len();
+                        for (index, item) in items.into_iter().enumerate() {
+                            *expansions += 1;
+                            ensure!(
+                                *expansions <= MAX_EXPANSIONS,
+                                "workflow expansion exceeds {MAX_EXPANSIONS} nodes"
+                            );
+                            let mut local = context.clone();
+                            let root = local
+                                .as_object_mut()
+                                .ok_or_else(|| anyhow!("workflow context must be an object"))?;
+                            root.insert(item_variable.clone(), item.clone());
+                            let vars = root.entry("vars").or_insert_with(|| json!({}));
+                            if vars.is_null() {
+                                *vars = json!({});
+                            }
+                            vars.as_object_mut()
+                                .ok_or_else(|| anyhow!("workflow vars must be an object"))?
+                                .insert(item_variable.clone(), item);
+                            root.insert("loop".into(), json!({"index": index + 1, "index0": index, "first": index == 0, "last": index + 1 == length, "length": length}));
+                            out.extend(render_blocks(
+                                &blocks,
+                                &local,
+                                renderer,
+                                depth + 1,
+                                expansions,
+                            )?);
+                        }
+                    }
+                    WorkflowControl::Choice(choice) => {
+                        let selected = choice.select(context, renderer, expansions)?;
+                        out.extend(render_blocks(
+                            &selected,
+                            context,
+                            renderer,
+                            depth + 1,
+                            expansions,
+                        )?);
+                    }
+                }
+            }
+            _ => out.push(render_value(block, context, renderer, depth, expansions)?),
+        }
+    }
+    Ok(out)
+}
+
+fn validate_item_variable(name: &str) -> Result<()> {
+    let mut chars = name.chars();
+    ensure!(
+        chars
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+            && chars.all(|c| c.is_ascii_alphanumeric() || c == '_'),
+        "invalid loop item variable"
+    );
+    ensure!(
+        !matches!(
+            name,
+            "vars"
+                | "loop"
+                | "connection"
+                | "connections"
+                | "now"
+                | "defaults"
+                | "true"
+                | "false"
+                | "none"
+                | "True"
+                | "False"
+                | "None"
+                | "self"
+                | "super"
+                | "if"
+                | "else"
+                | "for"
+                | "in"
+                | "not"
+                | "and"
+                | "or"
+                | "is"
+        ),
+        "loop item variable is reserved"
+    );
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn render(blocks: Value, vars: Value) -> Result<Value> {
+        render_json_template_value(
+            &json!({"name":"test", "fail_fast":true,"blocks":blocks}),
+            &json!({"vars":vars}),
+            &Renderer::new(),
+        )
+    }
+
+    #[test]
+    fn loops_render_items_and_branches_without_evaluating_unused_values() {
+        let blocks = json!([{"kind":"loop","iterations":"vars.ports","item_variable":"port","blocks":[
+            {"kind":"choice","condition":"port.enabled","then":[{"name":"{{ port.name }}-{{ loop.index }}", "command":"{{ vars.port.name }}"}],"else":[{"name":"disabled"}]}
+        ]}, {"kind":"choice","condition":"true","then":[{"name":"end"}],"else":[{"name":"{{ missing }}"}]}]);
+        let value = render(
+            blocks,
+            json!({"ports":[{"name":"eth0","enabled":true},{"name":"eth1","enabled":false}]}),
+        )
+        .unwrap();
+        assert_eq!(
+            value["blocks"],
+            json!([{"name":"eth0-1","command":"eth0"},{"name":"disabled"},{"name":"end"}])
+        );
+    }
+
+    #[test]
+    fn counted_loops_keep_scope_and_empty_paths() {
+        let value = render(
+            json!([
+                {"kind":"loop","iterations":"2","blocks":[{"name":"{{ item }}"}]},
+                {"name":"{{ vars.item }}"},
+                {"kind":"loop","iterations":"0","blocks":[{"name":"{{ missing }}"}]},
+                {"kind":"choice","condition":"false","then":[]}
+            ]),
+            json!({"item":"outside"}),
+        )
+        .unwrap();
+        assert_eq!(
+            value["blocks"],
+            json!([{"name":0},{"name":1},{"name":"outside"}])
+        );
+    }
+
+    #[test]
+    fn nested_loops_restore_parent_items_and_loop_metadata() {
+        let value = render(json!([{"kind":"loop","iterations":"2","blocks":[
+            {"name":"before-{{ item }}-{{ loop.index }}"},
+            {"kind":"loop","iterations":"2","blocks":[{"name":"inner-{{ item }}-{{ loop.index }}"}]},
+            {"name":"after-{{ item }}-{{ loop.index }}"}
+        ]}]), json!({})).unwrap();
+        let names = value["blocks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|block| block["name"].as_str().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            [
+                "before-0-1",
+                "inner-0-1",
+                "inner-1-2",
+                "after-0-1",
+                "before-1-2",
+                "inner-0-1",
+                "inner-1-2",
+                "after-1-2"
+            ]
+        );
+    }
+
+    #[test]
+    fn choices_use_the_first_matching_condition_and_skip_unused_expressions() {
+        let blocks = json!([{"kind":"choice","branches":[
+            {"condition":"vars.role == 'edge'", "blocks":[{"name":"edge"}]},
+            {"condition":"vars.enabled", "blocks":[{"name":"enabled"}]},
+            {"condition":"missing.condition", "blocks":[{"name":"{{ missing }}"}]}
+        ],"else":[{"name":"{{ missing }}"}]}]);
+        for (vars, expected) in [
+            (json!({"role":"edge","enabled":true}), "edge"),
+            (json!({"role":"core","enabled":true}), "enabled"),
+        ] {
+            assert_eq!(
+                render(blocks.clone(), vars).unwrap()["blocks"],
+                json!([{"name":expected}])
+            );
+        }
+        assert!(render(blocks, json!({"role":"core","enabled":false})).is_err());
+    }
+
+    #[test]
+    fn choices_default_and_nest_in_loop_scope() {
+        let value = render(json!([{"kind":"loop","iterations":"3","blocks":[
+            {"kind":"choice","branches":[
+                {"condition":"item == 0", "blocks":[{"name":"first-{{ loop.index }}"}]},
+                {"condition":"item == 1", "blocks":[{"kind":"loop","iterations":"2","blocks":[{"name":"nested-{{ item }}"}]}]}
+            ],"else":[{"name":"default-{{ item }}"}]}
+        ]}]), json!({})).unwrap();
+        assert_eq!(
+            value["blocks"],
+            json!([{"name":"first-1"},{"name":"nested-0"},{"name":"nested-1"},{"name":"default-2"}])
+        );
+        assert_eq!(
+            render(
+                json!([{"kind":"choice","branches":[{"condition":"false","blocks":[]}]}]),
+                json!({})
+            )
+            .unwrap()["blocks"],
+            json!([])
+        );
+        // A matching empty branch must not fall through to a later branch or the default.
+        assert_eq!(render(json!([{"kind":"choice","branches":[{"condition":"true","blocks":[]},{"condition":"missing","blocks":[]}],"else":[{"name":"unexpected"}]}]), json!({})).unwrap()["blocks"], json!([]));
+    }
+
+    #[test]
+    fn rejects_invalid_multi_condition_choices() {
+        for blocks in [
+            json!([{"kind":"choice","branches":[]}]),
+            json!([{"kind":"choice","branches":[{"condition":" ","blocks":[]}]}]),
+            json!([{"kind":"choice","branches":[{"condition":"1","blocks":[]}]}]),
+            json!([{"kind":"choice","branches":[{"condition":"true","blocks":[],"typo":true}]}]),
+            json!([{"kind":"choice","branches":[{"condition":"true"}]}]),
+            json!([{"kind":"choice","branches":[{"condition":"true","blocks":[]}],"condition":"true","then":[]}]),
+            json!([{"kind":"choice","branches":vec![json!({"condition":"false","blocks":[]}); MAX_EXPANSIONS + 1]}]),
+        ] {
+            assert!(render(blocks, json!({})).is_err());
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_controls_and_bounds_work() {
+        for blocks in [
+            json!([{"kind":"loop","iterations":"-1","blocks":[]}]),
+            json!([{"kind":"loop","iterations":"1001","blocks":[]}]),
+            json!([{"kind":"loop","iterations":"range(1001)","blocks":[]}]),
+            json!([{"kind":"loop","iterations":"1.5","blocks":[]}]),
+            json!([{"kind":"loop","iterations":"2","item_variable":"vars","blocks":[]}]),
+            json!([{"kind":"loop","iterations":"missing","blocks":[]}]),
+            json!([{"kind":"choice","condition":"'false'","then":[]}]),
+            json!([{"kind":"choice","condition":"true","then":[],"typo":true}]),
+            json!([{"kind":"loop","iterations":"40","blocks":[{"kind":"loop","iterations":"40","blocks":[{"name":"test"}]}]}]),
+        ] {
+            assert!(render(blocks, json!({})).is_err());
+        }
+        let mut nested = json!({"name":"leaf"});
+        for _ in 0..18 {
+            nested = json!({"kind":"choice","condition":"true","then":[nested]});
+        }
+        assert!(render(json!([nested]), json!({})).is_err());
+    }
+}

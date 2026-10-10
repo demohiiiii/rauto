@@ -20,7 +20,18 @@ export type FlowWorkflowNodeActions = {
   onDelete?: () => void;
 };
 
+export type FlowWorkflowAddActions = {
+  readonly?: boolean;
+  canAddBlock?: boolean;
+  addBlockLabel: string;
+  onAddBlock?: () => void;
+  addControlActions?: { label: string; onAdd: () => void }[];
+};
+
 export type FlowWorkflowBlockNodeData = FlowWorkflowNodeActions & {
+  id?: string;
+  selected?: boolean;
+  onSelect?: () => void;
   title: string;
   sequenceText: string;
   sourceKind: "manual" | "template";
@@ -29,32 +40,48 @@ export type FlowWorkflowBlockNodeData = FlowWorkflowNodeActions & {
   emptyCommandText?: string;
   hasSource: boolean;
   hasTarget: boolean;
+  structure?: {
+    kind: "loop" | "choice";
+    canAddBranch?: boolean;
+    addBranchLabel?: string;
+    onAddBranch?: () => void;
+    branches: (Partial<FlowWorkflowAddActions> &
+      FlowWorkflowNodeActions & {
+        id: string;
+        title: string;
+        conditionText?: string;
+        conditionLabel?: string;
+        onChangeCondition?: (value: string) => void;
+        canDelete?: boolean;
+        entries: FlowWorkflowBlockNodeData[];
+        emptyText: string;
+      })[];
+  };
   wholeResourceRollback?: {
     kindText: string;
     summaryText: string;
   } | null;
 };
 
-export type FlowWorkflowGroupNodeData = FlowWorkflowNodeActions & {
-  title: string;
-  sequenceText?: string;
-  workflowName?: string;
-  sourceKind: "manual" | "template";
-  sourceLabelText: string;
-  sourceName?: string;
-  strategyText: string;
-  targetCountText?: string;
-  blockCountText: string;
-  unresolvedText?: string;
-  previewStatus: "ready" | "loading" | "error";
-  previewError?: string;
-  previewErrorText?: string;
-  previewLoadingText?: string;
-  emptyWorkflow: boolean;
-  emptyWorkflowText: string;
-  canAddBlock: boolean;
-  addBlockLabel: string;
-  onAddBlock?: () => void;
-  hasSerialHandles?: boolean;
-  connectsToStageOutput?: boolean;
-};
+export type FlowWorkflowGroupNodeData = FlowWorkflowNodeActions &
+  FlowWorkflowAddActions & {
+    title: string;
+    sequenceText?: string;
+    workflowName?: string;
+    sourceKind: "manual" | "template";
+    sourceLabelText: string;
+    sourceName?: string;
+    strategyText: string;
+    targetCountText?: string;
+    blockCountText: string;
+    unresolvedText?: string;
+    previewStatus: "ready" | "loading" | "error";
+    previewError?: string;
+    previewErrorText?: string;
+    previewLoadingText?: string;
+    emptyWorkflow: boolean;
+    emptyWorkflowText: string;
+    canAddBlock: boolean;
+    hasSerialHandles?: boolean;
+    connectsToStageOutput?: boolean;
+  };

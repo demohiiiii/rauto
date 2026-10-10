@@ -141,13 +141,6 @@ const TX_BLOCK_FLOW_FIELD_DEFS: readonly PresenceTxBlockFieldDefinition[] =
 const TX_BLOCK_ROOT_FIELD_DEFS: readonly PresenceTxBlockFieldDefinition[] =
   Object.freeze([
     {
-      controlType: "input",
-      fieldKey: "name",
-      inputType: "text",
-      labelKey: "txBlockFormName",
-      placeholderKey: "txBlockFormNamePlaceholder",
-    },
-    {
       controlType: "select",
       fieldKey: "failFast",
       labelKey: "txBlockFormFailFast",

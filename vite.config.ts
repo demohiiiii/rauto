@@ -9,7 +9,7 @@ const CODE_EDITOR_MODULE_PATTERN =
 const SHARED_UI_MODULE_PATTERN =
   /[\\/]frontend[\\/]src[\\/](?:components|lib[\\/]components)[\\/]/;
 const FLOW_CANVAS_NODE_MODULE_PATTERN =
-  /[\\/](?:FlowInsertNode|FlowWorkflowBlockNode|FlowWorkflowGroupNode)\.svelte(?:\?|$)/;
+  /[\\/](?:FlowInsertNode|FlowWorkflowAddActions|FlowWorkflowBlockNode|FlowWorkflowGroupNode)\.svelte(?:\?|$)/;
 
 function isApplicationModule(id: string): boolean {
   return !id.startsWith("\0") && !id.includes("/node_modules/");

@@ -337,6 +337,7 @@ mod tests {
             })),
             workflow_template_name: None,
             workflow_vars: serde_json::Value::Null,
+            inline_template_context: None,
         });
 
         let result = execute_compensation_action(
@@ -391,6 +392,7 @@ mod tests {
             })),
             workflow_template_name: None,
             workflow_vars: serde_json::Value::Null,
+            inline_template_context: None,
         });
 
         let (compensation, source_operation) =
@@ -483,6 +485,7 @@ mod tests {
             workflow: Some(workflow),
             workflow_template_name: None,
             workflow_vars: serde_json::Value::Null,
+            inline_template_context: None,
         });
 
         let (compensation, source_operation) =

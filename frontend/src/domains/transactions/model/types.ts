@@ -133,7 +133,31 @@ export interface TxWorkflowBlockFormModel extends JsonObject {
   inlineBlock: TxBlockFormModel;
   sourceKind: "inline" | "template_ref";
   templateRef: TxWorkflowTemplateRefBlockModel;
+  control?: TxWorkflowControlModel;
 }
+
+export interface TxWorkflowLoopModel extends JsonObject {
+  kind: "loop";
+  iterations: string;
+  itemVariable: string;
+  blocks: TxWorkflowBlockFormModel[];
+}
+
+export interface TxWorkflowChoiceModel extends JsonObject {
+  kind: "choice";
+  name: string;
+  branches: TxWorkflowChoiceBranchModel[];
+  otherwise: TxWorkflowBlockFormModel[];
+}
+
+export interface TxWorkflowChoiceBranchModel extends JsonObject {
+  editorId: string;
+  condition: string;
+  blocks: TxWorkflowBlockFormModel[];
+}
+
+export type TxWorkflowControlModel =
+  TxWorkflowLoopModel | TxWorkflowChoiceModel;
 
 export interface TxWorkflowFormModel extends JsonObject {
   blocks: TxWorkflowBlockFormModel[];

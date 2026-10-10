@@ -40,12 +40,16 @@
     txWorkflowFlowGraph,
     txWorkflowInspectorWidth,
     TX_WORKFLOW_GROUP_ID,
+    txWorkflowNodeTitle,
+    txWorkflowFindBlock,
+    txWorkflowBranchModel,
+    txWorkflowVisualEditorDisplay,
   } from "$domains/transactions/index.js";
-  import { createTransactionBlockTemplateRegistry } from "$domains/transactions/index.js";
+  import { createTransactionWorkflowCanvasWorkspace } from "$domains/transactions/index.js";
   import { browserConfirm } from "$lib/browser.js";
   import { readonlyFieldsContextKey } from "$lib/svelte.js";
   import { createTxWorkflowVisualEditorWorkspace } from "$domains/transactions/index.js";
-  import TxWorkflowBlockEditor from "$domains/transactions/presentation/components/workflow/TxWorkflowBlockEditor.svelte";
+  import TxWorkflowNodeEditor from "./TxWorkflowNodeEditor.svelte";
   import TxWorkflowFlowViewportController from "$domains/transactions/presentation/components/workflow/TxWorkflowFlowViewportController.svelte";
 
   import type {
@@ -61,7 +65,7 @@
   type TxWorkflowGraphNode = TxWorkflowBlockNode | TxWorkflowGroupNode;
   type TxWorkflowGraphEdge = Edge<Record<string, never>, "smoothstep">;
   type TxWorkflowSelection =
-    { blockIndex: number; kind: "block" } | { blockIndex: null; kind: "none" };
+    { editorId: string; kind: "block" } | { editorId: null; kind: "none" };
 
   interface Props {
     readonly?: boolean;
@@ -72,6 +76,7 @@
     onChange?: ((model: TxWorkflowFormModel) => void) | null;
     onOpenView?: (view: TxWorkflowEditorView) => void;
     settingsOnly?: boolean;
+    nested?: boolean;
   }
 
   let {
@@ -83,24 +88,30 @@
     onOpenView,
     embedded = false,
     settingsOnly = false,
+    nested = false,
   }: Props = $props();
 
   const inheritedReadonly = getContext<(() => boolean) | undefined>(
     readonlyFieldsContextKey,
   );
-  const blockTemplates = createTransactionBlockTemplateRegistry({
+  let locked = $derived(readonly || !!inheritedReadonly?.());
+  const canvasWorkspace = createTransactionWorkflowCanvasWorkspace({
     getModel: () => model,
     onChange: (next) => onChange?.(next),
+    getSelectedId: () => selectedTarget.editorId,
+    onSelect: (editorId) => {
+      if (editorId) selectBlockId(editorId);
+      else selectedTarget = { kind: "none", editorId: null };
+    },
     canModify: () => !readonly && !inheritedReadonly?.(),
     templateOptions: {
       confirmReplace: () =>
         browserConfirm(t("orchestrationDiscardChangesConfirm")),
     },
   });
-  $effect(() => {
-    blockTemplates.sync(model);
-  });
-  onDestroy(blockTemplates.destroy);
+  const { addNode, moveBlock, duplicateBlock, removeBlock } = canvasWorkspace;
+  $effect(() => canvasWorkspace.sync());
+  onDestroy(canvasWorkspace.destroy);
 
   const txWorkflowVisualEditorWorkspace =
     createTxWorkflowVisualEditorWorkspace();
@@ -110,7 +121,6 @@
   };
   const {
     blockRowsStateStore,
-    editorDisplayStateStore,
     setVisualEditorContext,
     workflowActionHandlersStateStore,
     workflowRootFieldRowsStateStore,
@@ -118,12 +128,11 @@
 
   let blockRows = $derived($blockRowsStateStore);
   let workflowActionHandlers = $derived($workflowActionHandlersStateStore);
-  let editorDisplay = $derived($editorDisplayStateStore);
   let workflowRootFieldRows = $derived($workflowRootFieldRowsStateStore);
   let currentLanguage = $derived($currentLanguageState);
   let selectedTarget = $state<TxWorkflowSelection>({
-    kind: "block",
-    blockIndex: 0,
+    kind: "none",
+    editorId: null,
   });
   const panelId = $props.id();
   const reducedMotion = new MediaQuery("(prefers-reduced-motion: reduce)");
@@ -145,21 +154,38 @@
   let canvasWidth = $state(0);
   let effectiveInspectorWidth = $derived(inspectorWidthLimit(inspectorWidth));
   let inspectorResizeCleanup = $state<(() => void) | null>(null);
-  let selectedBlockRow = $derived(
+  let selectedBlockLocation = $derived(
     selectedTarget.kind === "block"
-      ? blockRows.find(
-          (blockRow) => blockRow.blockIndex === selectedTarget.blockIndex,
-        ) || null
+      ? txWorkflowFindBlock(model, selectedTarget.editorId)
       : null,
   );
-  let selectedNodeId = $derived(
-    selectedTarget.kind === "block"
-      ? `workflow-block-${selectedTarget.blockIndex}`
-      : TX_WORKFLOW_GROUP_ID,
+  let selectedScopeModel = $derived(
+    selectedBlockLocation
+      ? txWorkflowBranchModel(
+          model,
+          selectedBlockLocation.parentId,
+          selectedBlockLocation.branch,
+        )
+      : null,
   );
+  let selectedBlockRow = $derived(
+    selectedScopeModel && selectedBlockLocation
+      ? (txWorkflowVisualEditorDisplay(selectedScopeModel).blockRows[
+          selectedBlockLocation.blockIndex
+        ] ?? null)
+      : null,
+  );
+  let selectedNodeId = $derived.by(() => {
+    let location = selectedBlockLocation;
+    while (location?.parentId)
+      location = txWorkflowFindBlock(model, location.parentId);
+    return location
+      ? `workflow-block-${location.blockIndex}`
+      : TX_WORKFLOW_GROUP_ID;
+  });
   let canvasBlockCountText = $derived.by(() => {
     currentLanguage;
-    return t("txWorkflowCanvasBlockCount").replace(
+    return t("txWorkflowCanvasNodeCount").replace(
       "{count}",
       String(blockRows.length),
     );
@@ -197,8 +223,8 @@
             ? "commandSourceTemplate"
             : "commandSourceManual",
         ),
-        readonly,
-        onAddBlock: addBlock,
+        readonly: locked,
+        ...canvasWorkspace.addActions(),
       },
       selected: selectedTarget.kind === "none",
       draggable: false,
@@ -209,26 +235,10 @@
     },
     ...baseGraph.blocks.map((block): TxWorkflowBlockNode => ({
       ...block,
-      data: {
-        ...block.data,
-        readonly,
-        editable: !readonly,
-        canMovePrevious: block.data.blockIndex > 0,
-        canMoveNext: block.data.blockIndex < blockRows.length - 1,
-        movePreviousLabel: t("txWorkflowMoveBlockUp"),
-        moveNextLabel: t("txWorkflowMoveBlockDown"),
-        duplicateLabel: t("txWorkflowDuplicateBlock"),
-        deleteLabel: t("txWorkflowDeleteBlock"),
-        onMovePrevious: () =>
-          moveBlock(block.data.blockIndex, block.data.blockIndex - 1),
-        onMoveNext: () =>
-          moveBlock(block.data.blockIndex, block.data.blockIndex + 1),
-        onDuplicate: () => duplicateBlock(block.data.blockIndex),
-        onDelete: () => removeBlock(block.data.blockIndex),
-      },
+      data: canvasWorkspace.decorateBlock(block.data),
       selected:
         selectedTarget.kind === "block" &&
-        selectedTarget.blockIndex === block.data.blockIndex,
+        selectedTarget.editorId === block.data.id,
       draggable: false,
       deletable: false,
       connectable: false,
@@ -253,19 +263,24 @@
   );
 
   function blockName(blockRow: TxWorkflowBlockRow): string {
-    if (blockRow.showTemplateRef) {
-      return (
-        blockRow.block?.templateRef?.name ||
-        blockRow.block?.templateRef?.txBlockTemplateName ||
-        t("txWorkflowTemplateSourceName")
-      );
-    }
-    return blockRow.block?.inlineBlock?.name || blockRow.titleText;
+    return txWorkflowNodeTitle(blockRow.block);
   }
 
   function blockMeta(blockRow: TxWorkflowBlockRow): string {
+    if (blockRow.block.control)
+      return blockRow.block.control.kind === "loop"
+        ? blockRow.block.control.iterations
+        : t("txWorkflowChoiceBranchCount").replace(
+            "{count}",
+            String(blockRow.block.control.branches.length),
+          );
     if (blockRow.showTemplateRef) {
-      return t("txWorkflowBlockSourceTemplate");
+      return [
+        t("txWorkflowBlockSourceTemplate"),
+        blockRow.block.templateRef.txBlockTemplateName,
+      ]
+        .filter(Boolean)
+        .join(" · ");
     }
     const inlineBlock = blockRow.block?.inlineBlock || {};
     const stepCount = Array.isArray(inlineBlock.steps)
@@ -280,7 +295,12 @@
   }
 
   function selectBlock(blockIndex: number): void {
-    selectedTarget = { kind: "block", blockIndex };
+    const block = model.blocks[blockIndex];
+    if (block) selectBlockId(block.editorId);
+  }
+
+  function selectBlockId(editorId: string): void {
+    selectedTarget = { kind: "block", editorId };
     openInspector();
   }
 
@@ -293,29 +313,7 @@
   }
 
   function addBlock(): void {
-    if (readonly) return;
-    const nextIndex = blockRows.length;
-    workflowActionHandlers.appendBlock();
-    selectBlock(nextIndex);
-  }
-
-  function duplicateBlock(blockIndex: number): void {
-    workflowActionHandlers.duplicateBlock(blockIndex);
-    selectBlock(blockIndex + 1);
-  }
-
-  function moveBlock(blockIndex: number, targetIndex: number): void {
-    workflowActionHandlers.moveBlock(blockIndex, targetIndex);
-    selectBlock(targetIndex);
-  }
-
-  function removeBlock(blockIndex: number): void {
-    workflowActionHandlers.removeBlock(blockIndex);
-    if (blockRows.length <= 1) {
-      selectedTarget = { kind: "none", blockIndex: null };
-      return;
-    }
-    selectBlock(Math.max(0, blockIndex - 1));
+    addNode("block");
   }
 
   function inspectorWidthLimit(nextWidth: number): number {
@@ -384,7 +382,7 @@
     setVisualEditorContext({
       model,
       onChange: (nextModel) => {
-        if (!readonly) onChange?.(nextModel);
+        if (!locked) onChange?.(nextModel);
       },
     });
   });
@@ -392,14 +390,12 @@
   $effect(() => {
     const hasSelectedBlock =
       selectedTarget.kind === "block" &&
-      blockRows.some(
-        (blockRow) => blockRow.blockIndex === selectedTarget.blockIndex,
-      );
+      !!txWorkflowFindBlock(model, selectedTarget.editorId);
     if (hasSelectedBlock) return;
     if (blockRows.length) {
-      selectedTarget = { kind: "block", blockIndex: 0 };
+      selectedTarget = { kind: "block", editorId: model.blocks[0].editorId };
     } else if (selectedTarget.kind !== "none") {
-      selectedTarget = { kind: "none", blockIndex: null };
+      selectedTarget = { kind: "none", editorId: null };
     }
   });
 
@@ -456,54 +452,84 @@
 {/snippet}
 
 {#snippet addBlockAction()}
-  <Button
-    disabled={readonly}
-    variant="outline"
-    size="sm"
-    type="button"
-    onclick={addBlock}
-  >
-    <PlusIcon data-icon="inline-start" />
-    {t("txWorkflowFormAddBlock")}
-  </Button>
+  <div class="flex flex-wrap items-center gap-1">
+    <Button
+      disabled={readonly}
+      variant="outline"
+      size="sm"
+      type="button"
+      onclick={addBlock}
+    >
+      <PlusIcon data-icon="inline-start" />
+      {t("txWorkflowFormAddBlock")}
+    </Button>
+    {#each ["loop", "choice"] as kind}
+      <Button
+        disabled={readonly}
+        variant="outline"
+        size="sm"
+        type="button"
+        onclick={() => addNode(kind === "loop" ? "loop" : "choice")}
+      >
+        <PlusIcon data-icon="inline-start" />{t(
+          kind === "loop" ? "txWorkflowLoop" : "txWorkflowChoice",
+        )}
+      </Button>
+    {/each}
+  </div>
+{/snippet}
+
+{#snippet nodeEditor(blockRow: TxWorkflowBlockRow)}
+  {#key blockRow.block.editorId}
+    <TxWorkflowNodeEditor
+      {model}
+      editorId={blockRow.block.editorId}
+      workspace={canvasWorkspace}
+      canvasBody={!embedded}
+      readonly={locked}
+      onChange={(next) => onChange?.(next)}
+    />
+  {/key}
 {/snippet}
 
 {#if embedded}
   <div data-testid="tx-workflow-embedded-editor" class="grid min-w-0 gap-4">
-    <section
-      class="min-w-0 overflow-hidden rounded-lg border border-border bg-background"
-    >
-      <header
-        class="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-border bg-muted/20 p-3"
+    {#if !nested}
+      <section
+        class="min-w-0 overflow-hidden rounded-lg border border-border bg-background"
       >
-        <div class="min-w-0">
-          <h4 class="text-sm font-semibold text-foreground">
-            {t("txWorkflowSettingsTitle")}
-          </h4>
-          <p class="mt-0.5 text-xs leading-5 text-muted-foreground">
-            {t("txWorkflowCanvasSettingsHint")}
-          </p>
+        <header
+          class="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-border bg-muted/20 p-3"
+        >
+          <div class="min-w-0">
+            <h4 class="text-sm font-semibold text-foreground">
+              {t("txWorkflowSettingsTitle")}
+            </h4>
+            <p class="mt-0.5 text-xs leading-5 text-muted-foreground">
+              {t("txWorkflowCanvasSettingsHint")}
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">{canvasBlockCountText}</Badge>
+            {#if settingsOnly}
+              {@render addBlockAction()}
+            {/if}
+          </div>
+        </header>
+        <div class="p-3">
+          <ReadonlyFields disabled={readonly} class="min-w-0">
+            <PresenceFieldGrid
+              fieldRows={workflowRootFieldRows}
+              valueHandlerMode="event"
+              hostClass="grid min-w-0 gap-3"
+              presenceControlsMode="hidden"
+              onValueChangeForKey={workflowActionHandlers.valueHandler}
+              onPresenceChangeForKey={workflowActionHandlers.presenceToggle}
+            />
+          </ReadonlyFields>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{canvasBlockCountText}</Badge>
-          {#if settingsOnly}
-            {@render addBlockAction()}
-          {/if}
-        </div>
-      </header>
-      <div class="p-3">
-        <ReadonlyFields disabled={readonly} class="min-w-0">
-          <PresenceFieldGrid
-            fieldRows={workflowRootFieldRows}
-            valueHandlerMode="event"
-            hostClass="grid min-w-0 gap-3"
-            presenceControlsMode="hidden"
-            onValueChangeForKey={workflowActionHandlers.valueHandler}
-            onPresenceChangeForKey={workflowActionHandlers.presenceToggle}
-          />
-        </ReadonlyFields>
-      </div>
-    </section>
+      </section>
+    {/if}
 
     {#if !settingsOnly}
       <section
@@ -514,7 +540,7 @@
         >
           <div class="min-w-0">
             <h4 class="text-sm font-semibold text-foreground">
-              {t("txWorkflowFormBlocks")}
+              {t("txWorkflowNodes")}
             </h4>
             <p class="mt-0.5 text-xs text-muted-foreground">
               {canvasBlockCountText}
@@ -530,7 +556,7 @@
                 class={classNames(
                   "flex min-w-0 items-center gap-2 p-2 transition-colors",
                   selectedTarget.kind === "block" &&
-                    selectedTarget.blockIndex === blockRow.blockIndex
+                    selectedTarget.editorId === blockRow.block.editorId
                     ? "bg-primary/5"
                     : "hover:bg-muted/30",
                 )}
@@ -539,7 +565,7 @@
                   type="button"
                   class="flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-pressed={selectedTarget.kind === "block" &&
-                    selectedTarget.blockIndex === blockRow.blockIndex}
+                    selectedTarget.editorId === blockRow.block.editorId}
                   onclick={() => selectBlock(blockRow.blockIndex)}
                 >
                   <Badge variant="secondary">
@@ -565,7 +591,10 @@
                     aria-label={t("txWorkflowMoveBlockUp")}
                     disabled={readonly || blockRow.blockIndex === 0}
                     onclick={() =>
-                      moveBlock(blockRow.blockIndex, blockRow.blockIndex - 1)}
+                      moveBlock(
+                        blockRow.block.editorId,
+                        blockRow.blockIndex - 1,
+                      )}
                   >
                     <ArrowUpIcon />
                   </Button>
@@ -578,7 +607,10 @@
                     disabled={readonly ||
                       blockRow.blockIndex === blockRows.length - 1}
                     onclick={() =>
-                      moveBlock(blockRow.blockIndex, blockRow.blockIndex + 1)}
+                      moveBlock(
+                        blockRow.block.editorId,
+                        blockRow.blockIndex + 1,
+                      )}
                   >
                     <ArrowDownIcon />
                   </Button>
@@ -589,7 +621,7 @@
                     type="button"
                     title={t("txWorkflowDuplicateBlock")}
                     aria-label={t("txWorkflowDuplicateBlock")}
-                    onclick={() => duplicateBlock(blockRow.blockIndex)}
+                    onclick={() => duplicateBlock(blockRow.block.editorId)}
                   >
                     <CopyIcon />
                   </Button>
@@ -601,7 +633,7 @@
                     type="button"
                     title={t("txWorkflowDeleteBlock")}
                     aria-label={t("txWorkflowDeleteBlock")}
-                    onclick={() => removeBlock(blockRow.blockIndex)}
+                    onclick={() => removeBlock(blockRow.block.editorId)}
                   >
                     <Trash2Icon />
                   </Button>
@@ -628,17 +660,7 @@
       {#key currentLanguage}
         {#if selectedBlockRow}
           <ReadonlyFields disabled={readonly} scopeOnly class="min-w-0">
-            <TxWorkflowBlockEditor
-              blockRow={selectedBlockRow}
-              {editorDisplay}
-              blockActionHandlers={workflowActionHandlers.blockBindings(
-                selectedBlockRow.blockIndex,
-              )}
-              showRemoveAction={false}
-              templateWorkspace={blockTemplates.getWorkspace(
-                selectedBlockRow.block,
-              )}
-            />
+            {@render nodeEditor(selectedBlockRow)}
           </ReadonlyFields>
         {/if}
       {/key}
@@ -689,6 +711,7 @@
           <TxWorkflowFlowViewportController
             compact={compactCanvas}
             focusNodeId={selectedNodeId}
+            focusBlockId={selectedTarget.editorId}
             layoutRevision={graphLayoutRevision}
             inspectorOpen={!inspectorCollapsed}
             inspectorWidth={effectiveInspectorWidth}
@@ -878,7 +901,7 @@
                 disabled={readonly || selectedBlockRow.blockIndex === 0}
                 onclick={() =>
                   moveBlock(
-                    selectedBlockRow.blockIndex,
+                    selectedBlockRow.block.editorId,
                     selectedBlockRow.blockIndex - 1,
                   )}
               >
@@ -891,10 +914,11 @@
                 title={t("txWorkflowMoveBlockDown")}
                 aria-label={t("txWorkflowMoveBlockDown")}
                 disabled={readonly ||
-                  selectedBlockRow.blockIndex === blockRows.length - 1}
+                  selectedBlockRow.blockIndex ===
+                    (selectedScopeModel?.blocks.length ?? 0) - 1}
                 onclick={() =>
                   moveBlock(
-                    selectedBlockRow.blockIndex,
+                    selectedBlockRow.block.editorId,
                     selectedBlockRow.blockIndex + 1,
                   )}
               >
@@ -907,7 +931,7 @@
                 type="button"
                 title={t("txWorkflowDuplicateBlock")}
                 aria-label={t("txWorkflowDuplicateBlock")}
-                onclick={() => duplicateBlock(selectedBlockRow.blockIndex)}
+                onclick={() => duplicateBlock(selectedBlockRow.block.editorId)}
               >
                 <CopyIcon />
               </Button>
@@ -919,7 +943,7 @@
                 class="text-destructive hover:text-destructive"
                 title={t("txWorkflowDeleteBlock")}
                 aria-label={t("txWorkflowDeleteBlock")}
-                onclick={() => removeBlock(selectedBlockRow.blockIndex)}
+                onclick={() => removeBlock(selectedBlockRow.block.editorId)}
               >
                 <Trash2Icon />
               </Button>
@@ -933,17 +957,7 @@
           {#key currentLanguage}
             {#if selectedBlockRow}
               <ReadonlyFields disabled={readonly} scopeOnly class="min-w-0">
-                <TxWorkflowBlockEditor
-                  blockRow={selectedBlockRow}
-                  {editorDisplay}
-                  blockActionHandlers={workflowActionHandlers.blockBindings(
-                    selectedBlockRow.blockIndex,
-                  )}
-                  showRemoveAction={false}
-                  templateWorkspace={blockTemplates.getWorkspace(
-                    selectedBlockRow.block,
-                  )}
-                />
+                {@render nodeEditor(selectedBlockRow)}
               </ReadonlyFields>
             {:else}
               <div

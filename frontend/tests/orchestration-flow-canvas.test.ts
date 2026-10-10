@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { t } from "../src/lib/i18n.js";
 
 import {
   orchestrationDuplicateJob,
@@ -187,31 +188,27 @@ test("orchestration flow graph derives stage groups and child job nodes", () => 
   assert.equal(stageNodes[0].data.jobCount, 2);
   assert.equal(stageNodes[0].data.sequence, 1);
   assert.equal(stageNodes[0].data.empty, false);
-  assert.equal(stageNodes[0].width, 380);
-  assert.equal(stageNodes[0].height, 726);
+  assert.equal(stageNodes[0].width, 420);
+  assert.equal(stageNodes[0].height, 750);
   assert.equal(stageNodes[0].position.y, 96);
-  assert.equal(stageNodes[1].position.y, 250);
-  assert.equal(jobNodes[0].width, 340);
-  assert.equal(jobNodes[0].height, 280);
+  assert.equal(stageNodes[1].position.y, 262);
+  assert.equal(jobNodes[0].width, 380);
+  assert.equal(jobNodes[0].height, 304);
   assert.equal(workflowBlockNodes[0].parentId, jobNodes[0].id);
   assert.equal(workflowBlockNodes[0].extent, "parent");
-  assert.equal(workflowBlockNodes[0].width, 308);
-  assert.equal(workflowBlockNodes[0].height, 82);
+  assert.equal(workflowBlockNodes[0].width, 348);
+  assert.equal(workflowBlockNodes[0].height, 106);
   assert.equal(workflowBlockNodes[0].position.y, 136);
-  assert.equal(workflowBlockNodes[0].data.title, "show-version");
-  assert.equal(workflowBlockNodes[0].data.operationText, "show version");
-  assert.deepEqual(workflowBlockNodes[0].data.commandRows, ["show version"]);
+  assert.equal(workflowBlockNodes[0].data.title, t("txWorkflowFormBlock"));
+  assert.deepEqual(
+    workflowBlockNodes[0].data.commandRows.map((row) => row.summaryText),
+    ["show version"],
+  );
   assert.equal(stageNodes[0].style, undefined);
   assert.equal(jobNodes[0].style, undefined);
   assert.equal(jobNodes[0].data.sourceKind, "manual");
   assert.equal(jobNodes[0].data.workflowName, "backup-workflow");
-  assert.deepEqual(jobNodes[0].data.previewRows, [
-    {
-      blockName: "show-version",
-      operationText: "show version",
-      operationTexts: ["show version"],
-    },
-  ]);
+  assert.equal(jobNodes[0].data.blockCount, 1);
   assert.equal(jobNodes[0].data.canAddBlock, true);
   assert.equal(jobNodes[0].data.targetCount, 1);
   assert.equal(jobNodes[0].data.stageStrategy, "serial");
@@ -241,7 +238,7 @@ test("orchestration flow graph derives stage groups and child job nodes", () => 
       (edge) => edge.source === "stage-0" && edge.target === "stage-insert-1",
     ),
   );
-  assert.equal(stageInsertNodes[0].position.y, 437);
+  assert.equal(stageInsertNodes[0].position.y, 449);
   assert.ok(
     stageNodes.every(
       (node) =>
@@ -344,17 +341,55 @@ test("workflow block nodes display every command and expand without overlap", ()
       node.type === "workflowBlock" && node.data.stageIndex === 0,
   );
 
-  assert.deepEqual(blockNodes[0].data.commandRows, [
-    "show version",
-    "show inventory",
-    "show clock",
-  ]);
-  assert.equal(blockNodes[0].height, 138);
-  assert.equal(blockNodes[1].position.y, 286);
+  assert.deepEqual(
+    blockNodes[0].data.commandRows.map((row) => row.summaryText),
+    ["show version", "show inventory", "show clock"],
+  );
+  assert.equal(blockNodes[0].height, 162);
+  assert.equal(blockNodes[1].position.y, 310);
   assert.ok(
     blockNodes[1].position.y >=
       blockNodes[0].position.y + blockNodes[0].height + 12,
   );
+});
+
+test("multiline workflow commands expand their orchestration job and stage", () => {
+  const model = orchestrationModel();
+  const workflow = inlineWorkflow(model);
+  workflow.blocks.push({
+    name: "next-block",
+    steps: [{ run: { kind: "command", command: "verify" } }],
+  });
+  const singleLine = orchestrationFlowGraph(model);
+  const command = "cat <<'EOF'\n  first\n\n  last\nEOF";
+  workflow.blocks[0].steps[0].run.command = command;
+  const multiline = orchestrationFlowGraph(model);
+  const blockId = "stage-0-job-0-block-0";
+  const block = multiline.nodes.find(
+    (node): node is OrchestrationWorkflowBlockFlowNode =>
+      node.id === blockId && node.type === "workflowBlock",
+  );
+  assert.ok(block);
+  assert.deepEqual(
+    block.data.commandRows.map((row) => row.summaryText),
+    [command],
+  );
+
+  for (const id of [blockId, "stage-0-job-0", "stage-0"]) {
+    const before = singleLine.nodes.find((node) => node.id === id);
+    const after = multiline.nodes.find((node) => node.id === id);
+    assert.ok(before && after);
+    assert.equal(after.height - before.height, 64);
+  }
+  const beforeNextBlock = singleLine.nodes.find(
+    (node) => node.id === "stage-0-job-0-block-1",
+  );
+  const afterNextBlock = multiline.nodes.find(
+    (node) => node.id === "stage-0-job-0-block-1",
+  );
+  assert.ok(beforeNextBlock && afterNextBlock);
+  assert.equal(afterNextBlock.position.y - beforeNextBlock.position.y, 64);
+  assert.ok(afterNextBlock.position.y >= block.position.y + block.height + 12);
 });
 
 test("orchestration flow selection rejects stale stage and job indexes", () => {

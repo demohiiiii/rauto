@@ -184,6 +184,7 @@ export interface OrchestrationActionModel extends JsonObject {
 }
 
 export interface OrchestrationJobModel extends JsonObject {
+  editorId: string;
   action: OrchestrationActionModel;
   extra: JsonObject;
   failFast: boolean | null;
@@ -337,21 +338,12 @@ export interface OrchestrationJobTargetsDisplay {
   targetsField: OrchestrationTargetFieldDisplay;
 }
 
-export interface OrchestrationWorkflowPreviewRow extends JsonObject {
-  blockName: string;
-  operationText: string;
-  operationTexts: string[];
-}
-
 export type OrchestrationWorkflowPreviewStatus = "error" | "loading" | "ready";
 
 export interface OrchestrationWorkflowPreview extends JsonObject {
-  allRows: OrchestrationWorkflowPreviewRow[];
   blockCount: number;
   errorMessage: string;
-  overflowCount: number;
   previewStatus: OrchestrationWorkflowPreviewStatus;
-  rows: OrchestrationWorkflowPreviewRow[];
   sourceKind: "manual" | "template";
   sourceName: string;
   unresolvedCount: number;

@@ -4,7 +4,7 @@ use super::TxWorkflowAction;
 use super::targets as orchestrator_targets;
 use anyhow::{Result, anyhow};
 
-pub(super) fn validate_plan(plan: &OrchestrationPlan) -> Result<()> {
+pub(crate) fn validate_plan(plan: &OrchestrationPlan) -> Result<()> {
     crate::domain::orchestration::validate_plan(plan)?;
     for stage in &plan.stages {
         for (job_idx, job) in stage.jobs.iter().enumerate() {

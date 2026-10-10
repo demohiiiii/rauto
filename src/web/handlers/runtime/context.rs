@@ -126,41 +126,10 @@ pub(crate) fn render_json_template_value(
     context: &mut Value,
     renderer: &Renderer<'_>,
 ) -> Result<Value, ApiError> {
-    match input {
-        Value::Object(map) => {
-            let mut out = serde_json::Map::with_capacity(map.len());
-            for (k, v) in map {
-                out.insert(k.clone(), render_json_template_value(v, context, renderer)?);
-            }
-            Ok(Value::Object(out))
-        }
-        Value::Array(items) => {
-            let mut out = Vec::with_capacity(items.len());
-            for item in items {
-                out.push(render_json_template_value(item, context, renderer)?);
-            }
-            Ok(Value::Array(out))
-        }
-        Value::String(text) => {
-            if !text.contains("{{") && !text.contains("{%") {
-                return Ok(Value::String(text.clone()));
-            }
-            enrich_context_with_connection_refs_from_template(context, text)
-                .map_err(ApiError::from)?;
-            let rendered = renderer
-                .render_string(text, context.clone())
-                .map_err(ApiError::from)?;
-            let trimmed = rendered.trim();
-            if trimmed.is_empty() {
-                return Ok(Value::String(rendered));
-            }
-            if let Ok(parsed) = serde_json::from_str::<Value>(trimmed) {
-                return Ok(parsed);
-            }
-            Ok(Value::String(rendered))
-        }
-        _ => Ok(input.clone()),
-    }
+    enrich_context_with_connection_refs_from_value(context, input).map_err(ApiError::from)?;
+    renderer
+        .render_json_value(input, context)
+        .map_err(|error| ApiError::bad_request(format!("{error:#}")))
 }
 
 pub(crate) fn current_connection_param_context(

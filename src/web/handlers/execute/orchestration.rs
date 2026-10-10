@@ -68,16 +68,16 @@ async fn execute_orchestration_request(
             }
             enrich_context_with_connection_refs_from_value(&mut plan_context, &plan_source)
                 .map_err(ApiError::from)?;
-            let rendered_plan =
-                render_json_template_value(&plan_source, &mut plan_context, &renderer)?;
+            let plan = renderer
+                .render_orchestration_plan(&plan_source, &plan_context)
+                .map_err(|error| ApiError::bad_request(format!("{error:#}")))?;
             let plan_root = req
                 .base_dir
                 .as_deref()
                 .filter(|s| !s.trim().is_empty())
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("."));
-            let plan = orchestrator::load_plan_from_value(rendered_plan, &plan_root)
-                .map_err(ApiError::from)?;
+            orchestrator::validate_plan(&plan).map_err(ApiError::from)?;
             let plan_value = serde_json::to_value(&plan).map_err(ApiError::from)?;
             emit_task_event(
                 &state,

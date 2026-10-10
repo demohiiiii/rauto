@@ -1,6 +1,10 @@
 import { get, writable } from "svelte/store";
 import { createExecutionTemplateWorkspace } from "$domains/templates/index.js";
 import {
+  txWorkflowFindBlock,
+  txWorkflowReplaceBlock,
+} from "../model/transactionWorkflowTree.js";
+import {
   defaultTxBlockTemplatePayload,
   txBlockEditorFormStateFromJsonText,
   txBlockFormModelToJsonText,
@@ -252,17 +256,8 @@ export function createTransactionBlockTemplateRegistry({
         templateOptions,
         onChange: (nextBlock) => {
           const model = getModel();
-          if (
-            !canModify() ||
-            !model.blocks.some((entry) => entry.editorId === id)
-          )
-            return;
-          onChange({
-            ...model,
-            blocks: model.blocks.map((entry) =>
-              entry.editorId === id ? nextBlock : entry,
-            ),
-          });
+          if (!canModify() || !txWorkflowFindBlock(model, id)) return;
+          onChange(txWorkflowReplaceBlock(model, id, nextBlock));
         },
       });
       workspaces.set(id, workspace);
@@ -273,7 +268,7 @@ export function createTransactionBlockTemplateRegistry({
     getWorkspace,
     sync: (model: TxWorkflowFormModel) => {
       for (const [id, workspace] of workspaces) {
-        const block = model.blocks.find((entry) => entry.editorId === id);
+        const block = txWorkflowFindBlock(model, id)?.block;
         if (block) workspace.setBlockContext(block);
         else {
           workspace.destroy();

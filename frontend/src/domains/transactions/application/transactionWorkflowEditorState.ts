@@ -163,6 +163,9 @@ export interface TxWorkflowBlockActionHandlers extends TxWorkflowBlockBindingPor
   remove(): void;
   setSource(sourceKind: TxWorkflowValueInput): void;
   updateInlineBlock(inlineBlock: TxBlockFormModel): void;
+  updateControl(
+    control: NonNullable<TxWorkflowBlockFormModel["control"]>,
+  ): void;
 }
 
 export interface TxWorkflowBlockEditorActionHandlers {
@@ -207,13 +210,6 @@ const TX_WORKFLOW_ROOT_FIELD_DEFS: readonly TxWorkflowFieldDefinition[] =
   ]);
 const TX_WORKFLOW_TEMPLATE_REF_FIELD_DEFS: readonly TxWorkflowFieldDefinition[] =
   Object.freeze([
-    {
-      controlType: "input",
-      fieldKey: "name",
-      inputType: "text",
-      labelKey: "txBlockFormName",
-      placeholderKey: "txBlockFormNamePlaceholder",
-    },
     {
       controlType: "select",
       fieldKey: "failFast",
@@ -354,11 +350,30 @@ function txWorkflowChangeRoot(
   return next;
 }
 
-export function txWorkflowAddBlock(model: JsonObject): TxWorkflowEditorModel {
+export function txWorkflowAddBlock(
+  model: JsonObject,
+  kind: "block" | "loop" | "choice" = "block",
+): TxWorkflowEditorModel {
   const next = workflowCloneModel(model);
   if (!Array.isArray(next.blocks)) next.blocks = [];
   next.blocks.push(
-    txWorkflowBlockFormModelFromJson(defaultTxBlockTemplatePayload()),
+    txWorkflowBlockFormModelFromJson(
+      kind === "loop"
+        ? {
+            kind: "loop",
+            iterations: "1",
+            item_variable: "item",
+            blocks: [],
+          }
+        : kind === "choice"
+          ? {
+              kind: "choice",
+              name: "",
+              branches: [{ condition: "", blocks: [] }],
+              else: [],
+            }
+          : defaultTxBlockTemplatePayload(),
+    ),
   );
   return next;
 }
@@ -379,10 +394,21 @@ export function txWorkflowDuplicateBlock(
 ): TxWorkflowEditorModel {
   const next = workflowCloneModel(model);
   if (!Array.isArray(next.blocks) || !next.blocks[blockIndex]) return next;
-  next.blocks.splice(blockIndex + 1, 0, {
-    ...structuredClone(next.blocks[blockIndex]),
-    editorId: createTxWorkflowBlockEditorId(),
-  });
+  const copy = structuredClone(next.blocks[blockIndex]);
+  function renewIds(block: TxWorkflowBlockFormModel): void {
+    block.editorId = createTxWorkflowBlockEditorId();
+    const control = block.control;
+    if (control?.kind === "loop") control.blocks.forEach(renewIds);
+    else if (control?.kind === "choice") {
+      control.branches.forEach((branch) => {
+        branch.editorId = createTxWorkflowBlockEditorId();
+        branch.blocks.forEach(renewIds);
+      });
+      control.otherwise.forEach(renewIds);
+    }
+  }
+  renewIds(copy);
+  next.blocks.splice(blockIndex + 1, 0, copy);
   return next;
 }
 
@@ -829,8 +855,8 @@ function txWorkflowEditorBindings(
   const applyChange = (nextModel: TxWorkflowEditorModel): void =>
     workflowApplyChange(onChange, nextModel);
   return {
-    addBlock() {
-      applyChange(txWorkflowAddBlock(model));
+    addBlock(kind: "block" | "loop" | "choice" = "block") {
+      applyChange(txWorkflowAddBlock(model, kind));
     },
     duplicateBlock(blockIndex: number): void {
       applyChange(txWorkflowDuplicateBlock(model, blockIndex));
@@ -903,6 +929,12 @@ function txWorkflowBlockBindings(
     updateInlineBlock(inlineBlock: TxBlockFormModel): void {
       bindings.setInlineBlock(blockIndex, inlineBlock);
     },
+    updateControl(control): void {
+      const next = workflowCloneModel(model);
+      if (!next.blocks?.[blockIndex]) return;
+      next.blocks[blockIndex].control = control;
+      workflowApplyChange(onChange, next);
+    },
   };
 }
 
@@ -912,8 +944,8 @@ export function txWorkflowVisualEditorBindings(
 ) {
   const bindings = txWorkflowEditorBindings(model, onChange);
   return {
-    appendBlock() {
-      bindings.addBlock();
+    appendBlock(kind: "block" | "loop" | "choice" = "block") {
+      bindings.addBlock(kind);
     },
     duplicateBlock(blockIndex: number): void {
       bindings.duplicateBlock(blockIndex);

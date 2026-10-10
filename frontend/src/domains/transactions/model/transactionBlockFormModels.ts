@@ -623,6 +623,8 @@ export function txWorkflowBlockFormModelFromJson(
   const hasTemplateContent = value.tx_block_template_content != null;
   const sourceKind =
     hasTemplateName || hasTemplateContent ? "template_ref" : "inline";
+  const children = (value: unknown): TxWorkflowBlockFormModel[] =>
+    Array.isArray(value) ? value.map(txWorkflowBlockFormModelFromJson) : [];
   return {
     editorId: createTxWorkflowBlockEditorId(),
     sourceKind,
@@ -632,12 +634,60 @@ export function txWorkflowBlockFormModelFromJson(
         ? value
         : defaultTxWorkflowTemplateRefBlockPayload(),
     ),
+    ...(value.kind === "loop"
+      ? {
+          control: {
+            kind: "loop" as const,
+            iterations: stringValue(value.iterations, "1"),
+            itemVariable: stringValue(value.item_variable, "item"),
+            blocks: children(value.blocks),
+          },
+        }
+      : value.kind === "choice"
+        ? {
+            control: {
+              kind: "choice" as const,
+              name: stringValue(value.name),
+              branches: (Array.isArray(value.branches)
+                ? value.branches
+                : [{ condition: value.condition, blocks: value.then }]
+              ).map((branch) => {
+                const entry = plainObject(branch) ? branch : {};
+                return {
+                  editorId: createTxWorkflowBlockEditorId(),
+                  condition: stringValue(entry.condition),
+                  blocks: children(entry.blocks),
+                };
+              }),
+              otherwise: children(value.else),
+            },
+          }
+        : {}),
   };
 }
 
 export function txWorkflowBlockJsonFromFormModel(
   model: Partial<TxWorkflowBlockFormModel> = {},
 ): JsonObject {
+  if (model.control) {
+    const control = model.control;
+    return control.kind === "loop"
+      ? {
+          kind: "loop",
+          iterations: control.iterations,
+          item_variable: control.itemVariable,
+          blocks: control.blocks.map(txWorkflowBlockJsonFromFormModel),
+        }
+      : {
+          kind: "choice",
+          name: control.name,
+          branches: control.branches.map((branch) => ({
+            condition: branch.condition,
+            blocks: branch.blocks.map(txWorkflowBlockJsonFromFormModel),
+          })),
+          else: control.otherwise.map(txWorkflowBlockJsonFromFormModel),
+        };
+  }
   if (model.sourceKind === "template_ref") {
     return txWorkflowTemplateRefBlockJsonFromModel(model.templateRef || {});
   }

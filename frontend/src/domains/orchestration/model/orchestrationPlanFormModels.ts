@@ -34,6 +34,11 @@ const ORCHESTRATION_ACTION_FIELDS = new Set([
   "workflow_vars",
 ]);
 
+let jobEditorSequence = 0;
+export function createOrchestrationJobEditorId(): string {
+  return `orchestration-job-${++jobEditorSequence}`;
+}
+
 function orchestrationSavedConnectionName(
   value: unknown,
   targetIndex = 0,
@@ -192,6 +197,7 @@ function orchestrationJobModelFromJson(
     throw new TypeError("orchestration job name must be a string or null");
   }
   return {
+    editorId: createOrchestrationJobEditorId(),
     name: typeof value.name === "string" ? value.name : null,
     hasName: Object.hasOwn(value, "name"),
     strategy: value.strategy === "parallel" ? "parallel" : "serial",

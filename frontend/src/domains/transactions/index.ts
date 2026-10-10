@@ -40,5 +40,7 @@ export {
   txWorkflowFormModelToJsonText,
 } from "./model/transactionWorkflowFormModels.js";
 export type * from "./model/types.js";
+export * from "./model/transactionWorkflowTree.js";
 
 export * from "./application/transactionBlockTemplateAuthoring.js";
+export * from "./application/transactionWorkflowCanvasWorkspace.js";

@@ -3,6 +3,7 @@ import {
   orchestrationCloneFormModel,
   orchestrationCreateJobModel,
   orchestrationCreateStageModel,
+  createOrchestrationJobEditorId,
 } from "./orchestrationPlanFormModels.js";
 import { orchestrationConnectionTextValue } from "./orchestrationTargetFormModels.js";
 import type {
@@ -192,6 +193,9 @@ export function orchestrationDuplicateStage(
 ): OrchestrationPlanFormModel {
   const next = orchestrationCloneFormModel(model);
   if (!orchestrationDuplicateListItem(next.stages, stageIndex)) return next;
+  next.stages[stageIndex + 1].jobs.forEach((job) => {
+    job.editorId = createOrchestrationJobEditorId();
+  });
   next.hasStages = true;
   return next;
 }
@@ -258,6 +262,7 @@ export function orchestrationDuplicateJob(
   if (!stage || !orchestrationDuplicateListItem(stage.jobs, jobIndex)) {
     return next;
   }
+  stage.jobs[jobIndex + 1].editorId = createOrchestrationJobEditorId();
   stage.hasJobs = true;
   next.hasStages = true;
   return next;

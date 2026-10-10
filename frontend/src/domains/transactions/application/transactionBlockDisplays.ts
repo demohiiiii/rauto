@@ -1,10 +1,5 @@
 import { derived as deriveStore, get, readonly, writable } from "svelte/store";
-import {
-  currentLanguage,
-  currentLanguageState,
-  t,
-  tr,
-} from "../../../lib/i18n.js";
+import { currentLanguageState, t } from "../../../lib/i18n.js";
 import { plainObject, stringValue } from "../../../lib/jsonValue.js";
 import {
   MANUAL_COMMAND_SOURCE,
@@ -327,16 +322,8 @@ export function createTxBlockVisualEditorWorkspace({
         per_step: "txWorkflowBlockRollbackPerStep",
         whole_resource: "txWorkflowBlockRollbackWhole",
       };
-      const unnamedBlockText = tr(
-        "txBlockTimelineUnnamedBlock",
-        currentLanguage() === "zh" ? "未命名事务块" : "Unnamed block",
-      );
       return {
         cellRows: [
-          {
-            labelText: t("txBlockFormName"),
-            valueText: stringValue($model?.name).trim() || unnamedBlockText,
-          },
           {
             labelText: t("txBlockSummaryRollback"),
             valueText: t(

@@ -37,9 +37,15 @@ pub(super) fn load_workflow(
         let content = load_tx_workflow_template_content(name)?;
         let source: Value = serde_json::from_str(&content)
             .with_context(|| format!("failed to parse tx workflow template '{}'", name))?;
-        render_json_template_source(&source, action.workflow_vars.clone(), conn)?
+        render_json_template_source(&source, action.workflow_vars.clone(), conn, None)?
     } else if let Some(value) = &action.workflow {
-        value.clone()
+        if crate::domain::execution::workflow_template::has_workflow_controls(value) {
+            let context = action.inline_template_context.as_ref();
+            let vars = context.map_or(Value::Null, |context| context.vars.clone());
+            render_json_template_source(value, vars, conn, context)?
+        } else {
+            value.clone()
+        }
     } else {
         return Err(anyhow!("workflow or workflow_template_name is required"));
     };
@@ -114,7 +120,7 @@ fn resolve_tx_block_from_template_source(
     conn: &EffectiveConnection,
 ) -> Result<TxBlock> {
     let source = load_tx_block_template_source_value(template_name, template_content)?;
-    let rendered_value = render_json_template_source(&source, template_vars, conn)?;
+    let rendered_value = render_json_template_source(&source, template_vars, conn, None)?;
     serde_json::from_value(rendered_value).map_err(Into::into)
 }
 
@@ -171,12 +177,21 @@ fn render_json_template_source(
     source: &Value,
     vars: Value,
     conn: &EffectiveConnection,
+    plan_context: Option<&crate::domain::orchestration::template::InlineWorkflowTemplateContext>,
 ) -> Result<Value> {
     let resolved_vars = orchestrator_targets::resolve_runtime_vars_for_connection(vars, conn)?;
     let mut context = build_stage_json_template_context(resolved_vars, conn);
+    if let Some(plan_context) = plan_context {
+        if let Some(now) = &plan_context.now {
+            context["now"] = now.clone();
+        }
+        if let Some(defaults) = &plan_context.defaults {
+            context["defaults"] = defaults.clone();
+        }
+    }
     enrich_context_with_connection_refs_from_value(&mut context, source)?;
     let renderer = Renderer::new();
-    render_json_template_value(source, &mut context, &renderer)
+    renderer.render_json_value(source, &context)
 }
 
 fn build_stage_json_template_context(vars: Value, conn: &EffectiveConnection) -> Value {
@@ -266,43 +281,86 @@ fn build_stage_json_template_context(vars: Value, conn: &EffectiveConnection) ->
     Value::Object(root)
 }
 
-fn render_json_template_value(
-    input: &Value,
-    context: &mut Value,
-    renderer: &Renderer,
-) -> Result<Value> {
-    match input {
-        Value::Object(map) => {
-            let mut out = serde_json::Map::with_capacity(map.len());
-            for (key, value) in map {
-                out.insert(
-                    key.clone(),
-                    render_json_template_value(value, context, renderer)?,
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::ssh_security::SshSecurityProfile;
+
+    fn connection(host: &str, role: &str) -> EffectiveConnection {
+        EffectiveConnection {
+            connection_name: None,
+            credential_id: None,
+            host: host.into(),
+            username: "admin".into(),
+            password: "test".into(),
+            auth: rneter::session::SshAuthMethod::password("test"),
+            port: 22,
+            connect_timeout_secs: None,
+            enable_password: None,
+            ssh_security: SshSecurityProfile::Balanced,
+            linux_shell_flavor: None,
+            output_encoding: Default::default(),
+            device_profile: "linux".into(),
+            vars: json!({"role":role}),
+            template_dir: None,
+            force_autodetect: false,
+            retry_policy: Default::default(),
+        }
+    }
+
+    #[test]
+    fn inline_controls_use_each_target_context_and_keep_plan_vars() {
+        let block = |name: &str, command: &str| {
+            json!({
+                "name":name, "rollback_policy":"none", "fail_fast":true,
+                "steps":[{"run":{"kind":"command", "mode":"User", "command":command}}]
+            })
+        };
+        let source = json!({"name":"plan", "stages":[{"name":"stage", "strategy":"serial", "jobs":[{
+            "strategy":"serial", "targets":["target-a","target-b"], "action":{"kind":"tx_workflow", "workflow":{
+                "name":"workflow", "fail_fast":true, "blocks":[
+                    {"kind":"loop", "iterations":"vars.commands", "blocks":[
+                        block("iteration-{{ loop.index }}", "{{ item }} {{ connection.host }} {{ role }}")
+                    ]},
+                    {"kind":"choice", "branches":[{
+                        "condition":"connection.host == 'target-a'", "blocks":[block("a", "show a")]
+                    }], "else":[block("b", "show b")]}
+                ]
+            }}
+        }]}]});
+        for global_connection in [None, Some(json!({"host":"target-a"}))] {
+            let mut context = json!({"vars":{"commands":["echo first","echo second"]}});
+            if let Some(connection) = global_connection {
+                context["connection"] = connection;
+                context["host"] = json!("target-a");
+                context["role"] = json!("global-role");
+            }
+            let plan = Renderer::new()
+                .render_orchestration_plan(&source, &context)
+                .unwrap();
+            let super::super::OrchestrationAction::TxWorkflow(action) =
+                &plan.stages[0].jobs[0].action;
+            for (host, role, selected) in [
+                ("target-a", "edge", "show a"),
+                ("target-b", "core", "show b"),
+            ] {
+                let workflow = load_workflow(action, &connection(host, role)).unwrap();
+                workflow.validate().unwrap();
+                let rendered = serde_json::to_value(workflow).unwrap();
+                assert_eq!(rendered["blocks"].as_array().unwrap().len(), 3);
+                assert_eq!(
+                    rendered["blocks"][0]["steps"][0]["run"]["command"],
+                    format!("echo first {host} {role}")
+                );
+                assert_eq!(
+                    rendered["blocks"][1]["steps"][0]["run"]["command"],
+                    format!("echo second {host} {role}")
+                );
+                assert_eq!(
+                    rendered["blocks"][2]["steps"][0]["run"]["command"],
+                    selected
                 );
             }
-            Ok(Value::Object(out))
         }
-        Value::Array(items) => {
-            let mut out = Vec::with_capacity(items.len());
-            for item in items {
-                out.push(render_json_template_value(item, context, renderer)?);
-            }
-            Ok(Value::Array(out))
-        }
-        Value::String(text) => {
-            if !text.contains("{{") && !text.contains("{%") {
-                return Ok(Value::String(text.clone()));
-            }
-            let rendered = renderer.render_string(text, context.clone())?;
-            let trimmed = rendered.trim();
-            if trimmed.is_empty() {
-                return Ok(Value::String(rendered));
-            }
-            if let Ok(parsed) = serde_json::from_str::<Value>(trimmed) {
-                return Ok(parsed);
-            }
-            Ok(Value::String(rendered))
-        }
-        _ => Ok(input.clone()),
     }
 }

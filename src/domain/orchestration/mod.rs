@@ -7,6 +7,8 @@ use serde_json::Value;
 use std::error::Error;
 use std::fmt;
 
+pub mod template;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrchestrationPlan {
     pub name: String,
@@ -67,6 +69,8 @@ pub struct TxWorkflowAction {
     pub workflow_template_name: Option<String>,
     #[serde(default)]
     pub workflow_vars: Value,
+    #[serde(skip)]
+    pub(crate) inline_template_context: Option<template::InlineWorkflowTemplateContext>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -425,6 +429,7 @@ mod tests {
             workflow: Some(json!({"name": "deploy", "blocks": []})),
             workflow_template_name: None,
             workflow_vars: Value::Null,
+            inline_template_context: None,
         })
     }
 

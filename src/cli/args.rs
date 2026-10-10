@@ -253,7 +253,7 @@ pub struct TxWorkflowArgs {
     #[arg(long, short = 't')]
     pub template: Option<String>,
 
-    /// Path to a JSON file containing variables for --template
+    /// Path to a JSON file containing variables for templates or workflow controls
     #[arg(long, short = 'v')]
     pub vars: Option<PathBuf>,
 
@@ -261,7 +261,7 @@ pub struct TxWorkflowArgs {
     #[arg(long)]
     pub textfsm_template: Option<PathBuf>,
 
-    /// Inline JSON variables for --template
+    /// Inline JSON variables for templates or workflow controls
     #[arg(long)]
     pub vars_json: Option<String>,
 

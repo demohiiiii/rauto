@@ -8,6 +8,9 @@ import {
   txWorkflowDuplicateBlock,
   txWorkflowMoveBlock,
   txBlockStepDraft,
+  txWorkflowBranchModel,
+  txWorkflowReplaceBranch,
+  txWorkflowFindBlock,
 } from "../src/domains/transactions/index.js";
 import type {
   JsonObject,
@@ -238,6 +241,94 @@ test("late template loads cannot populate a deleted block or replacement workflo
   resolve({ name: "base", content: JSON.stringify(template) });
   assert.equal(await pending, false);
   assert.equal(h.json().blocks[0].name, "untouched");
+  h.registry.destroy();
+});
+
+test("loop body template drafts survive canvas reordering and save to the same nested block", async () => {
+  const h = harness([
+    {
+      kind: "loop",
+      iterations: "vars.ports",
+      blocks: [
+        { tx_block_template_name: "base" },
+        { name: "verify", steps: [] },
+      ],
+    },
+    { name: "outside", steps: [] },
+  ]);
+  const loopId = h.model().blocks[0].editorId;
+  const nestedBlock = txWorkflowBranchModel(h.model(), loopId, "blocks")!
+    .blocks[0];
+  const w = h.registry.getWorkspace(nestedBlock);
+  await w.initialize();
+  w.startEditing();
+  w.changeJson('{"name":"nested draft","steps":[]}');
+  const scope = txWorkflowBranchModel(h.model(), loopId, "blocks")!;
+  h.replace(
+    txWorkflowReplaceBranch(
+      h.model(),
+      loopId,
+      "blocks",
+      txWorkflowMoveBlock(scope, 0, 1) as TxWorkflowFormModel,
+    ),
+  );
+  const moved = txWorkflowFindBlock(h.model(), nestedBlock.editorId)!;
+  assert.equal(moved.blockIndex, 1);
+  assert.equal(h.registry.getWorkspace(moved.block), w);
+  assert.equal(get(w.displayStateStore).editing, true);
+  assert.equal(await w.saveTemplate(), true);
+  assert.equal(h.json().blocks[0].blocks[1].tx_block_template_name, "base");
+  assert.equal(JSON.parse(h.writes[0].content).name, "nested draft");
+  w.changeVariables({ target: "clock" });
+  assert.deepEqual(h.json().blocks[0].blocks[1].tx_block_template_vars, {
+    target: "clock",
+  });
+  w.copyToManual();
+  assert.equal(h.json().blocks[0].blocks[1].tx_block_template_name, undefined);
+  assert.equal(
+    JSON.parse(h.json().blocks[0].blocks[1].tx_block_template_content).name,
+    "nested draft",
+  );
+  assert.equal(h.json().blocks[0].blocks[0].name, "verify");
+  assert.equal(h.json().blocks[1].name, "outside");
+  h.registry.destroy();
+});
+
+test("deleting a loop discards pending template loads from nested choice branches", async () => {
+  const h = harness([
+    {
+      kind: "loop",
+      iterations: "1",
+      blocks: [
+        {
+          kind: "choice",
+          condition: "true",
+          then: [],
+          else: [{ name: "manual", steps: [] }],
+        },
+      ],
+    },
+  ]);
+  const loopId = h.model().blocks[0].editorId;
+  const choice = txWorkflowBranchModel(h.model(), loopId, "blocks")!.blocks[0];
+  const block = txWorkflowBranchModel(h.model(), choice.editorId, "otherwise")!
+    .blocks[0];
+  const w = h.registry.getWorkspace(block);
+  await w.initialize();
+  let resolve!: (detail: { name: string; content: string }) => void;
+  h.loadWith(
+    () =>
+      new Promise((r) => {
+        resolve = r;
+      }),
+  );
+  const pending = w.selectTemplate("base");
+  await new Promise((r) => setImmediate(r));
+  h.replace({ ...h.model(), blocks: [] });
+  resolve({ name: "base", content: JSON.stringify(template) });
+  assert.equal(await pending, false);
+  w.changeVariables({ target: "forbidden" });
+  assert.deepEqual(h.json().blocks, []);
   h.registry.destroy();
 });
 

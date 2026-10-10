@@ -92,7 +92,7 @@
 
   @container block-settings (min-width: 32rem) {
     :global(.block-settings-fields) {
-      grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 </style>

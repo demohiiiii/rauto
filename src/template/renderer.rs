@@ -24,6 +24,22 @@ impl<'a> Renderer<'a> {
     pub fn render_string(&self, template_str: &str, context: Value) -> Result<String> {
         self.inner.render_string(template_str, context)
     }
+
+    pub fn render_json_value(&self, input: &Value, context: &Value) -> Result<Value> {
+        crate::domain::execution::workflow_template::render_json_template_value(
+            input,
+            context,
+            &self.inner,
+        )
+    }
+
+    pub fn render_orchestration_plan(
+        &self,
+        input: &Value,
+        context: &Value,
+    ) -> Result<crate::domain::orchestration::OrchestrationPlan> {
+        crate::domain::orchestration::template::render_plan_template(input, context, &self.inner)
+    }
 }
 
 fn load_command_template(name: &str) -> core::TemplateLoaderResult {

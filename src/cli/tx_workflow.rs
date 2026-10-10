@@ -177,7 +177,23 @@ async fn load_tx_workflow_from_args(
         )),
         (Some(path), None) => {
             let workflow_text = fs::read_to_string(path)?;
-            let workflow = serde_json::from_str(&workflow_text)?;
+            let source: serde_json::Value = serde_json::from_str(&workflow_text)?;
+            let workflow =
+                if crate::domain::execution::workflow_template::has_workflow_controls(&source) {
+                    let vars = crate::cli::json_templates::read_json_vars(
+                        args.vars.as_deref(),
+                        args.vars_json.as_deref(),
+                    )?;
+                    let conn = crate::resolve_effective_connection(opts).ok();
+                    let mut context =
+                        crate::cli::json_templates::template_context(vars, conn.as_ref());
+                    serde_json::from_value(crate::cli::json_templates::render_json_template_value(
+                        &source,
+                        &mut context,
+                    )?)?
+                } else {
+                    serde_json::from_value(source)?
+                };
             Ok((workflow, Some(path.clone())))
         }
         (None, Some(name)) => {

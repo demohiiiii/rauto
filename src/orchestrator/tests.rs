@@ -77,6 +77,7 @@ fn sample_tx_workflow_action() -> TxWorkflowAction {
         workflow: Some(json!({"name": "workflow", "blocks": []})),
         workflow_template_name: None,
         workflow_vars: Value::Null,
+        inline_template_context: None,
     }
 }
 
@@ -273,6 +274,7 @@ fn validate_tx_workflow_action_requires_single_source() {
         workflow: None,
         workflow_template_name: None,
         workflow_vars: Value::Null,
+        inline_template_context: None,
     };
     assert!(validate_tx_workflow_action("stage 'demo' job 1", &action).is_err());
 }
@@ -325,6 +327,7 @@ fn validate_tx_workflow_action_rejects_mixed_sources_and_inline_vars() {
         workflow: Some(json!({"name": "inline", "blocks": []})),
         workflow_template_name: Some("campus-upgrade".to_string()),
         workflow_vars: Value::Null,
+        inline_template_context: None,
     };
     assert!(validate_tx_workflow_action("stage 'demo' job 1", &mixed).is_err());
 
@@ -332,6 +335,7 @@ fn validate_tx_workflow_action_rejects_mixed_sources_and_inline_vars() {
         workflow: Some(json!({"name": "inline", "blocks": []})),
         workflow_template_name: None,
         workflow_vars: json!({"version": "17.9"}),
+        inline_template_context: None,
     };
     assert!(validate_tx_workflow_action("stage 'demo' job 1", &inline_with_vars).is_err());
 }

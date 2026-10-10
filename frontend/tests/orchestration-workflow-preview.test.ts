@@ -6,9 +6,13 @@ import {
   createOrchestrationWorkflowPreviewWorkspace,
 } from "../src/domains/orchestration/index.js";
 import type { JsonObject } from "../src/domains/orchestration/index.js";
+import {
+  txWorkflowFlowGraph,
+  txWorkflowFormModelFromJson,
+} from "../src/domains/transactions/index.js";
 
-test("inline workflow preview exposes compact ordered block rows", () => {
-  const preview = orchestrationInlineWorkflowPreview({
+test("inline workflow preview snapshots the complete workflow", () => {
+  const source = {
     name: "campus-upgrade",
     blocks: [
       {
@@ -20,60 +24,68 @@ test("inline workflow preview exposes compact ordered block rows", () => {
         ],
       },
     ],
-  });
+  };
+  const preview = orchestrationInlineWorkflowPreview(source);
 
   assert.equal(preview.sourceKind, "manual");
   assert.equal(preview.workflowName, "campus-upgrade");
-  assert.deepEqual(preview.rows, [
-    {
-      blockName: "backup",
-      operationText: "show running-config",
-      operationTexts: ["show running-config"],
-    },
-  ]);
-  assert.deepEqual(preview.allRows, preview.rows);
-  assert.equal(preview.workflow.name, "campus-upgrade");
+  assert.deepEqual(preview.workflow, source);
+  source.blocks[0].steps[0].run.command = "changed";
+  assert.notDeepEqual(preview.workflow, source);
 });
 
-test("workflow preview flattens every transaction and command sequence command", () => {
-  const preview = orchestrationInlineWorkflowPreview({
+test("workflow previews retain loop, choice, interactive and rollback content", () => {
+  const workflow = {
     blocks: [
       {
-        name: "inspect",
-        steps: [
-          { run: { kind: "command", command: "show version" } },
+        kind: "loop",
+        iterations: "vars.ports",
+        blocks: [
           {
-            run: {
-              kind: "flow",
-              steps: [
-                { command: "show inventory" },
-                { command: "show interfaces" },
-              ],
-            },
+            kind: "choice",
+            branches: [
+              {
+                condition: "vars.enabled",
+                blocks: [
+                  {
+                    name: "inspect",
+                    steps: [
+                      {
+                        run: {
+                          kind: "command",
+                          command: "delete file",
+                          interaction: {
+                            prompts: [{ patterns: ["Confirm"], response: "y" }],
+                          },
+                        },
+                        rollback: {
+                          kind: "command",
+                          command: "restore\nverify",
+                        },
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+            else: [],
           },
         ],
       },
     ],
-  });
-
-  assert.deepEqual(preview.allRows[0].operationTexts, [
-    "show version",
-    "show inventory",
-    "show interfaces",
-  ]);
+  };
+  const preview = orchestrationInlineWorkflowPreview(workflow);
+  assert.deepEqual(preview.workflow, workflow);
 });
 
 test("workflow preview preserves every block for nested canvas nodes", () => {
-  const preview = orchestrationInlineWorkflowPreview({
-    blocks: Array.from({ length: 6 }, (_, index) => ({
-      name: `block-${index + 1}`,
-      steps: [{ run: { kind: "command", command: `show item ${index + 1}` } }],
-    })),
-  });
-
-  assert.equal(preview.rows.length, 4);
-  assert.equal(preview.allRows.length, 6);
-  assert.equal(preview.overflowCount, 2);
+  const blocks = Array.from({ length: 6 }, (_, index) => ({
+    name: `block-${index + 1}`,
+    steps: [{ run: { kind: "command", command: `show item ${index + 1}` } }],
+  }));
+  const preview = orchestrationInlineWorkflowPreview({ blocks });
+  assert.equal(preview.blockCount, 6);
+  assert.deepEqual(preview.workflow.blocks, blocks);
 });
 
 test("template preview workspace caches by template name and vars", async () => {
@@ -116,9 +128,14 @@ test("template preview workspace caches by template name and vars", async () => 
   assert.equal(first.sourceKind, "template");
   assert.equal(first.unresolvedCount, 1);
   assert.equal(first.workflow.name, "rendered");
-  assert.deepEqual(first.rows[0].operationText, "set version 17.9");
-  assert.equal(second.rows[0].operationText, "set version 17.9");
-  assert.equal(third.rows[0].operationText, "set version 18.1");
+  assert.deepEqual(
+    [first, second, third].map(
+      (preview) =>
+        txWorkflowFlowGraph(txWorkflowFormModelFromJson(preview.workflow))
+          .blocks[0].data.commandRows[0].summaryText,
+    ),
+    ["set version 17.9", "set version 17.9", "set version 18.1"],
+  );
   assert.equal(requests.length, 2);
 });
 
@@ -176,4 +193,45 @@ test("template preview snapshots the response payload", async () => {
 
   assert.equal(preview.workflow.name, "rendered");
   assert.deepEqual(preview.unresolvedPaths, ["$.blocks[0]"]);
+});
+
+test("unresolved enum fields produce a recoverable preview state without altering template content", async () => {
+  const workspace = createOrchestrationWorkflowPreviewWorkspace({
+    previewTemplate: async (_, vars) => ({
+      workflow: {
+        name: "templated",
+        blocks: [
+          {
+            name: "configure",
+            steps: [
+              {
+                run: {
+                  kind: "command",
+                  command: "echo test",
+                  multiline_mode:
+                    typeof vars.mode === "string"
+                      ? vars.mode
+                      : "{{ vars.mode }}",
+                },
+              },
+            ],
+          },
+        ],
+      },
+      unresolved_paths: vars.mode
+        ? []
+        : ["$.blocks[0].steps[0].run.multiline_mode"],
+    }),
+  });
+  const unresolved = await workspace.previewTemplate("templated");
+  assert.equal(unresolved.previewStatus, "error");
+  assert.match(unresolved.errorMessage, /multiline_mode/);
+  assert.equal(unresolved.unresolvedCount, 1);
+  assert.ok(JSON.stringify(unresolved.workflow).includes("{{ vars.mode }}"));
+  const resolved = await workspace.previewTemplate("templated", {
+    mode: "whole",
+  });
+  assert.equal(resolved.previewStatus, "ready");
+  assert.equal(resolved.errorMessage, "");
+  assert.equal(resolved.unresolvedCount, 0);
 });

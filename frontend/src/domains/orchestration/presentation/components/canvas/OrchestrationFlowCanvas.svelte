@@ -22,7 +22,6 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { previewTxWorkflowTemplate } from "$api/client.js";
   import { currentLanguageState, t } from "$lib/i18n.js";
-  import { plainObject } from "$lib/jsonValue.js";
   import { classNames } from "$lib/ui.js";
   import {
     orchestrationFlowGraph,
@@ -33,7 +32,8 @@
     orchestrationInlineWorkflowPreview,
     createOrchestrationWorkflowPreviewWorkspace,
   } from "$domains/orchestration/index.js";
-  import { orchestrationUpdateInlineWorkflow } from "$domains/orchestration/index.js";
+  import { createOrchestrationWorkflowCanvasRegistry } from "$domains/orchestration/index.js";
+  import { browserConfirm } from "$lib/browser.js";
   import {
     orchestrationAddJob,
     orchestrationDuplicateJob,
@@ -46,14 +46,8 @@
   } from "$domains/orchestration/index.js";
   import { TX_VARS } from "$domains/transactions/index.js";
   import {
-    txWorkflowAddBlock,
-    txWorkflowDuplicateBlock,
-    txWorkflowMoveBlock,
-    txWorkflowRemoveBlock,
-  } from "$domains/transactions/index.js";
-  import {
-    txWorkflowFormModelFromJson,
-    txWorkflowFormModelToJsonText,
+    txWorkflowFindBlock,
+    txWorkflowInspectorWidth,
   } from "$domains/transactions/index.js";
   import OrchestrationFlowInspector from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowInspector.svelte";
   import FlowWorkflowGroupNode from "$components/fragments/FlowWorkflowGroupNode.svelte";
@@ -104,10 +98,6 @@
     OrchestrationFlowEdge["type"]
   > &
     Pick<OrchestrationFlowEdge, "kind">;
-  type InlineWorkflowUpdater = (
-    model: TxWorkflowFormModel,
-  ) => Partial<TxWorkflowFormModel>;
-
   function isStageNodeData(
     data: OrchestrationGraphNodeData,
   ): data is StageNodeData {
@@ -160,19 +150,44 @@
   let selection = $state<OrchestrationFlowSelection | null>(null);
   let planCollapsed = $state(true);
   let inspectorCollapsed = $state(true);
-  let inspectorWidth = $state(520);
+  let inspectorWidth = $state(860);
+  let canvasWidth = $state(0);
+  let effectiveInspectorWidth = $derived(inspectorWidthLimit(inspectorWidth));
   let compactCanvas = $state(
     typeof window !== "undefined" &&
       window.matchMedia("(max-width: 1023px)").matches,
   );
-  let canvasHost = $state<HTMLElement | null>(null);
   let inspectorResizeCleanup = $state<(() => void) | null>(null);
   let stages = $derived(Array.isArray(model?.stages) ? model.stages : []);
   let workflowPreviews = $state<Record<string, OrchestrationWorkflowPreview>>(
     {},
   );
   let previewRequestRevision = 0;
-  let baseGraph = $derived(orchestrationFlowGraph(model, workflowPreviews));
+  const workflowCanvas = createOrchestrationWorkflowCanvasRegistry({
+    getModel: () => model,
+    onChange: applyModel,
+    canModify: () => !readonly,
+    getSelectedId: (jobId) =>
+      selection?.kind === "workflow-block" &&
+      stages[selection.stageIndex]?.jobs[selection.jobIndex]?.editorId === jobId
+        ? (selection.editorId ?? null)
+        : null,
+    onSelect: selectWorkflowNode,
+    templateOptions: {
+      confirmReplace: () =>
+        browserConfirm(t("orchestrationDiscardChangesConfirm")),
+    },
+  });
+  // Keep registry models cloneable when nested editors publish changes.
+  let workflowModels = $state.raw<Record<string, TxWorkflowFormModel>>({});
+  $effect(() => {
+    workflowModels = workflowCanvas.models(workflowPreviews);
+  });
+  onDestroy(workflowCanvas.destroy);
+  let baseGraph = $derived.by(() => {
+    currentLanguage;
+    return orchestrationFlowGraph(model, workflowPreviews, workflowModels);
+  });
   let graphLayoutRevision = $derived(
     baseGraph.nodes
       .map((node) => `${node.id}:${node.width || 0}:${node.height || 0}`)
@@ -312,54 +327,18 @@
         };
       }
       if (node.data.kind === "workflow-block") {
-        const { stageIndex, jobIndex, blockIndex } = node.data;
-        const blockCount = node.parentId
-          ? baseGraph.nodes.filter(
-              (candidate) =>
-                candidate.data.kind === "workflow-block" &&
-                candidate.parentId === node.parentId,
-            ).length
-          : 0;
-        const editable = !readonly && node.data.sourceKind === "manual";
+        const { stageIndex, jobIndex } = node.data;
+        const workspace = workflowCanvas.get(
+          stages[stageIndex].jobs[jobIndex].editorId,
+        );
         return {
           ...node,
           selected:
             selection?.kind === "workflow-block" &&
-            selection.stageIndex === node.data.stageIndex &&
-            selection.jobIndex === node.data.jobIndex &&
-            selection.blockIndex === node.data.blockIndex,
-          data: {
+            selection.editorId === node.data.id,
+          data: workspace?.decorateBlock(node.data) ?? {
             ...node.data,
-            readonly,
-            sequenceText: String(blockIndex + 1),
-            commandRows: node.data.commandRows.map((summaryText) => ({
-              summaryText,
-            })),
-            editable,
-            canMovePrevious: editable && blockIndex > 0,
-            canMoveNext: editable && blockIndex < blockCount - 1,
-            movePreviousLabel: t("orchestrationFlowMoveBlockUp"),
-            moveNextLabel: t("orchestrationFlowMoveBlockDown"),
-            duplicateLabel: t("txWorkflowDuplicateBlock"),
-            deleteLabel: t("txWorkflowDeleteBlock"),
-            onMovePrevious: () =>
-              moveWorkflowBlock(
-                stageIndex,
-                jobIndex,
-                blockIndex,
-                blockIndex - 1,
-              ),
-            onMoveNext: () =>
-              moveWorkflowBlock(
-                stageIndex,
-                jobIndex,
-                blockIndex,
-                blockIndex + 1,
-              ),
-            onDuplicate: () =>
-              duplicateWorkflowBlock(stageIndex, jobIndex, blockIndex),
-            onDelete: () =>
-              removeWorkflowBlock(stageIndex, jobIndex, blockIndex),
+            readonly: true,
           },
         };
       }
@@ -404,7 +383,7 @@
             "{count}",
             String(node.data.targetCount),
           ),
-          blockCountText: t("txWorkflowCanvasBlockCount").replace(
+          blockCountText: t("txWorkflowCanvasNodeCount").replace(
             "{count}",
             String(node.data.blockCount),
           ),
@@ -422,7 +401,11 @@
           onMoveNext: () => moveJob(stageIndex, jobIndex, jobIndex + 1),
           onDuplicate: () => duplicateJob(stageIndex, jobIndex),
           onDelete: () => removeJob(stageIndex, jobIndex),
-          onAddBlock: () => addWorkflowBlock(stageIndex, jobIndex),
+          ...(node.data.sourceKind === "manual"
+            ? workflowCanvas
+                .get(stages[stageIndex].jobs[jobIndex].editorId)
+                ?.addActions()
+            : {}),
         },
       };
     });
@@ -463,9 +446,13 @@
   let selectedWorkflow = $derived(
     selectedJob?.action?.txWorkflow?.workflow || {},
   );
-  let selectedWorkflowBlocks = $derived(
-    Array.isArray(selectedWorkflow?.blocks) ? selectedWorkflow.blocks : [],
+  let selectedWorkflowModel = $derived(
+    selectedJob ? (workflowModels[selectedJob.editorId] ?? null) : null,
   );
+  let selectedWorkflowWorkspace = $derived.by(() => {
+    workflowModels;
+    return selectedJob ? workflowCanvas.get(selectedJob.editorId) : null;
+  });
   let selectedWorkflowPreview = $derived.by(() => {
     if (!selection || selection.kind === "stage" || !selectedJob) return null;
     const templateName = String(
@@ -476,28 +463,47 @@
           null
       : orchestrationInlineWorkflowPreview(selectedWorkflow);
   });
-  let canMutateSelection = $derived(
-    selection?.kind !== "workflow-block" ||
-      selectedWorkflowPreview?.sourceKind === "manual",
-  );
+  let canMutateSelection = $derived(selection?.kind !== "workflow-block");
   let canMovePrevious = $derived(
     selection?.kind === "stage"
       ? selection.stageIndex > 0
       : selection?.kind === "job"
         ? selection.jobIndex > 0
-        : selection?.kind === "workflow-block" && canMutateSelection
-          ? selection.blockIndex > 0
-          : false,
+        : false,
   );
   let canMoveNext = $derived(
     selection?.kind === "stage"
       ? selection.stageIndex < stages.length - 1
       : selection?.kind === "job"
         ? selection.jobIndex < selectedStageJobs.length - 1
-        : selection?.kind === "workflow-block" && canMutateSelection
-          ? selection.blockIndex < selectedWorkflowBlocks.length - 1
-          : false,
+        : false,
   );
+
+  function selectWorkflowNode(jobId: string, editorId: string | null): void {
+    for (const [stageIndex, stage] of stages.entries()) {
+      const jobIndex = stage.jobs.findIndex((job) => job.editorId === jobId);
+      if (jobIndex < 0) continue;
+      const workspace = workflowCanvas.get(jobId);
+      let location =
+        editorId && workspace
+          ? txWorkflowFindBlock(workspace.model(), editorId)
+          : null;
+      while (location?.parentId && workspace)
+        location = txWorkflowFindBlock(workspace.model(), location.parentId);
+      selection =
+        location && editorId
+          ? {
+              kind: "workflow-block",
+              stageIndex,
+              jobIndex,
+              blockIndex: location.blockIndex,
+              editorId,
+            }
+          : { kind: "job", stageIndex, jobIndex };
+      inspectorCollapsed = false;
+      return;
+    }
+  }
 
   function applyModel(nextModel: OrchestrationPlanFormModel): void {
     if (!readonly) onChange?.(nextModel);
@@ -521,6 +527,7 @@
         stageIndex: data.stageIndex,
         jobIndex: data.jobIndex,
         blockIndex: data.blockIndex,
+        editorId: data.id,
       };
       inspectorCollapsed = false;
     }
@@ -588,159 +595,27 @@
         : { kind: "stage", stageIndex };
   }
 
-  function mutateInlineWorkflow(
-    stageIndex: number,
-    jobIndex: number,
-    updater: InlineWorkflowUpdater,
-  ): void {
-    const workflow =
-      stages[stageIndex]?.jobs?.[jobIndex]?.action?.txWorkflow?.workflow || {};
-    const formModel = txWorkflowFormModelFromJson(workflow);
-    const nextFormModel = updater(formModel);
-    const nextWorkflow: unknown = JSON.parse(
-      txWorkflowFormModelToJsonText(nextFormModel),
-    );
-    if (!plainObject(nextWorkflow)) return;
-    applyModel(
-      orchestrationUpdateInlineWorkflow(
-        model,
-        stageIndex,
-        jobIndex,
-        nextWorkflow,
-      ),
-    );
-  }
-
-  function inlineWorkflowBlockCount(
-    stageIndex: number,
-    jobIndex: number,
-  ): number {
-    const blocks =
-      stages[stageIndex]?.jobs?.[jobIndex]?.action?.txWorkflow?.workflow
-        ?.blocks;
-    return Array.isArray(blocks) ? blocks.length : 0;
-  }
-
-  function addWorkflowBlock(stageIndex: number, jobIndex: number): void {
-    const blockIndex = inlineWorkflowBlockCount(stageIndex, jobIndex);
-    mutateInlineWorkflow(stageIndex, jobIndex, txWorkflowAddBlock);
-    selection = { kind: "workflow-block", stageIndex, jobIndex, blockIndex };
-    inspectorCollapsed = false;
-  }
-
-  function duplicateWorkflowBlock(
-    stageIndex: number,
-    jobIndex: number,
-    blockIndex: number,
-  ): void {
-    mutateInlineWorkflow(stageIndex, jobIndex, (workflow) =>
-      txWorkflowDuplicateBlock(workflow, blockIndex),
-    );
-    selection = {
-      kind: "workflow-block",
-      stageIndex,
-      jobIndex,
-      blockIndex: blockIndex + 1,
-    };
-    inspectorCollapsed = false;
-  }
-
-  function moveWorkflowBlock(
-    stageIndex: number,
-    jobIndex: number,
-    blockIndex: number,
-    targetIndex: number,
-  ): void {
-    mutateInlineWorkflow(stageIndex, jobIndex, (workflow) =>
-      txWorkflowMoveBlock(workflow, blockIndex, targetIndex),
-    );
-    selection = {
-      kind: "workflow-block",
-      stageIndex,
-      jobIndex,
-      blockIndex: targetIndex,
-    };
-    inspectorCollapsed = false;
-  }
-
-  function removeWorkflowBlock(
-    stageIndex: number,
-    jobIndex: number,
-    blockIndex: number,
-  ): void {
-    const blockCount = inlineWorkflowBlockCount(stageIndex, jobIndex);
-    mutateInlineWorkflow(stageIndex, jobIndex, (workflow) =>
-      txWorkflowRemoveBlock(workflow, blockIndex),
-    );
-    selection =
-      blockCount > 1
-        ? {
-            kind: "workflow-block",
-            stageIndex,
-            jobIndex,
-            blockIndex: Math.max(0, blockIndex - 1),
-          }
-        : {
-            kind: "job",
-            stageIndex,
-            jobIndex,
-          };
-  }
-
   function moveSelectionPrevious(): void {
-    if (selection?.kind === "stage") {
+    if (selection?.kind === "stage")
       moveStage(selection.stageIndex, selection.stageIndex - 1);
-    } else if (selection?.kind === "job") {
+    else if (selection?.kind === "job")
       moveJob(selection.stageIndex, selection.jobIndex, selection.jobIndex - 1);
-    } else if (selection?.kind === "workflow-block") {
-      moveWorkflowBlock(
-        selection.stageIndex,
-        selection.jobIndex,
-        selection.blockIndex,
-        selection.blockIndex - 1,
-      );
-    }
   }
-
   function moveSelectionNext(): void {
-    if (selection?.kind === "stage") {
+    if (selection?.kind === "stage")
       moveStage(selection.stageIndex, selection.stageIndex + 1);
-    } else if (selection?.kind === "job") {
+    else if (selection?.kind === "job")
       moveJob(selection.stageIndex, selection.jobIndex, selection.jobIndex + 1);
-    } else if (selection?.kind === "workflow-block") {
-      moveWorkflowBlock(
-        selection.stageIndex,
-        selection.jobIndex,
-        selection.blockIndex,
-        selection.blockIndex + 1,
-      );
-    }
   }
-
   function duplicateSelection(): void {
     if (selection?.kind === "stage") duplicateStage(selection.stageIndex);
-    else if (selection?.kind === "job") {
+    else if (selection?.kind === "job")
       duplicateJob(selection.stageIndex, selection.jobIndex);
-    } else if (selection?.kind === "workflow-block") {
-      duplicateWorkflowBlock(
-        selection.stageIndex,
-        selection.jobIndex,
-        selection.blockIndex,
-      );
-    }
   }
-
   function deleteSelection(): void {
     if (selection?.kind === "stage") removeStage(selection.stageIndex);
-    else if (selection?.kind === "job") {
+    else if (selection?.kind === "job")
       removeJob(selection.stageIndex, selection.jobIndex);
-    } else if (selection?.kind === "workflow-block") {
-      removeWorkflowBlock(
-        selection.stageIndex,
-        selection.jobIndex,
-        selection.blockIndex,
-      );
-    }
   }
 
   function openCanvasView(view: OrchestrationEditorView): void {
@@ -767,8 +642,18 @@
   }
 
   function inspectorWidthLimit(nextWidth: number): number {
-    const hostWidth = canvasHost?.clientWidth || 1024;
-    return Math.min(Math.max(nextWidth, 380), Math.max(420, hostWidth - 360));
+    const focusedJob = baseGraph.nodes.find(
+      (node) =>
+        node.type === "job" &&
+        selection?.kind !== "stage" &&
+        node.data.stageIndex === selection?.stageIndex &&
+        node.data.jobIndex === selection?.jobIndex,
+    );
+    return txWorkflowInspectorWidth(
+      canvasWidth || 1024,
+      nextWidth,
+      focusedJob?.width ?? 380,
+    );
   }
 
   function clearInspectorResize(): void {
@@ -781,7 +666,7 @@
     event.preventDefault();
     clearInspectorResize();
     const startX = event.clientX;
-    const startWidth = inspectorWidth;
+    const startWidth = effectiveInspectorWidth;
     const resize = (moveEvent: PointerEvent): void => {
       inspectorWidth = inspectorWidthLimit(
         startWidth + startX - moveEvent.clientX,
@@ -800,7 +685,7 @@
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
     inspectorWidth = inspectorWidthLimit(
-      inspectorWidth + (event.key === "ArrowLeft" ? 32 : -32),
+      effectiveInspectorWidth + (event.key === "ArrowLeft" ? 32 : -32),
     );
   }
 
@@ -810,6 +695,7 @@
       model,
       selection,
       workflowPreviews,
+      workflowModels,
     );
     if (normalized) {
       selection = normalized;
@@ -833,7 +719,7 @@
 </script>
 
 <div
-  bind:this={canvasHost}
+  bind:clientWidth={canvasWidth}
   data-testid="orchestration-flow-canvas"
   class="relative min-w-0"
 >
@@ -873,9 +759,12 @@
         <OrchestrationFlowViewportController
           compact={compactCanvas}
           focusNodeId={focusStageNodeId}
+          focusBlockId={selection?.kind === "workflow-block"
+            ? selection.editorId
+            : null}
           layoutRevision={graphLayoutRevision}
           inspectorOpen={!inspectorCollapsed}
-          {inspectorWidth}
+          inspectorWidth={effectiveInspectorWidth}
           {topWindowOpen}
         />
 
@@ -1037,7 +926,7 @@
         "orchestration-flow-inspector mt-3 min-w-0 overflow-hidden rounded-2xl border border-border bg-background/95 shadow-2xl backdrop-blur lg:absolute lg:bottom-[4.75rem] lg:right-4 lg:top-4 lg:z-20 lg:mt-0 lg:flex lg:flex-col",
         topWindowOpen ? "lg:top-[23.5rem]" : "",
       )}
-      style={`--inspector-width:${inspectorWidth}px`}
+      style={`--inspector-width:${effectiveInspectorWidth}px`}
     >
       <button
         type="button"
@@ -1057,6 +946,11 @@
         {canMoveNext}
         {canMutateSelection}
         workflowPreview={selectedWorkflowPreview}
+        workflowModel={selectedWorkflowModel}
+        workflowWorkspace={selectedWorkflowWorkspace}
+        onWorkflowModelChange={(next) => {
+          if (selectedJob) workflowCanvas.update(selectedJob.editorId, next);
+        }}
         onCollapse={() => (inspectorCollapsed = true)}
         onMovePrevious={moveSelectionPrevious}
         onMoveNext={moveSelectionNext}

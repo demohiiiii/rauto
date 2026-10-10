@@ -477,11 +477,11 @@ test("timeline selection and localized displays react to language changes", asyn
   const english = get(workspace.editorSummaryStateStore).cellRows;
   assert.deepEqual(
     english.map((cell) => cell.labelText),
-    ["Tx block name", "Rollback Policy", "Step Count", "Fail Fast"],
+    ["Rollback Policy", "Step Count", "Fail Fast"],
   );
   assert.deepEqual(
     english.map((cell) => cell.valueText),
-    ["deploy edge", "per_step", "2", "Enabled"],
+    ["per_step", "2", "Enabled"],
   );
 
   await loadI18nLanguage("zh");
@@ -493,11 +493,11 @@ test("timeline selection and localized displays react to language changes", asyn
   const chinese = get(workspace.editorSummaryStateStore).cellRows;
   assert.deepEqual(
     chinese.map((cell) => cell.labelText),
-    ["事务块名称", "回滚策略", "步骤数", "失败即停止"],
+    ["回滚策略", "步骤数", "失败即停止"],
   );
   assert.deepEqual(
     chinese.map((cell) => cell.valueText),
-    ["deploy edge", "per_step", "2", "已启用"],
+    ["per_step", "2", "已启用"],
   );
   setCurrentLanguage("en");
 });

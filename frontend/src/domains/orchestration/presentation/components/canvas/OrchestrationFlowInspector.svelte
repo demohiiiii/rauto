@@ -9,18 +9,23 @@
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import { Button } from "$lib/components/ui/button/index.js";
   import { t } from "$lib/i18n.js";
-  import { orchestrationUpdateInlineWorkflow } from "$domains/orchestration/index.js";
-  import OrchestrationFlowWorkflowBlockInspector from "$domains/orchestration/presentation/components/canvas/OrchestrationFlowWorkflowBlockInspector.svelte";
+  import TxWorkflowNodeEditor from "$domains/transactions/presentation/components/workflow/TxWorkflowNodeEditor.svelte";
+  import {
+    txWorkflowFindBlock,
+    txWorkflowNodeTitle,
+  } from "$domains/transactions/index.js";
+  import type {
+    TxWorkflowFormModel,
+    TransactionWorkflowCanvasWorkspace,
+  } from "$domains/transactions/index.js";
   import OrchestrationJobEditor from "$domains/orchestration/presentation/components/editor/OrchestrationJobEditor.svelte";
   import OrchestrationStageSettingsEditor from "$domains/orchestration/presentation/components/editor/OrchestrationStageSettingsEditor.svelte";
 
   import type {
-    JsonObject,
     OrchestrationErrorChangeHandler,
     OrchestrationFlowSelection,
     OrchestrationPlanChangeHandler,
     OrchestrationPlanFormModel,
-    OrchestrationTxWorkflowActionModel,
     OrchestrationVisualEditorDisplay,
     OrchestrationWorkflowPreview,
   } from "$domains/orchestration/index.js";
@@ -41,6 +46,9 @@
     selection: OrchestrationFlowSelection;
     visualDisplay: OrchestrationVisualEditorDisplay;
     workflowPreview?: OrchestrationWorkflowPreview | null;
+    workflowModel?: TxWorkflowFormModel | null;
+    workflowWorkspace?: TransactionWorkflowCanvasWorkspace | null;
+    onWorkflowModelChange?: (model: TxWorkflowFormModel) => void;
   }
 
   let {
@@ -59,6 +67,9 @@
     canMoveNext = false,
     canMutateSelection = true,
     workflowPreview = null,
+    workflowModel = null,
+    workflowWorkspace = null,
+    onWorkflowModelChange = () => {},
   }: Props = $props();
 
   let stageRow = $derived(
@@ -91,17 +102,17 @@
   let currentJobRow = $derived(
     jobRow && currentJob ? { ...jobRow, job: currentJob } : jobRow,
   );
-  let txWorkflow = $derived<OrchestrationTxWorkflowActionModel | null>(
-    currentJob?.action.txWorkflow || null,
+  let selectedBlock = $derived(
+    workflowModel && selection.kind === "workflow-block"
+      ? selection.editorId
+        ? txWorkflowFindBlock(workflowModel, selection.editorId)?.block
+        : workflowModel.blocks[selection.blockIndex]
+      : null,
   );
   let blockTitleText = $derived(
-    (selectedBlockIndex === null
-      ? ""
-      : workflowPreview?.allRows[selectedBlockIndex]?.blockName) ||
-      t("orchestrationFlowBlockSequence").replace(
-        "{index}",
-        String((selectedBlockIndex ?? 0) + 1),
-      ),
+    selectedBlock
+      ? txWorkflowNodeTitle(selectedBlock)
+      : t("txWorkflowFormBlock"),
   );
   let titleText = $derived(
     selection?.kind === "workflow-block"
@@ -142,18 +153,6 @@
             .replace("{job}", jobPositionText)
         : stagePositionText,
   );
-
-  function updateInlineWorkflow(nextWorkflow: JsonObject): void {
-    if (!onChange || selection.kind !== "workflow-block") return;
-    onChange(
-      orchestrationUpdateInlineWorkflow(
-        model,
-        selection.stageIndex,
-        selection.jobIndex,
-        nextWorkflow,
-      ),
-    );
-  }
 </script>
 
 <header class="border-b border-border bg-muted/20 p-3 sm:p-4">
@@ -259,12 +258,16 @@
       showHeader={false}
     />
   {:else if selection?.kind === "workflow-block" && currentJobRow}
-    <OrchestrationFlowWorkflowBlockInspector
-      blockIndex={selection.blockIndex}
-      sourceKind={workflowPreview?.sourceKind || "manual"}
-      workflow={txWorkflow?.workflow || {}}
-      renderedWorkflow={workflowPreview?.workflow || {}}
-      onWorkflowChange={updateInlineWorkflow}
-    />
+    {#if selectedBlock && workflowModel && workflowWorkspace}
+      {#key selectedBlock.editorId}
+        <TxWorkflowNodeEditor
+          model={workflowModel}
+          editorId={selectedBlock.editorId}
+          workspace={workflowWorkspace}
+          readonly={readonly || workflowPreview?.sourceKind === "template"}
+          onChange={onWorkflowModelChange}
+        />
+      {/key}
+    {/if}
   {/if}
 </ReadonlyFields>

@@ -3,13 +3,13 @@
   import ArrowUpIcon from "@lucide/svelte/icons/arrow-up";
   import CopyIcon from "@lucide/svelte/icons/copy";
   import NetworkIcon from "@lucide/svelte/icons/network";
-  import PlusIcon from "@lucide/svelte/icons/plus";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import { Handle, Position } from "@xyflow/svelte";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { classNames } from "$lib/ui.js";
   import type { FlowWorkflowGroupNodeData } from "./flowWorkflowTypes.js";
+  import FlowWorkflowAddActions from "./FlowWorkflowAddActions.svelte";
 
   let {
     data,
@@ -175,17 +175,8 @@
     {/if}
   </div>
   {#if data.canAddBlock}
-    <div class="nodrag nopan absolute bottom-2.5 left-3 right-3 z-20">
-      <Button
-        disabled={data.readonly}
-        class="w-full"
-        variant="outline"
-        size="sm"
-        type="button"
-        onclick={(event) => runAction(event, data.onAddBlock)}
-      >
-        <PlusIcon data-icon="inline-start" />{data.addBlockLabel}
-      </Button>
+    <div class="absolute bottom-2.5 left-3 right-3 z-20">
+      <FlowWorkflowAddActions {data} />
     </div>
   {/if}
 </div>

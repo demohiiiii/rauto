@@ -18,7 +18,7 @@ mod render;
 mod targets;
 mod template_resolver;
 mod validation;
-use self::validation::validate_plan;
+pub(crate) use self::validation::validate_plan;
 pub use crate::domain::orchestration::{
     CompensationExecutionResult, JobExecutionResult, OrchestrationAction,
     OrchestrationExecutionResult, OrchestrationJob, OrchestrationPlan, OrchestrationRuntimeEvent,
@@ -197,18 +197,15 @@ fn load_plan_from_args(
             )?;
             let conn = crate::resolve_effective_connection(opts).ok();
             let mut context = crate::cli::json_templates::template_context(vars, conn.as_ref());
-            let rendered =
-                crate::cli::json_templates::render_json_template_value(&source, &mut context)?;
-            let plan: OrchestrationPlan = serde_json::from_value(rendered)?;
+            crate::config::template_connection_refs::enrich_context_with_connection_refs_from_value(
+                &mut context,
+                &source,
+            )?;
+            let plan = crate::template::renderer::Renderer::new()
+                .render_orchestration_plan(&source, &context)?;
             Ok((plan, PathBuf::from("."), None))
         }
     }
-}
-
-pub fn load_plan_from_value(plan_value: Value, _plan_root: &Path) -> Result<OrchestrationPlan> {
-    let plan: OrchestrationPlan = serde_json::from_value(plan_value)?;
-    validate_plan(&plan)?;
-    Ok(plan)
 }
 
 #[allow(dead_code)]

@@ -5,6 +5,7 @@
   interface Props {
     compact?: boolean;
     focusNodeId?: string;
+    focusBlockId?: string | null;
     layoutRevision?: string;
     inspectorOpen?: boolean;
     inspectorWidth?: number;
@@ -13,15 +14,17 @@
   let {
     compact = false,
     focusNodeId = "workflow-root",
+    focusBlockId = null,
     layoutRevision = "",
     inspectorOpen = true,
     inspectorWidth = 560,
   }: Props = $props();
 
-  const { getNode, setCenter } = useSvelteFlow();
+  const { getNode, setCenter, screenToFlowPosition } = useSvelteFlow();
 
   $effect(() => {
     const nextNodeId = focusNodeId;
+    const nextBlockId = focusBlockId;
     layoutRevision;
     const nextCompact = compact;
     const nextInspectorOpen = inspectorOpen;
@@ -44,7 +47,19 @@
       const zoom = nextCompact ? 0.82 : TX_WORKFLOW_CANVAS_DESKTOP_ZOOM;
       const inspectorOffset =
         !nextCompact && nextInspectorOpen ? nextInspectorWidth / (2 * zoom) : 0;
-      setCenter(x + nodeWidth / 2 + inspectorOffset, y + nodeHeight / 2, {
+      const focusElement = nextBlockId
+        ? document.querySelector<HTMLElement>(
+            `[data-flow-block-id="${CSS.escape(nextBlockId)}"]`,
+          )
+        : null;
+      const rect = focusElement?.getBoundingClientRect();
+      const center = rect
+        ? screenToFlowPosition({
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+          })
+        : { x: x + nodeWidth / 2, y: y + nodeHeight / 2 };
+      setCenter(center.x + inspectorOffset, center.y, {
         zoom,
         duration: 240,
       });
