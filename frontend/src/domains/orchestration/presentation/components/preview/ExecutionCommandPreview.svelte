@@ -207,7 +207,7 @@
         <div
           class="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5"
         >
-          <div class="mb-5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <div class="mb-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
             <h2 class="break-all text-sm font-semibold">
               {selected.workflow.name}
             </h2>

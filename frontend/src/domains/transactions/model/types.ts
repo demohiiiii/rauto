@@ -84,6 +84,7 @@ export interface TxRollbackPolicyModel extends JsonObject {
 }
 
 export interface TxStepFormModel extends JsonObject {
+  control?: TxStepControlModel;
   hasRollback: boolean;
   hasRollbackOnFailure: boolean;
   rollback: TxOperationModel | null;
@@ -138,28 +139,35 @@ export interface TxWorkflowBlockFormModel extends JsonObject {
   control?: TxWorkflowControlModel;
 }
 
-export interface TxWorkflowLoopModel extends JsonObject {
+export interface TxLoopModel<T> extends JsonObject {
   kind: "loop";
   iterations: string;
   itemVariable: string;
-  blocks: TxWorkflowBlockFormModel[];
+  blocks: T[];
 }
 
-export interface TxWorkflowChoiceModel extends JsonObject {
-  kind: "choice";
-  name: string;
-  branches: TxWorkflowChoiceBranchModel[];
-  otherwise: TxWorkflowBlockFormModel[];
-}
-
-export interface TxWorkflowChoiceBranchModel extends JsonObject {
+export interface TxChoiceBranchModel<T> extends JsonObject {
   editorId: string;
   condition: string;
-  blocks: TxWorkflowBlockFormModel[];
+  blocks: T[];
 }
 
-export type TxWorkflowControlModel =
-  TxWorkflowLoopModel | TxWorkflowChoiceModel;
+export interface TxChoiceModel<T> extends JsonObject {
+  kind: "choice";
+  name: string;
+  branches: TxChoiceBranchModel<T>[];
+  otherwise: T[];
+}
+
+export type TxControlModel<T> = TxLoopModel<T> | TxChoiceModel<T>;
+export type TxWorkflowLoopModel = TxLoopModel<TxWorkflowBlockFormModel>;
+export type TxWorkflowChoiceModel = TxChoiceModel<TxWorkflowBlockFormModel>;
+export type TxWorkflowChoiceBranchModel =
+  TxChoiceBranchModel<TxWorkflowBlockFormModel>;
+export type TxWorkflowControlModel = TxControlModel<TxWorkflowBlockFormModel>;
+export type TxStepControlModel = TxControlModel<TxStepFormModel>;
+// Each nested level is addressed by a source step index, then its branch index.
+export type TxStepPath = number[];
 
 export interface TxWorkflowFormModel extends JsonObject {
   blocks: TxWorkflowBlockFormModel[];

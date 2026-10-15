@@ -1,8 +1,8 @@
 import type {
   TxWorkflowBlockFormModel,
   TxWorkflowFormModel,
-  TxWorkflowChoiceModel,
-  TxWorkflowChoiceBranchModel,
+  TxChoiceModel,
+  TxChoiceBranchModel,
 } from "./types.js";
 import { createTxWorkflowBlockEditorId } from "./transactionBlockFormModels.js";
 
@@ -156,11 +156,11 @@ export function txWorkflowReplaceBranch(
   return model;
 }
 
-export function txWorkflowChangeChoiceBranch(
-  control: TxWorkflowChoiceModel,
+export function txWorkflowChangeChoiceBranch<T>(
+  control: TxChoiceModel<T>,
   editorId: string,
-  change: Partial<Pick<TxWorkflowChoiceBranchModel, "condition" | "blocks">>,
-): TxWorkflowChoiceModel {
+  change: Partial<Pick<TxChoiceBranchModel<T>, "condition" | "blocks">>,
+): TxChoiceModel<T> {
   if (!control.branches.some((branch) => branch.editorId === editorId))
     return control;
   return {
@@ -171,9 +171,9 @@ export function txWorkflowChangeChoiceBranch(
   };
 }
 
-export function txWorkflowAddChoiceBranch(
-  control: TxWorkflowChoiceModel,
-): TxWorkflowChoiceModel {
+export function txWorkflowAddChoiceBranch<T>(
+  control: TxChoiceModel<T>,
+): TxChoiceModel<T> {
   return {
     ...control,
     branches: [
@@ -187,11 +187,11 @@ export function txWorkflowAddChoiceBranch(
   };
 }
 
-export function txWorkflowMoveChoiceBranch(
-  control: TxWorkflowChoiceModel,
+export function txWorkflowMoveChoiceBranch<T>(
+  control: TxChoiceModel<T>,
   editorId: string,
   offset: -1 | 1,
-): TxWorkflowChoiceModel {
+): TxChoiceModel<T> {
   const index = control.branches.findIndex(
     (branch) => branch.editorId === editorId,
   );
@@ -203,10 +203,10 @@ export function txWorkflowMoveChoiceBranch(
   return { ...control, branches };
 }
 
-export function txWorkflowRemoveChoiceBranch(
-  control: TxWorkflowChoiceModel,
+export function txWorkflowRemoveChoiceBranch<T>(
+  control: TxChoiceModel<T>,
   editorId: string,
-): TxWorkflowChoiceModel {
+): TxChoiceModel<T> {
   if (
     control.branches.length <= 1 ||
     !control.branches.some((branch) => branch.editorId === editorId)

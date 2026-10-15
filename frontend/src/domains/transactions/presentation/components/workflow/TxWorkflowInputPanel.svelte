@@ -217,7 +217,6 @@
         />{/if}
       <TxDirectVarsPanel
         {active}
-        hidden-textarea={false}
         hintKey="txWorkflowVarsHint"
         placeholderFallback={txWorkflowVarsPlaceholder}
         placeholderKey="txWorkflowVarsPlaceholder"

@@ -49,6 +49,7 @@ export function flowWorkflowHasRollback(block: FlowWorkflowCommands): boolean {
 export function flowWorkflowCommandPairHeight(
   row: FlowWorkflowCommandRow,
 ): number {
+  if (row.controlNode) return flowWorkflowBlockHeight(row.controlNode);
   return Math.max(
     flowCommandRowHeight(row.summaryText),
     row.rollbackSummaryText ? flowCommandRowHeight(row.rollbackSummaryText) : 0,
@@ -61,7 +62,7 @@ export function flowWorkflowCommandBodyHeight(
   const commandRowsHeight = block.commandRows.reduce(
     (height, row) =>
       height +
-      (block.wholeResourceRollback
+      (block.wholeResourceRollback && !row.controlNode
         ? flowCommandRowHeight(row.summaryText)
         : flowWorkflowCommandPairHeight(row)) +
       COMMAND_ROW_GAP,
@@ -79,6 +80,7 @@ export function flowWorkflowCommandBodyHeight(
 export function flowWorkflowBlockHeight(
   block: Pick<
     FlowWorkflowBlockNodeData,
+    | "commandsOnly"
     | "commandRows"
     | "metaText"
     | "wholeResourceRollback"
@@ -112,11 +114,11 @@ export function flowWorkflowBlockHeight(
     );
   }
   return (
-    58 +
+    (block.commandsOnly ? 0 : 58) +
     flowWorkflowCommandBodyHeight(block) +
     (block.canAddCommand ? ADD_BLOCK_HEIGHT : 0) +
     (block.metaText ? 24 : 0) +
-    (flowWorkflowHasRollback(block) ? 24 : 0)
+    (!block.commandsOnly && flowWorkflowHasRollback(block) ? 24 : 0)
   );
 }
 
@@ -134,9 +136,17 @@ export function flowWorkflowBlockWidth(
       ),
     );
   }
-  return block.structure || flowWorkflowHasRollback(block)
-    ? controlWidth
-    : 380 - BLOCK_SIDE * 2;
+  return Math.max(
+    flowWorkflowHasRollback(block) ? controlWidth : 380 - BLOCK_SIDE * 2,
+    ...block.commandRows.map((row) =>
+      row.controlNode
+        ? flowWorkflowBlockWidth(row.controlNode) *
+            (block.wholeResourceRollback ? 2 : 1) +
+          (block.commandsOnly ? 0 : 24) +
+          (block.wholeResourceRollback ? 8 : 0)
+        : 0,
+    ),
+  );
 }
 
 export function flowWorkflowGroupLayout(

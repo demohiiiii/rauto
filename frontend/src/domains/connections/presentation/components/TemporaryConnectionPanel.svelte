@@ -45,7 +45,7 @@
       disabledHint: t("tempConnDisabledHint"),
       sectionCustomVars: t("connSectionCustomVars"),
       cancel: t("cancel"),
-      saveAsConnection: t("tempConnSaveAsConnection"),
+      applyAndSave: t("tempConnApplyAndSave"),
     };
   });
   const temporaryConnectionPanelWorkspace =
@@ -286,17 +286,8 @@
       <Button variant="ghost" size="sm" type="button" onclick={onCancel}>
         {i18nLabels.cancel}
       </Button>
-      <LoadingButton
-        variant="outline"
-        size="sm"
-        loading={temporaryConnectionLoadingState.createDraftLoading}
-        onclick={createTemporaryDraft}
-      >
-        <SaveIcon data-icon="inline-start" aria-hidden="true" />
-        {i18nLabels.saveAsConnection}
-      </LoadingButton>
       <Button
-        variant="default"
+        variant="outline"
         size="sm"
         type="button"
         onclick={applyTemporaryConnection}
@@ -304,6 +295,15 @@
         <CheckIcon data-icon="inline-start" aria-hidden="true" />
         {temporaryDisplay.buttons.apply.label}
       </Button>
+      <LoadingButton
+        variant="default"
+        size="sm"
+        loading={temporaryConnectionLoadingState.createDraftLoading}
+        onclick={createTemporaryDraft}
+      >
+        <SaveIcon data-icon="inline-start" aria-hidden="true" />
+        {i18nLabels.applyAndSave}
+      </LoadingButton>
     </div>
   </Card.Footer>
 </Card.Root>

@@ -5,6 +5,8 @@
   import ArrowRightIcon from "@lucide/svelte/icons/arrow-right";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
   import CopyIcon from "@lucide/svelte/icons/copy";
+  import RepeatIcon from "@lucide/svelte/icons/repeat";
+  import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import PlusIcon from "@lucide/svelte/icons/plus";
   import Trash2Icon from "@lucide/svelte/icons/trash-2";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -19,6 +21,7 @@
 
   interface Props {
     addStep: () => boolean;
+    addControl: (kind: "loop" | "choice") => boolean;
     display: Omit<TimelineDisplay, "stepRows"> & {
       stepRows: TimelineStepRow[];
     };
@@ -32,6 +35,7 @@
     display,
     selectStep,
     addStep,
+    addControl,
     duplicateSelectedStep,
     moveSelectedStep,
     removeSelectedStep,
@@ -192,17 +196,35 @@
         >{display.stepRows.length}</span
       >
     </div>
-    <Button
-      disabled={readonly}
-      variant="ghost"
-      size="icon-sm"
-      type="button"
-      title={t("txBlockTimelineAddStep")}
-      aria-label={t("txBlockTimelineAddStep")}
-      onclick={addStep}
-    >
-      <PlusIcon />
-    </Button>
+    <div class="flex items-center gap-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        disabled={readonly}
+        onclick={() => addControl("loop")}
+        ><RepeatIcon />{t("txWorkflowLoop")}</Button
+      >
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        disabled={readonly}
+        onclick={() => addControl("choice")}
+        ><GitBranchIcon />{t("txWorkflowChoice")}</Button
+      >
+      <Button
+        disabled={readonly}
+        variant="ghost"
+        size="icon-sm"
+        type="button"
+        title={t("txBlockTimelineAddStep")}
+        aria-label={t("txBlockTimelineAddStep")}
+        onclick={addStep}
+      >
+        <PlusIcon />
+      </Button>
+    </div>
   </div>
   <div class="step-rail" bind:this={stepRail}>
     {#each display.stepRows as stepRow (stepRow.stepIndex)}
@@ -210,6 +232,8 @@
         type="button"
         class="step-stop"
         class:selected={stepRow.selected}
+        class:loop={stepRow.controlKind === "loop"}
+        class:choice={stepRow.controlKind === "choice"}
         data-timeline-step={stepRow.stepIndex}
         title={t("txBlockTimelineSelectStep")}
         aria-pressed={stepRow.selected}
@@ -349,6 +373,12 @@
     border-color: color-mix(in oklab, var(--primary) 40%, var(--border));
     background: color-mix(in oklab, var(--primary) 8%, var(--background));
     color: var(--primary);
+  }
+  .step-stop.loop {
+    border-color: var(--color-indigo-500);
+  }
+  .step-stop.choice {
+    border-color: var(--color-orange-500);
   }
   .step-stop:focus-visible {
     outline: 2px solid var(--ring);

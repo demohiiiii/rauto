@@ -159,6 +159,55 @@ mod tests {
     }
 
     #[test]
+    fn preview_keeps_block_local_controls_in_one_transaction_for_each_target() {
+        let block = json!({
+        "name":"one-block", "rollback_policy":"per_step", "fail_fast":true, "steps":[
+            {"kind":"loop", "iterations":"vars.addresses", "item_variable":"ip", "steps":[
+                {"kind":"choice", "branches":[{"condition":"connection.host == 'device-a'", "steps":[{
+                    "run":{"kind":"command", "mode":"User", "command":"echo {{ ip }} {{ connection.password }}"},
+                    "rollback":{"kind":"command", "mode":"User", "command":"undo {{ ip }}"}
+                }]}], "else":[{"run":{"kind":"command", "mode":"User", "command":"alternate {{ ip }} {{ connection.host }}"}}]}
+            ]}
+        ]});
+        let source = json!({"name":"plan", "stages":[{"name":"stage", "strategy":"serial", "jobs":[{
+            "strategy":"parallel", "targets":["device-a", "device-b"],
+            "action":{"kind":"tx_workflow", "workflow":{"name":"workflow", "fail_fast":true, "blocks":[block]}}
+        }]}]});
+        let plan = Renderer::new()
+            .render_orchestration_plan(
+                &source,
+                &json!({"vars":{"addresses":["192.0.2.1", "192.0.2.2"]}}),
+            )
+            .unwrap();
+        let previews = preview_with_connections(&plan, |_, _| {
+            Ok(vec![connection("device-a"), connection("device-b")])
+        })
+        .unwrap();
+        let first = serde_json::to_value(&previews[0]).unwrap();
+        let second = serde_json::to_value(&previews[1]).unwrap();
+        assert_eq!(first["workflow"]["blocks"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            first["workflow"]["blocks"][0]["steps"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert_eq!(
+            first["workflow"]["blocks"][0]["steps"][0]["run"]["command"],
+            "echo 192.0.2.1 ***"
+        );
+        assert_eq!(
+            first["workflow"]["blocks"][0]["steps"][1]["rollback"]["command"],
+            "undo 192.0.2.2"
+        );
+        assert_eq!(
+            second["workflow"]["blocks"][0]["steps"][1]["run"]["command"],
+            "alternate 192.0.2.2 device-b"
+        );
+    }
+
+    #[test]
     fn preview_reports_unresolved_targets_and_invalid_workflows_with_context() {
         let plan = plan();
         let error = preview_with_connections(&plan, |_, _| Ok(vec![])).unwrap_err();

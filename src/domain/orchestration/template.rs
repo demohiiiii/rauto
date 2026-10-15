@@ -42,7 +42,14 @@ fn render_plan_value(source: &Value, context: &Value, renderer: &Renderer<'_>) -
             let mut rendered = serde_json::Map::with_capacity(map.len());
             for (key, value) in map {
                 if key != "workflow" {
-                    rendered.insert(key.clone(), render_plan_value(value, context, renderer)?);
+                    rendered.insert(
+                        key.clone(),
+                        if key == "tx_block_template_content" && value.is_string() {
+                            value.clone()
+                        } else {
+                            render_plan_value(value, context, renderer)?
+                        },
+                    );
                 }
             }
             if let Some(workflow) = map.get("workflow") {

@@ -58,6 +58,8 @@ export function newCredentialForm(row?: CredentialRow | null): CredentialForm {
 export function newCredentialsPageState(): CredentialsPageState {
   return {
     credentials: [],
+    deleteTarget: null,
+    deleting: false,
     form: newCredentialForm(),
     loaded: false,
     loading: false,

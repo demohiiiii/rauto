@@ -204,10 +204,10 @@ export function createTxBlockVisualEditorWorkspace({
     return true;
   }
 
-  function addAndSelectStep() {
+  function addAndSelectStep(kind: "command" | "loop" | "choice" = "command") {
     const currentModel = get(modelStateStore);
     const stepIndex = modelSteps(currentModel).length;
-    applyVisualEditorModel(txBlockAddStep(currentModel));
+    applyVisualEditorModel(txBlockAddStep(currentModel, kind));
     selectedTargetWritableStateStore.set(stepSelection(stepIndex));
     return true;
   }

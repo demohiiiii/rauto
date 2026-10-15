@@ -138,3 +138,79 @@ nodes, iterations, and condition checks combined. A loop may contain at most
 Invalid expressions, undefined values, negative/fractional counts, and nonboolean
 conditions fail before commands are sent. The final workflow must contain at
 least one valid transaction block, following the existing rneter invariant.
+
+## Controls inside a transaction block
+
+A transaction block's `steps` also accepts loops and choices. Use `steps`
+instead of `blocks` for their bodies and condition branches. The canvas provides
+Command, Loop, and Choice actions inside each block and each nested body. Select
+an individual command or rollback command to open its existing editor. The same
+components are used by transaction workflows and orchestration.
+
+```json
+{
+  "name": "addresses",
+  "rollback_policy": "per_step",
+  "fail_fast": true,
+  "steps": [
+    {
+      "kind": "loop",
+      "iterations": "vars.addresses",
+      "item_variable": "address",
+      "steps": [
+        {
+          "kind": "choice",
+          "branches": [
+            {
+              "condition": "address.enabled",
+              "steps": [
+                {
+                  "run": {
+                    "kind": "command",
+                    "mode": "Config",
+                    "command": "ip address {{ address.value }}"
+                  },
+                  "rollback": {
+                    "kind": "command",
+                    "mode": "Config",
+                    "command": "no ip address {{ address.value }}"
+                  },
+                  "rollback_on_failure": true
+                }
+              ]
+            }
+          ],
+          "else": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+For example, supply `{"addresses":[{"value":"192.0.2.1","enabled":true}]}`
+as runtime variables. Item variables, `vars.address`, and `loop` metadata are
+scoped exactly as for workflow-level controls; nested controls restore their
+parent scope. All expressions are evaluated before execution using runtime
+variables and device context. They cannot depend on the output of earlier commands.
+
+Expansion retains **one transaction block** and its rollback policy. Per-command
+rollback remains paired with its run command, including `rollback_on_failure`.
+The rendered-command preview shows the flattened commands and their rollbacks.
+A skipped branch or zero-iteration loop adds no commands. If expansion leaves
+an entire transaction block empty, validation rejects it before opening a device
+session. The shared 16-level nesting and 1,000-node expansion limits apply
+across both workflow-level and command-level controls.
+
+With `whole_resource`, `trigger_step_index` is a zero-based index into the
+**source** `steps` array. If the selected source slot is a control, the trigger
+maps to its final expanded command; the whole-resource rollback becomes eligible
+when that command succeeds. Controls before the trigger shift its concrete
+index automatically. A trigger pointing at a control that expands to no commands
+is rejected instead of silently targeting another command.
+
+The existing Web, CLI, schedule, and orchestration workflow entry points expand
+these structures before passing concrete commands to rneter. Saved workflow and
+block templates use the same expansion where template references are supported;
+standalone CLI workflows continue to require concrete blocks. No new endpoint
+is required.

@@ -1,6 +1,4 @@
 <script lang="ts">
-  import TerminalIcon from "@lucide/svelte/icons/terminal";
-  import Undo2Icon from "@lucide/svelte/icons/undo-2";
   import { currentLanguageState, t } from "$lib/i18n.js";
   import { renderedOperationCommands } from "../../../model/renderedWorkflow.js";
   import type { RenderedOperation } from "../../../model/renderedWorkflow.js";
@@ -8,7 +6,12 @@
   let {
     operation,
     rollback = false,
-  }: { operation: RenderedOperation; rollback?: boolean } = $props();
+    rollbackOnFailure = false,
+  }: {
+    operation: RenderedOperation;
+    rollback?: boolean;
+    rollbackOnFailure?: boolean;
+  } = $props();
   let commands = $derived(renderedOperationCommands(operation));
   function label(key: string): string {
     $currentLanguageState;
@@ -16,25 +19,15 @@
   }
 </script>
 
-<section
-  class={`min-w-0 overflow-hidden rounded-xl border ${rollback ? "border-amber-500/25 bg-amber-500/5" : "border-primary/20 bg-primary/5"}`}
->
-  <div
-    class={`flex items-center gap-2 border-b px-3 py-2 text-xs font-medium ${rollback ? "border-amber-500/15 text-amber-700 dark:text-amber-400" : "border-primary/15 text-primary"}`}
-  >
-    {#if rollback}<Undo2Icon class="size-3.5" />{:else}<TerminalIcon
-        class="size-3.5"
-      />{/if}
-    {label(rollback ? "renderedCommandsRollback" : "renderedCommandsRun")}
-  </div>
-  <div class="divide-y divide-border/60">
-    {#each commands as command}
-      <div class="grid min-w-0 gap-2 p-3">
+<section class="min-w-0 flex-1">
+  <div class="grid min-w-0 gap-2.5">
+    {#each commands as command, commandIndex}
+      <div class="grid min-w-0 gap-1.5">
         <div
-          class="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"
+          class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] leading-4 text-muted-foreground"
         >
           <span
-            class="rounded-md border border-border bg-background/70 px-1.5 py-0.5 font-mono text-foreground"
+            class={`rounded border px-1.5 font-mono ${rollback ? "border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-400" : "border-primary/15 bg-primary/5 text-primary"}`}
             >{command.mode}</span
           >
           <span
@@ -44,26 +37,31 @@
                 : "commandMultilineModeSplitLines",
             )}</span
           >
+          {#if rollbackOnFailure && commandIndex === 0}
+            <span class="text-amber-700 dark:text-amber-400"
+              >{label("txBlockFormRollbackOnFailure")}</span
+            >
+          {/if}
         </div>
         <pre
-          class="min-w-0 overflow-x-auto whitespace-pre font-mono text-xs leading-6 text-foreground"
+          class="min-w-0 overflow-x-auto whitespace-pre font-mono text-xs leading-5 text-foreground"
           data-rendered-command>{command.command}</pre>
         {#if command.interaction.prompts.length > 0}
           <div
-            class="grid gap-2 rounded-lg border border-border/60 bg-background/60 p-2.5"
+            class="mt-1 grid min-w-0 gap-1.5 border-l-2 border-border pl-2.5"
           >
-            <div class="text-[11px] font-medium text-muted-foreground">
+            <div class="text-[10px] font-medium text-muted-foreground">
               {label("renderedCommandsPrompts")}
             </div>
             {#each command.interaction.prompts as prompt}
-              <div class="grid min-w-0 gap-1">
+              <div class="grid min-w-0 gap-0.5">
                 <div
                   class="break-all font-mono text-[11px] text-muted-foreground"
                 >
                   {prompt.patterns.join(" | ")}
                 </div>
                 <pre
-                  class="overflow-x-auto whitespace-pre font-mono text-xs text-foreground">{JSON.stringify(
+                  class="overflow-x-auto whitespace-pre font-mono text-[11px] text-foreground">{JSON.stringify(
                     prompt.response,
                   )}</pre>
               </div>
@@ -72,7 +70,7 @@
         {/if}
         {#if Object.entries(command.dyn_params).some(([, value]) => value !== null)}
           <dl
-            class="grid gap-1 rounded-lg border border-border/60 bg-background/60 p-2.5 font-mono text-xs"
+            class="mt-1 grid min-w-0 gap-1 border-l-2 border-border pl-2.5 font-mono text-[11px]"
           >
             {#each Object.entries(command.dyn_params).filter(([, value]) => value !== null) as [key, value]}
               <div class="grid min-w-0 gap-1 sm:grid-cols-[auto_1fr] sm:gap-3">

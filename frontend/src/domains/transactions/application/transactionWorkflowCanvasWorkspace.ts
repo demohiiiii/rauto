@@ -1,8 +1,13 @@
+import {
+  txStepScope,
+  txStepReplaceScope,
+} from "../model/transactionStepTree.js";
 import { t } from "../../../lib/i18n.js";
-import { get } from "svelte/store";
+import { get, writable } from "svelte/store";
 import type {
   FlowWorkflowBlockNodeData,
   FlowWorkflowAddActions,
+  FlowWorkflowCommandRow,
 } from "../../../components/fragments/flowWorkflowTypes.js";
 import {
   txWorkflowFindBlock,
@@ -17,6 +22,9 @@ import {
 import type { TxWorkflowBranch } from "../model/transactionWorkflowTree.js";
 import type {
   TxWorkflowChoiceModel,
+  TxChoiceModel,
+  TxStepPath,
+  TxStepControlModel,
   TxWorkflowFormModel,
   TxBlockFormModel,
   TxBlockCommandTarget,
@@ -31,6 +39,38 @@ import {
 } from "../model/transactionBlockMutations.js";
 import { txWorkflowVisualEditorBindings } from "./transactionWorkflowEditorState.js";
 import { createTransactionBlockTemplateRegistry } from "./transactionBlockTemplateAuthoring.js";
+
+function choiceBranchCanvasActions<T>(
+  control: TxChoiceModel<T> | null,
+  branchId: string,
+  editable: boolean,
+  update: (change: (choice: TxChoiceModel<T>) => TxChoiceModel<T>) => void,
+) {
+  const index =
+    control?.branches.findIndex((branch) => branch.editorId === branchId) ?? -1;
+  if (!control || index < 0) return {};
+  return {
+    editable,
+    canMovePrevious: index > 0,
+    canMoveNext: index < control.branches.length - 1,
+    canDelete: control.branches.length > 1,
+    movePreviousLabel: t("txWorkflowChoiceMoveUp"),
+    moveNextLabel: t("txWorkflowChoiceMoveDown"),
+    deleteLabel: t("txWorkflowChoiceRemoveBranch"),
+    onMovePrevious: () =>
+      update((choice) => txWorkflowMoveChoiceBranch(choice, branchId, -1)),
+    onMoveNext: () =>
+      update((choice) => txWorkflowMoveChoiceBranch(choice, branchId, 1)),
+    onDelete: () =>
+      update((choice) => txWorkflowRemoveChoiceBranch(choice, branchId)),
+    onChangeCondition: editable
+      ? (condition: string) =>
+          update((choice) =>
+            txWorkflowChangeChoiceBranch(choice, branchId, { condition }),
+          )
+      : undefined,
+  };
+}
 
 export function createTransactionWorkflowCanvasWorkspace({
   getModel,
@@ -68,6 +108,19 @@ export function createTransactionWorkflowCanvasWorkspace({
     templateOptions,
   });
 
+  const commandSelectionStateStore = writable<{
+    editorId: string;
+    path: TxStepPath;
+    operation: "run" | "rollback";
+  } | null>(null);
+  function selectCommand(
+    editorId: string,
+    path: TxStepPath,
+    operation: "run" | "rollback" = "run",
+  ): void {
+    commandSelectionStateStore.set({ editorId, path, operation });
+    onSelectStep?.(editorId, path[0], operation);
+  }
   function changeBranch(
     parentId: string | null,
     branch: TxWorkflowBranch,
@@ -134,6 +187,7 @@ export function createTransactionWorkflowCanvasWorkspace({
     change: (model: TxBlockFormModel) => TxBlockFormModel,
     selectIndex: number | undefined,
     sourceIndex?: number,
+    scopePath: TxStepPath = [],
   ): void {
     if (!canModify()) return;
     const block = txWorkflowFindBlock(getModel(), editorId)?.block;
@@ -148,67 +202,237 @@ export function createTransactionWorkflowCanvasWorkspace({
       !form
     )
       return;
+    const scope = txStepScope(form, scopePath);
+    if (!scope) return;
     if (
       sourceIndex !== undefined &&
       (!Number.isInteger(sourceIndex) ||
         sourceIndex < 0 ||
-        sourceIndex >= form.steps.length)
+        sourceIndex >= scope.steps.length)
     )
       return;
-    const next = change(form);
-    if (next === form) return;
-    template.changeFormModel(next);
+    const next = change(scope);
+    if (next === scope) return;
+    template.changeFormModel(
+      scopePath.length ? txStepReplaceScope(form, scopePath, next.steps) : next,
+    );
     if (next.steps.length && onSelectStep)
-      onSelectStep(
-        editorId,
+      selectCommand(editorId, [
+        ...scopePath,
         Math.min(selectIndex ?? next.steps.length - 1, next.steps.length - 1),
-      );
-    else onSelect(editorId);
+      ]);
+    else if (scopePath.length) selectCommand(editorId, scopePath.slice(0, -1));
+    else {
+      commandSelectionStateStore.set(null);
+      onSelect(editorId);
+    }
   }
-  function addCommand(editorId: string): void {
-    changeCommands(editorId, txBlockAddStep, undefined);
+  function addCommand(
+    editorId: string,
+    kind: "command" | "loop" | "choice" = "command",
+    scopePath: TxStepPath = [],
+  ): void {
+    changeCommands(
+      editorId,
+      (model) => txBlockAddStep(model, kind),
+      undefined,
+      undefined,
+      scopePath,
+    );
+  }
+  function mutateCommand(
+    editorId: string,
+    path: TxStepPath,
+    action: "previous" | "next" | "duplicate" | "delete" | "split",
+  ): void {
+    const index = path.at(-1)!;
+    const target =
+      index +
+      (action === "previous"
+        ? -1
+        : action === "next" || action === "duplicate"
+          ? 1
+          : 0);
+    changeCommands(
+      editorId,
+      (model) => {
+        if (
+          (action === "previous" || action === "next") &&
+          (target < 0 || target >= model.steps.length)
+        )
+          return model;
+        return action === "previous" || action === "next"
+          ? txBlockMoveStep(model, index, target)
+          : action === "duplicate"
+            ? txBlockDuplicateStep(model, index)
+            : action === "delete"
+              ? txBlockRemoveStep(model, index)
+              : txBlockSplitStep(model, index);
+      },
+      target,
+      index,
+      path.slice(0, -1),
+    );
   }
   function moveCommand(
     editorId: string,
     stepIndex: number,
     delta: -1 | 1,
   ): void {
-    const block = txWorkflowFindBlock(getModel(), editorId)?.block;
-    if (!block) return;
-    const state = get(templates.canvasStateStore)[editorId];
-    const count = (state?.formModel ?? block.inlineBlock).steps.length;
-    const target = stepIndex + delta;
-    if (target < 0 || target >= count) return;
-    changeCommands(
-      editorId,
-      (model) => txBlockMoveStep(model, stepIndex, target),
-      target,
-      stepIndex,
-    );
+    mutateCommand(editorId, [stepIndex], delta === -1 ? "previous" : "next");
   }
   function duplicateCommand(editorId: string, stepIndex: number): void {
-    changeCommands(
-      editorId,
-      (model) => txBlockDuplicateStep(model, stepIndex),
-      stepIndex + 1,
-      stepIndex,
-    );
+    mutateCommand(editorId, [stepIndex], "duplicate");
   }
   function removeCommand(editorId: string, stepIndex: number): void {
-    changeCommands(
-      editorId,
-      (model) => txBlockRemoveStep(model, stepIndex),
-      stepIndex,
-      stepIndex,
-    );
+    mutateCommand(editorId, [stepIndex], "delete");
   }
   function splitCommand(editorId: string, stepIndex: number): void {
+    mutateCommand(editorId, [stepIndex], "split");
+  }
+  function changeStepControl(
+    editorId: string,
+    path: TxStepPath,
+    change: (control: TxStepControlModel) => TxStepControlModel,
+  ): void {
+    const index = path.at(-1)!;
     changeCommands(
       editorId,
-      (model) => txBlockSplitStep(model, stepIndex),
-      stepIndex,
-      stepIndex,
+      (model) => {
+        const step = model.steps[index];
+        return step?.control
+          ? {
+              ...model,
+              steps: model.steps.map((entry, i) =>
+                i === index
+                  ? { ...step, control: change(step.control!) }
+                  : entry,
+              ),
+            }
+          : model;
+      },
+      index,
+      index,
+      path.slice(0, -1),
     );
+  }
+  function commandAddActions(editorId: string, scopePath: TxStepPath) {
+    return {
+      addCommandLabel: t("txWorkflowAddCommand"),
+      onAddCommand: () => addCommand(editorId, "command", scopePath),
+      addCommandControlActions: (["loop", "choice"] as const).map((kind) => ({
+        label: t(kind === "loop" ? "txWorkflowLoop" : "txWorkflowChoice"),
+        onAdd: () => addCommand(editorId, kind, scopePath),
+      })),
+    };
+  }
+  function decorateCommands(
+    editorId: string,
+    data: FlowWorkflowBlockNodeData,
+    blockModel: TxBlockFormModel,
+    scopePath: TxStepPath = [],
+  ): FlowWorkflowCommandRow[] {
+    const scope = txStepScope(blockModel, scopePath);
+    return data.commandRows.map((row, stepIndex) => {
+      const path = [...scopePath, stepIndex];
+      const selection = get(commandSelectionStateStore);
+      const activePath =
+        selection?.editorId === editorId &&
+        selection.path[0] === getSelectedStepIndex()
+          ? selection.path
+          : [getSelectedStepIndex()];
+      const selected =
+        getSelectedId() === editorId &&
+        path.length === activePath.length &&
+        path.every((index, i) => index === activePath[i]);
+      const splitStatus = txBlockStepSplitStatus(scope?.steps[stepIndex]);
+      const actions = {
+        editable: canModify() && data.canAddCommand,
+        selected: selected && getSelectedOperation() === "run",
+        rollbackSelected: selected && getSelectedOperation() === "rollback",
+        onSelect: onSelectStep
+          ? () => selectCommand(editorId, path)
+          : undefined,
+        onSelectRollback: onSelectStep
+          ? () => selectCommand(editorId, path, "rollback")
+          : undefined,
+        canMovePrevious: stepIndex > 0,
+        canMoveNext: stepIndex < data.commandRows.length - 1,
+        movePreviousLabel: t("txWorkflowMoveCommandUp"),
+        moveNextLabel: t("txWorkflowMoveCommandDown"),
+        duplicateLabel: t("txWorkflowDuplicateCommand"),
+        deleteLabel: t("txWorkflowDeleteCommand"),
+        onMovePrevious: () => mutateCommand(editorId, path, "previous"),
+        onMoveNext: () => mutateCommand(editorId, path, "next"),
+        onDuplicate: () => mutateCommand(editorId, path, "duplicate"),
+        onDelete: () => mutateCommand(editorId, path, "delete"),
+      };
+      const control = scope?.steps[stepIndex]?.control;
+      return {
+        ...row,
+        ...actions,
+        canSplit: splitStatus !== "unavailable",
+        splitDisabled: splitStatus !== "ready",
+        splitLabel: t("txWorkflowSplitCommand"),
+        splitHint: t(
+          splitStatus === "rollback_exceeds_run"
+            ? "txWorkflowSplitRollbackExceedsRun"
+            : splitStatus === "interactive_rollback"
+              ? "txWorkflowSplitInteractiveRollback"
+              : "txWorkflowSplitCommandHint",
+        ),
+        onSplit: () => mutateCommand(editorId, path, "split"),
+        ...(row.controlNode && control
+          ? {
+              controlNode: {
+                ...row.controlNode,
+                id: `${editorId}-command-${path.join("-")}`,
+                ...actions,
+                readonly: !canModify(),
+                structure: row.controlNode.structure
+                  ? {
+                      ...row.controlNode.structure,
+                      onAddBranch: () =>
+                        changeStepControl(editorId, path, (c) =>
+                          c.kind === "choice"
+                            ? txWorkflowAddChoiceBranch(c)
+                            : c,
+                        ),
+                      branches: row.controlNode.structure.branches.map(
+                        (branch, branchIndex) => ({
+                          ...branch,
+                          ...choiceBranchCanvasActions(
+                            control.kind === "choice" ? control : null,
+                            branch.id,
+                            !!actions.editable,
+                            (change) =>
+                              changeStepControl(editorId, path, (c) =>
+                                c.kind === "choice" ? change(c) : c,
+                              ),
+                          ),
+                          entries: branch.entries.map((entry) => ({
+                            ...entry,
+                            readonly: !canModify(),
+                            ...commandAddActions(editorId, [
+                              ...path,
+                              branchIndex,
+                            ]),
+                            commandRows: decorateCommands(
+                              editorId,
+                              entry,
+                              blockModel,
+                              [...path, branchIndex],
+                            ),
+                          })),
+                        }),
+                      ),
+                    }
+                  : undefined,
+              },
+            }
+          : {}),
+      };
+    });
   }
   function changeChoice(
     editorId: string,
@@ -224,36 +448,12 @@ export function createTransactionWorkflowCanvasWorkspace({
   }
   function choiceBranchActions(editorId: string, branchId: string) {
     const control = txWorkflowFindBlock(getModel(), editorId)?.block.control;
-    if (control?.kind !== "choice") return {};
-    const index = control.branches.findIndex(
-      (branch) => branch.editorId === branchId,
+    return choiceBranchCanvasActions(
+      control?.kind === "choice" ? control : null,
+      branchId,
+      canModify(),
+      (change) => changeChoice(editorId, change),
     );
-    if (index < 0) return {};
-    return {
-      editable: canModify(),
-      canMovePrevious: index > 0,
-      canMoveNext: index < control.branches.length - 1,
-      canDelete: control.branches.length > 1,
-      movePreviousLabel: t("txWorkflowChoiceMoveUp"),
-      moveNextLabel: t("txWorkflowChoiceMoveDown"),
-      deleteLabel: t("txWorkflowChoiceRemoveBranch"),
-      onMovePrevious: () =>
-        changeChoice(editorId, (choice) =>
-          txWorkflowMoveChoiceBranch(choice, branchId, -1),
-        ),
-      onMoveNext: () =>
-        changeChoice(editorId, (choice) =>
-          txWorkflowMoveChoiceBranch(choice, branchId, 1),
-        ),
-      onDelete: () =>
-        changeChoice(editorId, (choice) =>
-          txWorkflowRemoveChoiceBranch(choice, branchId),
-        ),
-      onChangeCondition: (condition: string) =>
-        changeChoice(editorId, (choice) =>
-          txWorkflowChangeChoiceBranch(choice, branchId, { condition }),
-        ),
-    };
   }
   function addActions(
     parentId: string | null = null,
@@ -301,8 +501,7 @@ export function createTransactionWorkflowCanvasWorkspace({
       onMoveNext: () => moveBlock(id, location.blockIndex + 1),
       onDuplicate: () => duplicateBlock(id),
       onDelete: () => removeBlock(id),
-      addCommandLabel: t("txWorkflowAddCommand"),
-      onAddCommand: () => addCommand(id),
+      ...commandAddActions(id, []),
       wholeResourceRollback: data.wholeResourceRollback
         ? {
             ...data.wholeResourceRollback,
@@ -314,50 +513,9 @@ export function createTransactionWorkflowCanvasWorkspace({
               : undefined,
           }
         : null,
-      commandRows: data.commandRows.map((row, stepIndex) => {
-        const splitStatus = txBlockStepSplitStatus(
-          blockModel?.steps[stepIndex],
-        );
-        return {
-          ...row,
-          editable: canModify() && data.canAddCommand,
-          selected:
-            getSelectedId() === id &&
-            getSelectedStepIndex() === stepIndex &&
-            getSelectedOperation() === "run",
-          rollbackSelected:
-            getSelectedId() === id &&
-            getSelectedStepIndex() === stepIndex &&
-            getSelectedOperation() === "rollback",
-          onSelect: onSelectStep
-            ? () => onSelectStep(id, stepIndex)
-            : undefined,
-          onSelectRollback: onSelectStep
-            ? () => onSelectStep(id, stepIndex, "rollback")
-            : undefined,
-          canMovePrevious: stepIndex > 0,
-          canMoveNext: stepIndex < data.commandRows.length - 1,
-          movePreviousLabel: t("txWorkflowMoveCommandUp"),
-          moveNextLabel: t("txWorkflowMoveCommandDown"),
-          duplicateLabel: t("txWorkflowDuplicateCommand"),
-          deleteLabel: t("txWorkflowDeleteCommand"),
-          canSplit: splitStatus !== "unavailable",
-          splitDisabled: splitStatus !== "ready",
-          splitLabel: t("txWorkflowSplitCommand"),
-          splitHint: t(
-            splitStatus === "rollback_exceeds_run"
-              ? "txWorkflowSplitRollbackExceedsRun"
-              : splitStatus === "interactive_rollback"
-                ? "txWorkflowSplitInteractiveRollback"
-                : "txWorkflowSplitCommandHint",
-          ),
-          onMovePrevious: () => moveCommand(id, stepIndex, -1),
-          onMoveNext: () => moveCommand(id, stepIndex, 1),
-          onDuplicate: () => duplicateCommand(id, stepIndex),
-          onDelete: () => removeCommand(id, stepIndex),
-          onSplit: () => splitCommand(id, stepIndex),
-        };
-      }),
+      commandRows: blockModel
+        ? decorateCommands(id, data, blockModel)
+        : data.commandRows,
       ...(data.structure
         ? {
             structure: {
@@ -382,6 +540,8 @@ export function createTransactionWorkflowCanvasWorkspace({
     };
   }
   return {
+    commandSelectionStateStore,
+    selectCommand,
     model: getModel,
     addNode,
     moveBlock,

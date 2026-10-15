@@ -251,7 +251,9 @@ function txVarsAssistantEntryInputPresentation(
   }: { valueTypeOptions?: readonly TxVarsValueTypeOption[] } = {},
 ) {
   const type = assistantEntry.type ?? "string";
+  const parsedValue = txVarsAssistantParseValue(assistantEntry);
   return {
+    booleanValue: typeof parsedValue === "boolean" ? parsedValue : null,
     controlKind: type === "json" ? "json-editor" : "text-input",
     entryId: assistantEntry.id ?? "",
     keyValue: assistantEntry.key ?? "",
@@ -260,6 +262,10 @@ function txVarsAssistantEntryInputPresentation(
       type === "boolean" ? "true / false" : type === "number" ? "123" : "",
     removeButtonLabel: t("txVarsFormRemoveBtn"),
     showJsonEditor: type === "json",
+    valuePreview:
+      type === "json"
+        ? JSON.stringify(parsedValue)
+        : (assistantEntry.valueText ?? ""),
     typeOptionRows: valueTypeOptions.map((typeOption) => ({
       labelText: t(typeOption.labelKey),
       typeValue: typeOption.value,
@@ -383,7 +389,7 @@ function txVarsParseText(rawText = ""): TxVarsParseResult {
   }
 
   try {
-    const parsedValue: unknown = JSON.parse(trimmedText);
+    const parsedValue: unknown = JSON.parse(rawText);
     if (
       !parsedValue ||
       typeof parsedValue !== "object" ||

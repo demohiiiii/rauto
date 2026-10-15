@@ -385,6 +385,40 @@ mod tests {
     }
 
     #[test]
+    fn block_template_controls_use_their_own_scope_when_the_plan_is_rendered() {
+        let block = json!({"name":"block", "fail_fast":true, "rollback_policy":"per_step", "steps":[
+            {"kind":"loop", "iterations":"vars.commands", "steps":[{
+                "run":{"kind":"command", "mode":"User", "command":"{{ item }} {{ connection.host }}"},
+                "rollback":{"kind":"command", "mode":"User", "command":"undo {{ vars.item }}"}
+            }]}
+        ]});
+        let source = json!({"name":"plan", "stages":[{"name":"stage", "strategy":"serial", "jobs":[{
+            "strategy":"serial", "targets":["target"], "action":{"kind":"tx_workflow", "workflow":{
+                "name":"workflow", "fail_fast":true, "blocks":[{
+                    "tx_block_template_content":serde_json::to_string(&block).unwrap(),
+                    "tx_block_template_vars":{"commands":"{{ vars.commands }}"}
+                }]
+            }}
+        }]}]});
+        let plan = Renderer::new()
+            .render_orchestration_plan(&source, &json!({"vars":{"commands":["first", "second"]}}))
+            .unwrap();
+        let super::super::OrchestrationAction::TxWorkflow(action) = &plan.stages[0].jobs[0].action;
+        let workflow = load_workflow(action, &connection("target", "edge")).unwrap();
+        let value = serde_json::to_value(workflow).unwrap();
+        assert_eq!(value["blocks"].as_array().unwrap().len(), 1);
+        assert_eq!(value["blocks"][0]["steps"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            value["blocks"][0]["steps"][0]["run"]["command"],
+            "first target"
+        );
+        assert_eq!(
+            value["blocks"][0]["steps"][1]["rollback"]["command"],
+            "undo second"
+        );
+    }
+
+    #[test]
     fn inline_controls_use_each_target_context_and_keep_plan_vars() {
         let block = |name: &str, command: &str| {
             json!({

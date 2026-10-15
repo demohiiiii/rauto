@@ -78,3 +78,55 @@ test("transaction vars preserve JSON property order and report invalid input", (
     ["first", "0", "later"],
   );
 });
+
+test("typed variable controls preserve nested values and boolean types", () => {
+  const form = createTxVarsAssistantCardWorkspace({
+    getPrefix: () => "tx-workflow-direct",
+  });
+  const targets = [{ address: "192.0.2.1", description: "two  spaces" }];
+  setTxVarsRawText(
+    TX_VARS.txWorkflowDirect,
+    JSON.stringify({ enabled: true, targets, optional: null, retries: 3 }),
+  );
+  const rows = get(form.assistantDisplayStateStore).assistantEntryInputRows;
+  const enabled = rows.find((row) => row.keyValue === "enabled")!;
+  const list = rows.find((row) => row.keyValue === "targets")!;
+  assert.equal(enabled.booleanValue, true);
+  assert.deepEqual(JSON.parse(list.valuePreview), targets);
+  assert.equal(list.showJsonEditor, true);
+
+  const actions = get(form.assistantActionsStateStore);
+  actions.updateEntryValue(enabled.entryId)("false");
+  actions.updateEntryJsonValue(list.entryId)(
+    JSON.stringify([...targets, { address: "192.0.2.2", tags: ["edge", 2] }]),
+  );
+  assert.deepEqual(
+    JSON.parse(get(txVarsTextStateFor(TX_VARS.txWorkflowDirect)).raw),
+    {
+      enabled: false,
+      targets: [...targets, { address: "192.0.2.2", tags: ["edge", 2] }],
+      optional: null,
+      retries: 3,
+    },
+  );
+});
+
+test("unfinished boolean input remains editable without discarding its text", () => {
+  const form = createTxVarsAssistantCardWorkspace({
+    getPrefix: () => "orchestration-direct",
+  });
+  setTxVarsRawText(TX_VARS.orchestrationDirect, '{"enabled":"pending"}');
+  const actions = get(form.assistantActionsStateStore);
+  const entry = get(form.assistantDisplayStateStore).assistantEntryInputRows[0];
+  actions.updateEntryType(entry.entryId)({
+    currentTarget: { value: "boolean" },
+    target: { value: "boolean" },
+  });
+  const row = get(form.assistantDisplayStateStore).assistantEntryInputRows[0];
+  assert.equal(row.booleanValue, null);
+  assert.equal(row.valueText, "pending");
+  assert.deepEqual(
+    JSON.parse(get(txVarsTextStateFor(TX_VARS.orchestrationDirect)).raw),
+    { enabled: "pending" },
+  );
+});

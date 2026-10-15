@@ -1,3 +1,4 @@
+import { createTxWorkflowBlockEditorId } from "./transactionBlockFormModels.js";
 import {
   cloneJsonValue,
   plainObject,
@@ -263,10 +264,30 @@ export function txBlockChangeWholeResourceExtra(
   return next;
 }
 
-export function txBlockAddStep(model: TxBlockFormModel): TxBlockFormModel {
+export function txBlockAddStep(
+  model: TxBlockFormModel,
+  kind: "command" | "loop" | "choice" = "command",
+): TxBlockFormModel {
   const next = txBlockCloneModel(model);
   if (!Array.isArray(next.steps)) next.steps = [];
-  next.steps.push(txBlockStepDraft());
+  const step = txBlockStepDraft();
+  if (kind !== "command")
+    step.control =
+      kind === "loop"
+        ? { kind, iterations: "1", itemVariable: "item", blocks: [] }
+        : {
+            kind,
+            name: "",
+            branches: [
+              {
+                editorId: createTxWorkflowBlockEditorId(),
+                condition: "",
+                blocks: [],
+              },
+            ],
+            otherwise: [],
+          };
+  next.steps.push(step);
   return next;
 }
 
@@ -303,7 +324,8 @@ function txBlockOperationCommandLines(operation: TxOperationModel): string[] {
 export function txBlockStepSplitStatus(
   step: TxStepFormModel | undefined,
 ): "unavailable" | "ready" | "rollback_exceeds_run" | "interactive_rollback" {
-  if (!step || !txBlockOperationCanSplit(step.run)) return "unavailable";
+  if (!step || step.control || !txBlockOperationCanSplit(step.run))
+    return "unavailable";
   const runLineCount = txBlockOperationCommandLines(step.run).length;
   if (runLineCount < 2) return "unavailable";
   if (step.rollback) {

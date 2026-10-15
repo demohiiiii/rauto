@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { getContext, untrack } from "svelte";
+  import { getContext, tick, untrack } from "svelte";
   import { readable } from "svelte/store";
   import type { Readable } from "svelte/store";
   import CodeMirror from "svelte-codemirror-editor";
   import type { ThemeSpec } from "svelte-codemirror-editor";
   import { json } from "@codemirror/lang-json";
+  import { setDiagnostics } from "@codemirror/lint";
+  import type { EditorView } from "@codemirror/view";
   import { Skeleton } from "$lib/components/ui/skeleton/index.js";
   import { jsonTextEditorBindings } from "../../lib/events.js";
   import {
@@ -12,6 +14,11 @@
     readonlyFieldsContextKey,
   } from "../../lib/svelte.js";
   import { classNames } from "../../lib/ui.js";
+  import type { JsonParseErrorDetail } from "../../lib/jsonValue.js";
+  import {
+    jsonEditorDiagnostic,
+    jsonEditorDiagnosticExtensions,
+  } from "./jsonEditorDiagnostics.js";
 
   type EditorTheme = "dark" | "light";
 
@@ -25,6 +32,7 @@
     "aria-label"?: string;
     class?: string;
     compact?: boolean;
+    diagnostic?: JsonParseErrorDetail | null;
     fill?: boolean;
     hidden?: boolean;
     immediate?: boolean;
@@ -40,6 +48,7 @@
     class: cssClass = "",
     "aria-label": ariaLabel,
     compact = false,
+    diagnostic,
     fill = false,
     hidden = false,
     immediate = false,
@@ -54,6 +63,11 @@
   );
   let editorReadonly = $derived(readonly || !!inheritedReadonly?.());
   const jsonLanguage = json();
+  const diagnosticExtensions = jsonEditorDiagnosticExtensions();
+  let editorView = $state.raw<EditorView | null>(null);
+  let editorExtensions = $derived(
+    diagnostic === undefined ? [] : diagnosticExtensions,
+  );
   const dashboardThemeState: Readable<DashboardThemeContext> =
     getContext<Readable<DashboardThemeContext>>(dashboardThemeContextKey) ||
     readable({
@@ -122,6 +136,23 @@
       editorText = nextText;
     }
   });
+
+  $effect(() => {
+    const view = editorView;
+    const detail = diagnostic;
+    editorText;
+    if (!active || !view || detail === undefined) return;
+    let cancelled = false;
+    void tick().then(() => {
+      if (!cancelled)
+        view.dispatch(
+          setDiagnostics(view.state, jsonEditorDiagnostic(view.state, detail)),
+        );
+    });
+    return () => {
+      cancelled = true;
+    };
+  });
 </script>
 
 <div
@@ -135,6 +166,11 @@
   {hidden}
   title={placeholder}
 >
+  {#if diagnostic !== undefined}
+    <span class="sr-only" role="status" aria-live="polite"
+      >{diagnostic?.message || ""}</span
+    >
+  {/if}
   {#if active}
     {#key editorTheme}
       <CodeMirror
@@ -147,6 +183,10 @@
         {placeholder}
         styles={editorStyles}
         tabSize={2}
+        extensions={editorExtensions}
+        onready={(view) => {
+          editorView = view;
+        }}
         onchange={editorBindings.changeHandler()}
       />
     {/key}

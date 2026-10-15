@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { txBlockCommandTitle } from "../../transactionWorkflowCanvasState.js";
   import FlowWorkflowGroupNode from "$components/fragments/FlowWorkflowGroupNode.svelte";
   import FlowWorkflowBlockNode from "$components/fragments/FlowWorkflowBlockNode.svelte";
   import { FLOW_WORKFLOW_FIT_OPTIONS } from "$components/fragments/flowWorkflowLayout.js";
@@ -138,6 +139,7 @@
     },
   });
   const { addNode, moveBlock, duplicateBlock, removeBlock } = canvasWorkspace;
+  const commandSelectionStore = canvasWorkspace.commandSelectionStateStore;
   const blockCanvasStateStore = canvasWorkspace.templates.canvasStateStore;
   $effect(() => canvasWorkspace.sync());
   onDestroy(canvasWorkspace.destroy);
@@ -235,15 +237,18 @@
       selectedTarget.kind === "block" &&
       selectedTarget.stepIndex !== undefined
     ) {
-      const operation = (
+      const block =
         $blockCanvasStateStore[selectedTarget.editorId]?.formModel ??
-        selectedBlockRow?.block.inlineBlock
-      )?.steps[selectedTarget.stepIndex]?.run;
-      return operation?.kind === "flow" ||
-        operation?.commandEditorKind === "interactive" ||
-        !!operation?.command.interaction?.prompts.length
-        ? t("txBlockOperationKindInteractive")
-        : t("txBlockFormCommand");
+        selectedBlockRow?.block.inlineBlock;
+      const selected = $commandSelectionStore;
+      return txBlockCommandTitle(
+        block,
+        selected?.editorId === selectedTarget.editorId &&
+          selected.path[0] === selectedTarget.stepIndex
+          ? selected.path
+          : [selectedTarget.stepIndex],
+        selectedTarget.operation,
+      );
     }
     return selectedBlockRow
       ? blockName(selectedBlockRow)

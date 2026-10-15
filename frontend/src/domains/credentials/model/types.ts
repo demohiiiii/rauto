@@ -99,6 +99,8 @@ export interface CredentialStatus {
 
 export interface CredentialsPageState {
   credentials: CredentialRow[];
+  deleteTarget: CredentialRow | null;
+  deleting: boolean;
   form: CredentialForm;
   loaded: boolean;
   loading: boolean;
@@ -184,11 +186,13 @@ export interface CredentialImportWorkspaceOptions extends CredentialsWorkspaceOp
 }
 
 export interface CredentialsPageWorkspace {
+  cancelRemove(): void;
   displayStateStore: Readable<CredentialsPageDisplay>;
   handleImported(report: CredentialImportReport): Promise<void>;
   loadCredentials(selectId?: string): Promise<void>;
   patchForm(patch: Partial<CredentialForm>): void;
   remove(): Promise<void>;
+  requestRemove(): void;
   resetForm(): void;
   save(): Promise<void>;
   selectCredential(id: string): Promise<void>;

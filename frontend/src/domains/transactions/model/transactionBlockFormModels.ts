@@ -20,6 +20,7 @@ import type {
   TxRollbackPolicyModel,
   TxRuntimePromptModel,
   TxStepFormModel,
+  TxControlModel,
   TxValidationError,
   TxWholeResourceRollbackModel,
   TxWorkflowBlockFormModel,
@@ -32,6 +33,30 @@ export function createTxWorkflowBlockEditorId(): string {
 }
 
 const TX_BLOCK_ROLLBACK_KINDS = new Set(["none", "per_step", "whole_resource"]);
+const TX_LOOP_RESERVED = new Set([
+  "vars",
+  "loop",
+  "connection",
+  "connections",
+  "now",
+  "defaults",
+  "true",
+  "false",
+  "none",
+  "True",
+  "False",
+  "None",
+  "self",
+  "super",
+  "if",
+  "else",
+  "for",
+  "in",
+  "not",
+  "and",
+  "or",
+  "is",
+]);
 const TX_OPERATION_KINDS = new Set(["command", "flow"]);
 
 const cloneTxJsonValue = cloneJsonValue as unknown as {
@@ -356,9 +381,68 @@ function txRollbackPolicyJsonFromModel(
   return "none";
 }
 
+function txControlModelFromJson<T>(
+  value: JsonObject,
+  collection: "blocks" | "steps",
+  parse: (source: unknown) => T,
+): TxControlModel<T> | undefined {
+  const children = (source: unknown): T[] =>
+    Array.isArray(source) ? source.map(parse) : [];
+  if (value.kind === "loop")
+    return {
+      kind: "loop",
+      iterations: stringValue(value.iterations, "1"),
+      itemVariable: stringValue(value.item_variable, "item"),
+      blocks: children(value[collection]),
+    };
+  if (value.kind === "choice")
+    return {
+      kind: "choice",
+      name: stringValue(value.name),
+      branches: (Array.isArray(value.branches)
+        ? value.branches
+        : [{ condition: value.condition, [collection]: value.then }]
+      ).map((source) => {
+        const branch = plainObject(source) ? source : {};
+        return {
+          editorId: createTxWorkflowBlockEditorId(),
+          condition: stringValue(branch.condition),
+          blocks: children(branch[collection]),
+        };
+      }),
+      otherwise: children(value.else),
+    };
+  return undefined;
+}
+
+function txControlJsonFromModel<T>(
+  control: TxControlModel<T>,
+  collection: "blocks" | "steps",
+  serialize: (model: T) => JsonObject,
+): JsonObject {
+  return control.kind === "loop"
+    ? {
+        kind: "loop",
+        iterations: control.iterations,
+        item_variable: control.itemVariable,
+        [collection]: control.blocks.map(serialize),
+      }
+    : {
+        kind: "choice",
+        name: control.name,
+        branches: control.branches.map((branch) => ({
+          condition: branch.condition,
+          [collection]: branch.blocks.map(serialize),
+        })),
+        else: control.otherwise.map(serialize),
+      };
+}
+
 function txStepModelFromJson(source: unknown = {}): TxStepFormModel {
   const value = plainObject(source) ? source : {};
+  const control = txControlModelFromJson(value, "steps", txStepModelFromJson);
   return {
+    ...(control ? { control } : {}),
     run: txOperationModelFromJson(value.run),
     rollback: value.rollback ? txOperationModelFromJson(value.rollback) : null,
     hasRollback: Object.hasOwn(value, "rollback"),
@@ -368,6 +452,8 @@ function txStepModelFromJson(source: unknown = {}): TxStepFormModel {
 }
 
 function txStepJsonFromModel(step: Partial<TxStepFormModel> = {}): JsonObject {
+  if (step.control)
+    return txControlJsonFromModel(step.control, "steps", txStepJsonFromModel);
   return {
     run: txOperationJsonFromModel(step.run),
     rollback: step.rollback ? txOperationJsonFromModel(step.rollback) : null,
@@ -421,12 +507,68 @@ export function validateTxBlockFormModel(
     txValidationError(errors, "steps", "txBlockValidationStepsRequired");
   }
 
-  steps.forEach((step, index) => {
-    txValidateOperation(errors, `steps[${index}].run`, step.run);
-    if (step.rollback) {
-      txValidateOperation(errors, `steps[${index}].rollback`, step.rollback);
+  function validateSteps(
+    items: TxStepFormModel[],
+    prefix: string,
+    depth: number,
+  ): void {
+    if (depth > 16) {
+      txValidationError(errors, prefix, "txBlockValidationControlDepth");
+      return;
     }
-  });
+    items.forEach((step, index) => {
+      const path = `${prefix}[${index}]`;
+      const control = step.control;
+      if (!control) {
+        txValidateOperation(errors, `${path}.run`, step.run);
+        if (step.rollback)
+          txValidateOperation(errors, `${path}.rollback`, step.rollback);
+      } else if (control.kind === "loop") {
+        if (!control.iterations.trim())
+          txValidationError(
+            errors,
+            `${path}.control.iterations`,
+            "txBlockValidationLoopExpression",
+          );
+        if (
+          !/^[A-Za-z_][A-Za-z0-9_]*$/.test(control.itemVariable) ||
+          TX_LOOP_RESERVED.has(control.itemVariable)
+        )
+          txValidationError(
+            errors,
+            `${path}.control.itemVariable`,
+            "txBlockValidationLoopItem",
+          );
+        validateSteps(control.blocks, `${path}.control.blocks`, depth + 1);
+      } else {
+        if (!control.branches.length)
+          txValidationError(
+            errors,
+            `${path}.control.branches`,
+            "txBlockValidationChoiceCondition",
+          );
+        control.branches.forEach((branch, branchIndex) => {
+          if (!branch.condition.trim())
+            txValidationError(
+              errors,
+              `${path}.control.branches[${branchIndex}].condition`,
+              "txBlockValidationChoiceCondition",
+            );
+          validateSteps(
+            branch.blocks,
+            `${path}.control.branches[${branchIndex}].blocks`,
+            depth + 1,
+          );
+        });
+        validateSteps(
+          control.otherwise,
+          `${path}.control.otherwise`,
+          depth + 1,
+        );
+      }
+    });
+  }
+  validateSteps(steps, "steps", 0);
 
   if (model.rollbackPolicy?.kind === "whole_resource") {
     const wholeResource: Partial<TxWholeResourceRollbackModel> =
@@ -623,8 +765,6 @@ export function txWorkflowBlockFormModelFromJson(
   const hasTemplateContent = value.tx_block_template_content != null;
   const sourceKind =
     hasTemplateName || hasTemplateContent ? "template_ref" : "inline";
-  const children = (value: unknown): TxWorkflowBlockFormModel[] =>
-    Array.isArray(value) ? value.map(txWorkflowBlockFormModelFromJson) : [];
   return {
     editorId: createTxWorkflowBlockEditorId(),
     sourceKind,
@@ -634,35 +774,11 @@ export function txWorkflowBlockFormModelFromJson(
         ? value
         : defaultTxWorkflowTemplateRefBlockPayload(),
     ),
-    ...(value.kind === "loop"
-      ? {
-          control: {
-            kind: "loop" as const,
-            iterations: stringValue(value.iterations, "1"),
-            itemVariable: stringValue(value.item_variable, "item"),
-            blocks: children(value.blocks),
-          },
-        }
-      : value.kind === "choice"
-        ? {
-            control: {
-              kind: "choice" as const,
-              name: stringValue(value.name),
-              branches: (Array.isArray(value.branches)
-                ? value.branches
-                : [{ condition: value.condition, blocks: value.then }]
-              ).map((branch) => {
-                const entry = plainObject(branch) ? branch : {};
-                return {
-                  editorId: createTxWorkflowBlockEditorId(),
-                  condition: stringValue(entry.condition),
-                  blocks: children(entry.blocks),
-                };
-              }),
-              otherwise: children(value.else),
-            },
-          }
-        : {}),
+    control: txControlModelFromJson(
+      value,
+      "blocks",
+      txWorkflowBlockFormModelFromJson,
+    ),
   };
 }
 
@@ -670,23 +786,11 @@ export function txWorkflowBlockJsonFromFormModel(
   model: Partial<TxWorkflowBlockFormModel> = {},
 ): JsonObject {
   if (model.control) {
-    const control = model.control;
-    return control.kind === "loop"
-      ? {
-          kind: "loop",
-          iterations: control.iterations,
-          item_variable: control.itemVariable,
-          blocks: control.blocks.map(txWorkflowBlockJsonFromFormModel),
-        }
-      : {
-          kind: "choice",
-          name: control.name,
-          branches: control.branches.map((branch) => ({
-            condition: branch.condition,
-            blocks: branch.blocks.map(txWorkflowBlockJsonFromFormModel),
-          })),
-          else: control.otherwise.map(txWorkflowBlockJsonFromFormModel),
-        };
+    return txControlJsonFromModel(
+      model.control,
+      "blocks",
+      txWorkflowBlockJsonFromFormModel,
+    );
   }
   if (model.sourceKind === "template_ref") {
     return txWorkflowTemplateRefBlockJsonFromModel(model.templateRef || {});

@@ -32,7 +32,7 @@ export function createCredentialCreateWorkspace(
   const stateStore = writable<CredentialCreateState>(newCreateState());
 
   function updateState(mutation: (state: CredentialCreateState) => void): void {
-    const state = get(stateStore);
+    const state = { ...get(stateStore) };
     mutation(state);
     stateStore.set(state);
   }

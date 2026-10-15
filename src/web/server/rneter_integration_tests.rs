@@ -1882,6 +1882,105 @@ fn http_workflow_controls_expand_and_preserve_cross_iteration_rollback() {
 }
 
 #[test]
+fn http_block_local_controls_preview_and_rollback_inside_one_transaction() {
+    run_route_test(|context| async move {
+        let device = context
+            .spawn_cisco("block-controls", FaultInjection::new())
+            .await;
+        let op = |command: &str| json!({"kind":"command", "mode":"Enable", "command":command, "timeout":10});
+        let workflow = json!({"name":"block-controls", "fail_fast":true, "blocks":[{
+            "name":"single-transaction", "rollback_policy":"per_step", "fail_fast":true,
+            "steps":[
+                {"kind":"loop", "iterations":"vars.commands", "item_variable":"command", "steps":[
+                    {"run":op("{{ command }}"), "rollback":op("show version")}
+                ]},
+                {"kind":"choice", "branches":[
+                    {"condition":"vars.fail", "steps":[{"run":op("make-error")}]}
+                ], "else":[{"run":op("show interfaces")}]}
+            ]
+        }]});
+        let mut cursor = 0;
+        for fail in [false, true] {
+            let vars = json!({"commands":["show clock", "show inventory"], "fail":fail});
+            let dry_run = context
+                .post_json(
+                    "/api/tx/workflow",
+                    json!({
+                        "connection":{"connection_name":device.connection_name},
+                        "workflow":workflow, "workflow_vars":vars, "dry_run":true,
+                    }),
+                )
+                .await;
+            let preview = dry_run.assert_ok();
+            assert_eq!(preview["workflow"]["blocks"].as_array().unwrap().len(), 1);
+            assert_eq!(
+                preview["workflow"]["blocks"][0]["steps"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                3
+            );
+            assert_eq!(
+                preview["workflow"]["blocks"][0]["steps"][0]["run"]["command"],
+                "show clock"
+            );
+            let response = context
+                .post_json(
+                    "/api/tx/workflow",
+                    json!({
+                        "connection":{"connection_name":device.connection_name},
+                        "workflow":workflow, "workflow_vars":vars,
+                    }),
+                )
+                .await;
+            let result = response.assert_ok();
+            assert_eq!(result["tx_workflow_result"]["committed"], !fail);
+            assert_eq!(result["workflow"]["blocks"].as_array().unwrap().len(), 1);
+            if fail {
+                assert_eq!(result["tx_workflow_result"]["rollback_succeeded"], true);
+                assert_next_commands(
+                    &device.handle,
+                    &mut cursor,
+                    &[
+                        "show clock",
+                        "show inventory",
+                        "make-error",
+                        "show version",
+                        "show version",
+                    ],
+                );
+            } else {
+                assert_next_commands(
+                    &device.handle,
+                    &mut cursor,
+                    &["show clock", "show inventory", "show interfaces"],
+                );
+            }
+        }
+        let template_preview = context.post_json("/api/tx/workflow", json!({
+            "connection":{"connection_name":device.connection_name}, "dry_run":true,
+            "workflow":{"name":"template-reference", "fail_fast":true, "blocks":[{
+                "tx_block_template_content":serde_json::to_string(&workflow["blocks"][0]).unwrap(),
+                "tx_block_template_vars":{"commands":["show clock", "show inventory"], "fail":false}
+            }]}
+        })).await;
+        let preview = template_preview.assert_ok();
+        assert_eq!(preview["workflow"]["blocks"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            preview["workflow"]["blocks"][0]["steps"]
+                .as_array()
+                .unwrap()
+                .len(),
+            3
+        );
+        assert_eq!(
+            preview["workflow"]["blocks"][0]["steps"][1]["run"]["command"],
+            "show inventory"
+        );
+    });
+}
+
+#[test]
 fn http_single_block_workflow_preserves_results_rollback_and_recording() {
     run_route_test(|context| async move {
         let device = context

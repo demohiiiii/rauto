@@ -501,7 +501,14 @@ export function txBlockTimelineDisplay(model: JsonObject = {}) {
     stepRows: steps.map((step, stepIndex) => ({
       canMoveDown: stepIndex < steps.length - 1,
       canMoveUp: stepIndex > 0,
-      kindText: txBlockOperationKindText(step?.run),
+      controlKind: step.control?.kind,
+      kindText: step.control
+        ? t(
+            step.control.kind === "loop"
+              ? "txWorkflowLoop"
+              : "txWorkflowChoice",
+          )
+        : txBlockOperationKindText(step?.run),
       rollbackConfigured: !!step?.rollback,
       rollbackKindText:
         perStepRollback && step?.rollback
@@ -512,8 +519,21 @@ export function txBlockTimelineDisplay(model: JsonObject = {}) {
           ? txBlockOperationSummaryText(step.rollback)
           : "",
       stepIndex,
-      summaryText: txBlockOperationSummaryText(step?.run),
-      titleText: txBlockOperationSummaryText(step?.run),
+      summaryText: step.control
+        ? step.control.kind === "loop"
+          ? `${step.control.itemVariable} ← ${step.control.iterations}`
+          : t("txWorkflowChoiceBranchCount").replace(
+              "{count}",
+              String(step.control.branches.length),
+            )
+        : txBlockOperationSummaryText(step?.run),
+      titleText: step.control
+        ? t(
+            step.control.kind === "loop"
+              ? "txWorkflowLoop"
+              : "txWorkflowChoice",
+          )
+        : txBlockOperationSummaryText(step?.run),
     })),
   };
 }

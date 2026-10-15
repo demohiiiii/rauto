@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { readable } from "svelte/store";
   import ReadonlyFields from "$components/fragments/ReadonlyFields.svelte";
   import ArrowDownIcon from "@lucide/svelte/icons/arrow-down";
   import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
@@ -12,11 +13,13 @@
   import TxWorkflowNodeEditor from "$domains/transactions/presentation/components/workflow/TxWorkflowNodeEditor.svelte";
   import {
     txWorkflowFindBlock,
+    txBlockCommandTitle,
     txWorkflowNodeTitle,
   } from "$domains/transactions/index.js";
   import type {
     TxWorkflowFormModel,
     TransactionWorkflowCanvasWorkspace,
+    TransactionBlockCanvasState,
   } from "$domains/transactions/index.js";
   import OrchestrationJobEditor from "$domains/orchestration/presentation/components/editor/OrchestrationJobEditor.svelte";
   import OrchestrationStageSettingsEditor from "$domains/orchestration/presentation/components/editor/OrchestrationStageSettingsEditor.svelte";
@@ -72,6 +75,16 @@
     onWorkflowModelChange = () => {},
   }: Props = $props();
 
+  const emptySelectionStore = readable(null);
+  const emptyBlockStatesStore = readable<
+    Record<string, TransactionBlockCanvasState>
+  >({});
+  let commandSelectionStore = $derived(
+    workflowWorkspace?.commandSelectionStateStore ?? emptySelectionStore,
+  );
+  let blockStatesStore = $derived(
+    workflowWorkspace?.templates.canvasStateStore ?? emptyBlockStatesStore,
+  );
   let stageRow = $derived(
     selection?.kind === "stage" ||
       selection?.kind === "job" ||
@@ -114,23 +127,35 @@
       ? txWorkflowNodeTitle(selectedBlock)
       : t("txWorkflowFormBlock"),
   );
-  let titleText = $derived(
-    selection?.kind === "workflow-block"
-      ? selection.operation === "whole_resource_rollback"
-        ? t("txBlockFormWholeRollback")
-        : selection.stepIndex !== undefined
-          ? t(
-              selection.operation === "rollback"
-                ? "txWorkflowRollbackCommandPosition"
-                : "txWorkflowCommandPosition",
-            ).replace("{index}", String(selection.stepIndex + 1))
-          : blockTitleText
-      : selection?.kind === "job"
-        ? currentJob?.name || jobRow?.titleText || t("orchestrationFormJob")
-        : currentStage?.name ||
+  let titleText = $derived.by(() => {
+    if (selection.kind === "workflow-block") {
+      if (selection.operation === "whole_resource_rollback")
+        return t("txBlockFormWholeRollback");
+      if (selection.stepIndex !== undefined) {
+        const states = $blockStatesStore;
+        const selected = $commandSelectionStore;
+        const block = selectedBlock
+          ? (states[selectedBlock.editorId]?.formModel ??
+            selectedBlock.inlineBlock)
+          : null;
+        return txBlockCommandTitle(
+          block,
+          selected &&
+            selected.editorId === selectedBlock?.editorId &&
+            selected.path[0] === selection.stepIndex
+            ? selected.path
+            : [selection.stepIndex],
+          selection.operation,
+        );
+      }
+      return blockTitleText;
+    }
+    return selection.kind === "job"
+      ? currentJob?.name || jobRow?.titleText || t("orchestrationFormJob")
+      : currentStage?.name ||
           stageRow?.titleText ||
-          t("orchestrationFormStage"),
-  );
+          t("orchestrationFormStage");
+  });
   let stagePositionText = $derived(
     t("orchestrationFlowStageSequence").replace(
       "{index}",

@@ -3,6 +3,7 @@ export type FlowWorkflowCommandRow = FlowWorkflowNodeActions & {
   onSelect?: () => void;
   rollbackSelected?: boolean;
   onSelectRollback?: () => void;
+  controlNode?: FlowWorkflowBlockNodeData;
   summaryText: string;
   kindText?: string;
   rollbackSummaryText?: string;
@@ -38,6 +39,7 @@ export type FlowWorkflowAddActions = {
 };
 
 export type FlowWorkflowBlockNodeData = FlowWorkflowNodeActions & {
+  commandsOnly?: boolean;
   id?: string;
   selected?: boolean;
   onSelect?: () => void;
@@ -49,6 +51,7 @@ export type FlowWorkflowBlockNodeData = FlowWorkflowNodeActions & {
   canAddCommand?: boolean;
   addCommandLabel?: string;
   onAddCommand?: () => void;
+  addCommandControlActions?: { label: string; onAdd: () => void }[];
   metaText?: string;
   emptyCommandText?: string;
   hasSource: boolean;

@@ -137,11 +137,23 @@ export function createCredentialsPageWorkspace(
 
   async function remove(): Promise<void> {
     const current = get(stateStore);
-    if (!current.selectedId || current.form.referencingConnections.length) {
+    const target = current.deleteTarget;
+    if (!target || current.deleting || current.saving) {
       return;
     }
+    updateState((state) => {
+      state.deleting = true;
+      state.status = { text: "", tone: "info" };
+    });
     try {
-      await api.deleteCredential(current.selectedId);
+      await api.deleteCredential(target.id);
+      updateState((state) => {
+        state.deleteTarget = null;
+        if (state.selectedId === target.id) {
+          state.selectedId = "";
+          state.form = newCredentialForm();
+        }
+      });
       await loadCredentials();
       updateState((state) => {
         state.status = { text: t("credentialDeleted"), tone: "success" };
@@ -152,6 +164,10 @@ export function createCredentialsPageWorkspace(
           text: credentialErrorMessage(error, t),
           tone: "error",
         };
+      });
+    } finally {
+      updateState((state) => {
+        state.deleting = false;
       });
     }
   }
@@ -167,6 +183,12 @@ export function createCredentialsPageWorkspace(
   }
 
   return {
+    cancelRemove() {
+      if (get(stateStore).deleting) return;
+      updateState((state) => {
+        state.deleteTarget = null;
+      });
+    },
     displayStateStore,
     handleImported,
     loadCredentials,
@@ -176,6 +198,18 @@ export function createCredentialsPageWorkspace(
       });
     },
     remove,
+    requestRemove() {
+      const current = get(stateStore);
+      if (current.deleting || current.saving || current.loading) return;
+      const target = current.credentials.find(
+        (row) => row.id === current.selectedId,
+      );
+      if (!target || target.referencingConnections.length) return;
+      updateState((state) => {
+        state.deleteTarget = target;
+        state.status = { text: "", tone: "info" };
+      });
+    },
     resetForm,
     save,
     selectCredential,

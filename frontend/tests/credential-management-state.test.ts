@@ -330,6 +330,150 @@ test("credentials page workspace creates a validated credential", async () => {
   assert.equal(get(workspace.stateStore).status.tone, "success");
 });
 
+test("credential deletion requires confirmation and cancellation sends no request", async () => {
+  let deleteCalls = 0;
+  const row = credentialApiRow();
+  const workspace = createCredentialsPageWorkspace({
+    api: {
+      async deleteCredential() {
+        deleteCalls += 1;
+        return { deleted: true };
+      },
+      async getCredential() {
+        return row;
+      },
+      async listCredentials() {
+        return [row];
+      },
+    },
+  });
+  await workspace.loadCredentials();
+  await workspace.remove();
+  assert.equal(deleteCalls, 0);
+
+  workspace.patchForm({ name: "unsaved-name" });
+  workspace.requestRemove();
+  assert.equal(get(workspace.stateStore).deleteTarget?.name, row.name);
+  assert.equal(deleteCalls, 0);
+  workspace.cancelRemove();
+  await workspace.remove();
+  assert.equal(get(workspace.stateStore).deleteTarget, null);
+  assert.equal(deleteCalls, 0);
+});
+
+test("confirmed deletion locks duplicate requests and selects a remaining credential", async () => {
+  let rows = [
+    credentialApiRow(),
+    credentialApiRow({ id: "credential-2", name: "backup" }),
+  ];
+  const deletedIds: string[] = [];
+  const detailIds: string[] = [];
+  let finishDelete = () => {};
+  const pendingDelete = new Promise<void>((resolve) => {
+    finishDelete = resolve;
+  });
+  const workspace = createCredentialsPageWorkspace({
+    api: {
+      async deleteCredential(id) {
+        deletedIds.push(id);
+        await pendingDelete;
+        rows = rows.filter((row) => row.id !== id);
+        return { deleted: true };
+      },
+      async getCredential(id) {
+        detailIds.push(id);
+        const row = rows.find((row) => row.id === id);
+        assert.ok(row);
+        return row;
+      },
+      async listCredentials() {
+        return rows;
+      },
+    },
+  });
+  await workspace.loadCredentials();
+  workspace.requestRemove();
+  const deletion = workspace.remove();
+  assert.equal(get(workspace.stateStore).deleting, true);
+  workspace.cancelRemove();
+  assert.equal(get(workspace.stateStore).deleteTarget?.id, "credential-1");
+  await workspace.remove();
+  assert.equal(deletedIds.length, 1);
+  finishDelete();
+  await deletion;
+
+  const state = get(workspace.stateStore);
+  assert.deepEqual(deletedIds, ["credential-1"]);
+  assert.deepEqual(detailIds, ["credential-1", "credential-2"]);
+  assert.equal(state.deleteTarget, null);
+  assert.equal(state.deleting, false);
+  assert.equal(state.selectedId, "credential-2");
+  assert.equal(state.form.name, "backup");
+  assert.equal(state.status.tone, "success");
+});
+
+test("failed deletion keeps confirmation available for retry and clears the last credential", async () => {
+  let deleteCalls = 0;
+  const row = credentialApiRow();
+  const workspace = createCredentialsPageWorkspace({
+    api: {
+      async deleteCredential(id) {
+        assert.equal(id, row.id);
+        deleteCalls += 1;
+        if (deleteCalls === 1) throw new Error("network down");
+        return { deleted: true };
+      },
+      async getCredential() {
+        return row;
+      },
+      async listCredentials() {
+        return deleteCalls < 2 ? [row] : [];
+      },
+    },
+  });
+  await workspace.loadCredentials();
+  workspace.requestRemove();
+  await workspace.remove();
+  assert.equal(get(workspace.stateStore).deleting, false);
+  assert.equal(get(workspace.stateStore).deleteTarget?.id, row.id);
+  assert.equal(get(workspace.stateStore).selectedId, row.id);
+  assert.equal(get(workspace.stateStore).status.text, "network down");
+  assert.equal(get(workspace.stateStore).status.tone, "error");
+
+  await workspace.remove();
+  const state = get(workspace.stateStore);
+  assert.equal(deleteCalls, 2);
+  assert.equal(state.deleteTarget, null);
+  assert.equal(state.deleting, false);
+  assert.equal(state.selectedId, "");
+  assert.equal(state.form.name, "");
+  assert.equal(state.credentials.length, 0);
+});
+
+test("referenced credentials cannot open deletion confirmation", async () => {
+  const row = credentialApiRow({
+    connection_count: 1,
+    referencing_connections: ["edge-1"],
+  });
+  const workspace = createCredentialsPageWorkspace({
+    api: {
+      async deleteCredential() {
+        assert.fail("referenced credentials must not be deleted");
+      },
+      async getCredential() {
+        return row;
+      },
+      async listCredentials() {
+        return [row];
+      },
+    },
+  });
+  await workspace.loadCredentials();
+  workspace.requestRemove();
+  assert.equal(get(workspace.stateStore).deleteTarget, null);
+  await workspace.remove();
+});
+
 test("credential create workspace validates and publishes the created row", async () => {
   const createdRows: CredentialRow[] = [];
   let createCalls = 0;
@@ -352,16 +496,65 @@ test("credential create workspace validates and publishes the created row", asyn
     },
   });
 
+  const initial = get(workspace.stateStore);
   workspace.setOpen(true);
+  const opened = get(workspace.stateStore);
+  assert.equal(initial.open, false);
+  assert.equal(opened.open, true);
   await workspace.submit();
   assert.equal(createCalls, 0);
   assert.ok(get(workspace.stateStore).error);
+  assert.equal(opened.error, "");
 
   workspace.patchForm({ name: "ops", password: "secret", username: "admin" });
-  await workspace.submit();
+  const ready = get(workspace.stateStore);
+  const submission = workspace.submit();
+  const saving = get(workspace.stateStore);
+  assert.equal(ready.saving, false);
+  assert.equal(saving.saving, true);
+  await submission;
   assert.equal(createCalls, 1);
   assert.equal(createdRows[0].id, "credential-1");
+  assert.equal(saving.open, true);
+  assert.equal(saving.saving, true);
+  assert.deepEqual(get(workspace.stateStore), initial);
+});
+
+test("credential create workspace keeps failed input open and supports retry", async () => {
+  let createCalls = 0;
+  const createdRows: CredentialRow[] = [];
+  const workspace = createCredentialCreateWorkspace({
+    api: {
+      async createCredential() {
+        createCalls += 1;
+        if (createCalls === 1) throw new Error("network down");
+        return credentialApiRow();
+      },
+    },
+    onCreated(row) {
+      createdRows.push(row);
+    },
+  });
+  workspace.setOpen(true);
+  workspace.patchForm({ name: "ops", password: "secret", username: "admin" });
+  await workspace.submit();
+
+  const failed = get(workspace.stateStore);
+  assert.equal(failed.open, true);
+  assert.equal(failed.saving, false);
+  assert.equal(failed.error, "network down");
+  assert.equal(failed.form.name, "ops");
+  assert.equal(failed.form.password, "secret");
+  assert.equal(failed.form.username, "admin");
+  assert.equal(createdRows.length, 0);
+
+  await workspace.submit();
+
+  assert.equal(createCalls, 2);
+  assert.equal(createdRows[0].id, "credential-1");
   assert.equal(get(workspace.stateStore).open, false);
+  assert.equal(get(workspace.stateStore).form.password, "");
+  assert.equal(failed.error, "network down");
 });
 
 test("credential import workspace validates files and forwards reports", async () => {

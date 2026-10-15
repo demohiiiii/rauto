@@ -1,10 +1,12 @@
 <script lang="ts">
   import * as Card from "$lib/components/ui/card";
+  import * as Dialog from "$lib/components/ui/dialog";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import WorkspaceActionHeader from "$components/fragments/WorkspaceActionHeader.svelte";
+  import LoadingButton from "$components/fragments/LoadingButton.svelte";
   import CredentialImportDialog from "./CredentialImportDialog.svelte";
   import CredentialAuthFields from "./CredentialAuthFields.svelte";
   import {
@@ -29,6 +31,9 @@
   const { displayStateStore } = workspace;
   let display = $derived($displayStateStore);
   let filteredCredentials = $derived(display.filteredCredentials);
+  let deleteTarget = $derived(display.deleteTarget);
+  let deleteDialogOpen = $derived(active && deleteTarget !== null);
+  let deleting = $derived(display.deleting);
   let form = $derived(display.form);
   let loading = $derived(display.loading);
   let saving = $derived(display.saving);
@@ -54,6 +59,10 @@
 
   function remove(): Promise<void> {
     return workspace.remove();
+  }
+
+  function handleDeleteDialogOpenChange(open: boolean): void {
+    if (!open) workspace.cancelRemove();
   }
 
   function handleCredentialsImported(
@@ -106,6 +115,7 @@
             variant="default"
             size="sm"
             class="w-full rounded-lg"
+            disabled={deleting}
             onclick={resetForm}
           >
             <PlusIcon data-icon="inline-start" aria-hidden="true" />
@@ -128,6 +138,7 @@
                       : "border-transparent hover:bg-background",
                   )}
                   onclick={() => selectCredential(item.id)}
+                  disabled={deleting}
                 >
                   <div class="flex items-start justify-between gap-2">
                     <div class="min-w-0">
@@ -185,14 +196,16 @@
             </div>
             {#if selectedId}
               <Button
-                variant="ghost"
+                variant="destructive"
                 size="sm"
-                class="text-destructive hover:text-destructive"
-                disabled={form.referencingConnections.length > 0}
+                disabled={loading ||
+                  saving ||
+                  deleting ||
+                  form.referencingConnections.length > 0}
                 title={form.referencingConnections.length
                   ? credentialDeleteBlockedMessage(form.referencingConnections)
                   : t("credentialDelete")}
-                onclick={remove}
+                onclick={workspace.requestRemove}
               >
                 <Trash2Icon data-icon="inline-start" aria-hidden="true" />
                 {t("credentialDelete")}
@@ -288,7 +301,7 @@
               {status.text}
             </p>{/if}
           <div class="flex justify-end">
-            <Button disabled={saving} onclick={save}
+            <Button disabled={saving || deleting} onclick={save}
               ><SaveIcon data-icon="inline-start" aria-hidden="true" />{saving
                 ? t("credentialSavingAction")
                 : t("credentialSaveAction")}</Button
@@ -299,3 +312,53 @@
     </div>
   </Card.Root>
 </div>
+
+<Dialog.Root
+  open={deleteDialogOpen}
+  onOpenChange={handleDeleteDialogOpenChange}
+>
+  <Dialog.Content
+    showCloseButton={false}
+    onEscapeKeydown={(event) => {
+      if (deleting) event.preventDefault();
+    }}
+    onInteractOutside={(event) => {
+      if (deleting) event.preventDefault();
+    }}
+  >
+    <Dialog.Header>
+      <Dialog.Title>{t("credentialDelete")}</Dialog.Title>
+      <Dialog.Description class="break-words">
+        {t("credentialDeleteConfirmDescription").replace(
+          "{name}",
+          deleteTarget?.name ?? "",
+        )}
+      </Dialog.Description>
+    </Dialog.Header>
+    {#if status.tone === "error" && status.text}
+      <p class="text-sm text-destructive" role="alert">{status.text}</p>
+    {/if}
+    <Dialog.Footer>
+      <Button
+        variant="outline"
+        disabled={deleting}
+        onclick={workspace.cancelRemove}
+      >
+        {t("cancel")}
+      </Button>
+      <LoadingButton
+        variant="destructive"
+        size="default"
+        loading={deleting}
+        onclick={remove}
+      >
+        {#if !deleting}
+          <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+        {/if}
+        {deleting
+          ? t("credentialDeletingAction")
+          : t("credentialDeleteConfirmAction")}
+      </LoadingButton>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

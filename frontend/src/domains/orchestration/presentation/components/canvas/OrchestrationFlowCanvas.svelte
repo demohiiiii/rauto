@@ -849,7 +849,6 @@
                   </div>
                   <TxDirectVarsPanel
                     {active}
-                    hidden-textarea={true}
                     hintKey="orchestrationVarsHint"
                     placeholderKey="orchestrationVarsPlaceholder"
                     prefix="orchestration-direct"

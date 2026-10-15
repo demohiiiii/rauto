@@ -15,6 +15,7 @@ enum WorkflowControl {
         iterations: String,
         #[serde(default = "default_item")]
         item_variable: String,
+        #[serde(alias = "steps")]
         blocks: Vec<Value>,
     },
     Choice(WorkflowChoice),
@@ -36,6 +37,7 @@ struct WorkflowChoice {
 #[serde(deny_unknown_fields)]
 struct WorkflowChoiceBranch {
     condition: String,
+    #[serde(alias = "steps")]
     blocks: Vec<Value>,
 }
 
@@ -106,17 +108,18 @@ fn default_item() -> String {
 pub fn has_workflow_controls(value: &Value) -> bool {
     match value {
         Value::Object(map) => {
-            map.get("blocks")
-                .and_then(Value::as_array)
-                .is_some_and(|blocks| {
-                    blocks.iter().any(|block| {
-                        matches!(
-                            block.get("kind").and_then(Value::as_str),
-                            Some("loop" | "choice")
-                        )
+            ["blocks", "steps"].iter().any(|key| {
+                map.get(*key)
+                    .and_then(Value::as_array)
+                    .is_some_and(|blocks| {
+                        blocks.iter().any(|block| {
+                            matches!(
+                                block.get("kind").and_then(Value::as_str),
+                                Some("loop" | "choice")
+                            )
+                        })
                     })
-                })
-                || map.values().any(has_workflow_controls)
+            }) || map.values().any(has_workflow_controls)
         }
         Value::Array(items) => items.iter().any(has_workflow_controls),
         _ => false,
@@ -141,8 +144,12 @@ fn render_value(
     match input {
         Value::Object(map) => {
             let mut out = serde_json::Map::with_capacity(map.len());
+            let mut step_ranges = None;
             for (key, value) in map {
-                let rendered = if key == "blocks"
+                let rendered = if key == "tx_block_template_content" && value.is_string() {
+                    // A referenced block owns its local variables and is rendered by its resolver.
+                    value.clone()
+                } else if matches!(key.as_str(), "blocks" | "steps")
                     && value.as_array().is_some_and(|blocks| {
                         blocks.iter().any(|block| {
                             matches!(
@@ -150,18 +157,50 @@ fn render_value(
                                 Some("loop" | "choice")
                             )
                         })
-                    }) {
-                    Value::Array(render_blocks(
+                    })
+                {
+                    let rendered = render_nodes(
                         value.as_array().expect("checked array"),
+                        key,
                         context,
                         renderer,
                         depth,
                         expansions,
-                    )?)
+                    )?;
+                    if key == "steps" {
+                        ensure!(
+                            !rendered.values.is_empty(),
+                            "transaction block has no commands after expanding its controls"
+                        );
+                        step_ranges = Some(rendered.source_ranges);
+                    }
+                    Value::Array(rendered.values)
                 } else {
                     render_value(value, context, renderer, depth, expansions)?
                 };
                 out.insert(key.clone(), rendered);
+            }
+            if let Some(ranges) = step_ranges
+                && let Some(whole) = out
+                    .get_mut("rollback_policy")
+                    .and_then(|policy| policy.get_mut("whole_resource"))
+            {
+                let index = whole
+                    .get("trigger_step_index")
+                    .map_or(Some(0), Value::as_u64)
+                    .and_then(|index| usize::try_from(index).ok())
+                    .ok_or_else(|| {
+                        anyhow!("whole-resource rollback trigger must be a nonnegative step index")
+                    })?;
+                let range = ranges.get(index).ok_or_else(|| {
+                    anyhow!("whole-resource rollback trigger is outside the source steps")
+                })?;
+                ensure!(
+                    range.start < range.end,
+                    "whole-resource rollback trigger targets a control that produced no commands"
+                );
+                // The source slot is armed only once its final expanded command succeeds.
+                whole["trigger_step_index"] = json!(range.end - 1);
             }
             Ok(Value::Object(out))
         }
@@ -177,19 +216,27 @@ fn render_value(
     }
 }
 
-fn render_blocks(
+struct ExpandedNodes {
+    values: Vec<Value>,
+    source_ranges: Vec<std::ops::Range<usize>>,
+}
+
+fn render_nodes(
     blocks: &[Value],
+    collection: &str,
     context: &Value,
     renderer: &Renderer<'_>,
     depth: usize,
     expansions: &mut usize,
-) -> Result<Vec<Value>> {
+) -> Result<ExpandedNodes> {
     ensure!(
         depth <= MAX_DEPTH,
         "workflow control nesting exceeds {MAX_DEPTH}"
     );
     let mut out = Vec::new();
+    let mut source_ranges = Vec::with_capacity(blocks.len());
     for (index, block) in blocks.iter().enumerate() {
+        let start = out.len();
         *expansions += 1;
         ensure!(
             *expansions <= MAX_EXPANSIONS,
@@ -197,8 +244,10 @@ fn render_blocks(
         );
         match block.get("kind").and_then(Value::as_str) {
             Some("loop" | "choice") => {
-                let control: WorkflowControl = serde_json::from_value(block.clone())
-                    .with_context(|| format!("invalid workflow control at blocks[{index}]"))?;
+                let control: WorkflowControl =
+                    serde_json::from_value(block.clone()).with_context(|| {
+                        format!("invalid workflow control at {collection}[{index}]")
+                    })?;
                 match control {
                     WorkflowControl::Loop {
                         name,
@@ -252,31 +301,43 @@ fn render_blocks(
                                 .ok_or_else(|| anyhow!("workflow vars must be an object"))?
                                 .insert(item_variable.clone(), item);
                             root.insert("loop".into(), json!({"index": index + 1, "index0": index, "first": index == 0, "last": index + 1 == length, "length": length}));
-                            out.extend(render_blocks(
-                                &blocks,
-                                &local,
-                                renderer,
-                                depth + 1,
-                                expansions,
-                            )?);
+                            out.extend(
+                                render_nodes(
+                                    &blocks,
+                                    collection,
+                                    &local,
+                                    renderer,
+                                    depth + 1,
+                                    expansions,
+                                )?
+                                .values,
+                            );
                         }
                     }
                     WorkflowControl::Choice(choice) => {
                         let selected = choice.select(context, renderer, expansions)?;
-                        out.extend(render_blocks(
-                            &selected,
-                            context,
-                            renderer,
-                            depth + 1,
-                            expansions,
-                        )?);
+                        out.extend(
+                            render_nodes(
+                                &selected,
+                                collection,
+                                context,
+                                renderer,
+                                depth + 1,
+                                expansions,
+                            )?
+                            .values,
+                        );
                     }
                 }
             }
             _ => out.push(render_value(block, context, renderer, depth, expansions)?),
         }
+        source_ranges.push(start..out.len());
     }
-    Ok(out)
+    Ok(ExpandedNodes {
+        values: out,
+        source_ranges,
+    })
 }
 
 fn validate_item_variable(name: &str) -> Result<()> {
@@ -322,6 +383,66 @@ fn validate_item_variable(name: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn block_controls_keep_one_transaction_and_scope_run_and_rollback_together() {
+        let source = json!({"name":"configure", "fail_fast":true, "rollback_policy":"per_step", "steps":[
+            {"kind":"loop", "iterations":"vars.ports", "item_variable":"port", "steps":[
+                {"kind":"choice", "branches":[
+                    {"condition":"port.enabled", "steps":[{"run":{"kind":"command", "mode":"User", "command":"enable {{ port.name }}-{{ loop.index }}"}, "rollback":{"kind":"command", "mode":"User", "command":"disable {{ vars.port.name }}"}}]},
+                    {"condition":"true", "steps":[{"run":{"kind":"command", "mode":"User", "command":"skip {{ port.name }}"}}]}
+                ], "else":[{"run":{"command":"{{ missing }}"}}]}
+            ]},
+            {"run":{"kind":"command", "mode":"User", "command":"outside {{ vars.port }}"}},
+            {"kind":"loop", "iterations":"0", "steps":[{"run":{"command":"{{ missing }}"}}]}
+        ]});
+        assert!(has_workflow_controls(&source));
+        let result = render_json_template_value(&source, &json!({"vars":{"ports":[{"name":"a", "enabled":true},{"name":"b", "enabled":false}],"port":"original"}}), &Renderer::new()).unwrap();
+        assert_eq!(result["steps"].as_array().unwrap().len(), 3);
+        assert_eq!(result["steps"][0]["run"]["command"], "enable a-1");
+        assert_eq!(result["steps"][0]["rollback"]["command"], "disable a");
+        assert_eq!(result["steps"][1]["run"]["command"], "skip b");
+        assert_eq!(result["steps"][2]["run"]["command"], "outside original");
+        let block: rneter::session::TxBlock = serde_json::from_value(result).unwrap();
+        block.validate().unwrap();
+    }
+
+    #[test]
+    fn whole_resource_trigger_tracks_source_slots_after_expansion() {
+        for (source_index, expected) in [(0, 0), (1, 2), (2, 3)] {
+            let source = json!({"steps":[
+                {"run":{"command":"before"}},
+                {"kind":"loop", "iterations":"2", "steps":[{"run":{"command":"{{ item }}"}}]},
+                {"run":{"command":"after"}}
+            ],"rollback_policy":{"whole_resource":{"rollback":{"command":"undo"},"trigger_step_index":source_index}}});
+            let result = render_json_template_value(&source, &json!({}), &Renderer::new()).unwrap();
+            assert_eq!(
+                result["rollback_policy"]["whole_resource"]["trigger_step_index"],
+                expected
+            );
+        }
+        let skipped = json!({"steps":[
+            {"kind":"loop", "iterations":"0", "steps":[]},
+            {"run":{"command":"after"}}
+        ],"rollback_policy":{"whole_resource":{"rollback":{"command":"undo"},"trigger_step_index":0}}});
+        assert!(
+            render_json_template_value(&skipped, &json!({}), &Renderer::new())
+                .unwrap_err()
+                .to_string()
+                .contains("produced no commands")
+        );
+    }
+
+    #[test]
+    fn block_controls_share_workflow_limits_and_reject_an_empty_expanded_block() {
+        for source in [
+            json!({"steps":[{"kind":"loop", "iterations":"0", "steps":[]}]}),
+            json!({"steps":[{"kind":"choice", "branches":[{"condition":"false", "steps":[]}]}]}),
+            json!({"blocks":[{"kind":"loop", "iterations":"40", "blocks":[{"steps":[{"kind":"loop", "iterations":"40", "steps":[{"run":{"command":"echo"}}]}]}]}]}),
+        ] {
+            assert!(render_json_template_value(&source, &json!({}), &Renderer::new()).is_err());
+        }
+    }
 
     fn render(blocks: Value, vars: Value) -> Result<Value> {
         render_json_template_value(

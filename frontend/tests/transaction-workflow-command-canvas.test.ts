@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { get } from "svelte/store";
+import { flowWorkflowBlockHeight } from "../src/components/fragments/flowWorkflowLayout.js";
 import {
   createTransactionWorkflowCanvasWorkspace,
   txWorkflowFindBlock,
@@ -506,5 +507,114 @@ test("nested and readonly template rollback selections cannot mutate commands", 
   assert.equal(get(template.displayStateStore).readonly, true);
   assert.equal(txWorkflowFormModelToJsonText(h.model()), before);
   assert.equal(get(template.formStateStore).formModel!.steps[1].rollback, null);
+  h.workspace.destroy();
+});
+
+test("block-local loops and choices add, select and mutate nested commands on the shared canvas", () => {
+  const h = harness();
+  const id = h.model().blocks[0].editorId;
+  const original = structuredClone(h.model().blocks[0].inlineBlock.steps);
+  const graph = () => h.workspace.decorateBlock(h.graph().blocks[0].data);
+  graph().addCommandControlActions![0].onAdd();
+  assert.equal(h.model().blocks[0].inlineBlock.steps[2].control?.kind, "loop");
+  assert.deepEqual(h.selection(), { id, index: 2 });
+  const loop = () => graph().commandRows[2].controlNode!;
+  const body = () => loop().structure!.branches[0].entries[0];
+  body().onAddCommand!();
+  assert.deepEqual(
+    get(h.workspace.commandSelectionStateStore)?.path,
+    [2, 0, 0],
+  );
+  const loopModel = h.model().blocks[0].inlineBlock.steps[2].control;
+  assert.ok(loopModel?.kind === "loop");
+  assert.equal(loopModel.blocks[0].run.command.command, "");
+  body().addCommandControlActions![1].onAdd();
+  const choice = () => body().commandRows[1].controlNode!;
+  choice().structure!.branches[0].onChangeCondition!("vars.enabled");
+  choice().structure!.onAddBranch!();
+  choice().structure!.branches[1].onChangeCondition!("vars.fallback");
+  const branch = () => choice().structure!.branches[1].entries[0];
+  branch().onAddCommand!();
+  assert.deepEqual(
+    get(h.workspace.commandSelectionStateStore)?.path,
+    [2, 0, 1, 1, 0],
+  );
+  branch().commandRows[0].onSelectRollback!();
+  assert.equal(h.operation(), "rollback");
+  assert.deepEqual(
+    get(h.workspace.commandSelectionStateStore)?.path,
+    [2, 0, 1, 1, 0],
+  );
+  assert.equal(branch().commandRows[0].rollbackSelected, true);
+  branch().commandRows[0].onDuplicate!();
+  assert.equal(branch().commandRows.length, 2);
+  assert.equal(flowWorkflowBlockHeight(graph()), h.graph().blocks[0].height);
+  branch().commandRows[1].onMovePrevious!();
+  assert.deepEqual(
+    get(h.workspace.commandSelectionStateStore)?.path,
+    [2, 0, 1, 1, 0],
+  );
+  branch().commandRows[0].onDelete!();
+  branch().commandRows[0].onDelete!();
+  assert.deepEqual(
+    get(h.workspace.commandSelectionStateStore)?.path,
+    [2, 0, 1],
+  );
+  assert.equal(choice().selected, true);
+  assert.deepEqual(h.model().blocks[0].inlineBlock.steps.slice(0, 2), original);
+  const json = JSON.parse(txWorkflowFormModelToJsonText(h.model()));
+  assert.equal(json.blocks.length, 1);
+  assert.equal(
+    json.blocks[0].steps[2].steps[1].branches[1].condition,
+    "vars.fallback",
+  );
+  assert.equal(json.blocks[0].steps[2].steps[1].branches[1].steps.length, 0);
+  h.workspace.destroy();
+});
+
+test("nested control canvas actions respect template locks and cancellation restores nested bodies", async () => {
+  const controlledBlock = {
+    ...block,
+    steps: [{ kind: "loop", iterations: "vars.items", steps: block.steps }],
+  };
+  const h = harness(
+    { blocks: [{ tx_block_template_name: "base" }] },
+    controlledBlock,
+  );
+  const template = h.workspace.templates.getWorkspace(h.model().blocks[0]);
+  await template.initialize();
+  const graph = () => h.workspace.decorateBlock(h.graph().blocks[0].data);
+  const body = () =>
+    graph().commandRows[0].controlNode!.structure!.branches[0].entries[0];
+  const before = JSON.stringify(
+    body().commandRows.map((row) => [row.summaryText, row.rollbackSummaryText]),
+  );
+  assert.equal(body().canAddCommand, false);
+  body().onAddCommand!();
+  body().commandRows[0].onDelete!();
+  assert.equal(
+    JSON.stringify(
+      body().commandRows.map((row) => [
+        row.summaryText,
+        row.rollbackSummaryText,
+      ]),
+    ),
+    before,
+  );
+  template.startEditing();
+  body().commandRows[0].onSplit!();
+  assert.equal(body().commandRows.length, 3);
+  assert.equal(get(template.displayStateStore).dirty, true);
+  await template.cancelEditing();
+  assert.equal(
+    JSON.stringify(
+      body().commandRows.map((row) => [
+        row.summaryText,
+        row.rollbackSummaryText,
+      ]),
+    ),
+    before,
+  );
+  assert.equal(body().canAddCommand, false);
   h.workspace.destroy();
 });

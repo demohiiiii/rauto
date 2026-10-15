@@ -1,3 +1,4 @@
+import { txStepAtPath } from "../model/transactionStepTree.js";
 import {
   flowWorkflowBlockHeight,
   flowWorkflowBlockWidth,
@@ -5,6 +6,7 @@ import {
 } from "../../../components/fragments/flowWorkflowLayout.js";
 import type {
   FlowWorkflowBlockNodeData,
+  FlowWorkflowCommandRow,
   FlowWorkflowGroupNodeData,
 } from "../../../components/fragments/flowWorkflowTypes.js";
 import { t } from "../../../lib/i18n.js";
@@ -13,6 +15,8 @@ import type {
   TxBlockFormModel,
   TxBlockCommandTarget,
   TxWorkflowBlockFormModel,
+  TxControlModel,
+  TxStepPath,
 } from "../model/types.js";
 import { txBlockTimelineDisplay } from "./transactionBlockDisplayState.js";
 import type { TransactionBlockCanvasState } from "../application/transactionBlockTemplateAuthoring.js";
@@ -60,6 +64,28 @@ export function txWorkflowNormalizeCommandSelection(
   };
 }
 
+export function txBlockCommandTitle(
+  model: TxBlockFormModel | null | undefined,
+  path: TxStepPath,
+  operation: TxBlockCommandTarget = "run",
+): string {
+  if (operation === "whole_resource_rollback")
+    return t("txBlockFormWholeRollback");
+  if (operation === "rollback") return t("txBlockStepRollbackCommand");
+  const step = model
+    ? (txStepAtPath(model, path) ?? txStepAtPath(model, [path[0]]))
+    : null;
+  if (step?.control)
+    return t(
+      step.control.kind === "loop" ? "txWorkflowLoop" : "txWorkflowChoice",
+    );
+  return step?.run.kind === "flow" ||
+    step?.run.commandEditorKind === "interactive" ||
+    step?.run.command.interaction?.prompts.length
+    ? t("txBlockOperationKindInteractive")
+    : t("txBlockFormCommand");
+}
+
 export function txWorkflowNodeTitle(block: TxWorkflowBlockFormModel): string {
   if (block.control)
     return block.control.kind === "loop"
@@ -76,6 +102,110 @@ export function txWorkflowInspectorWidth(
   const reservedWidth = workflowWidth * TX_WORKFLOW_CANVAS_DESKTOP_ZOOM + 48;
   const maxWidth = Math.max(380, Math.min(1040, canvasWidth - reservedWidth));
   return Math.min(Math.max(preferredWidth, 380), maxWidth);
+}
+
+function controlStructure<T>(
+  control: TxControlModel<T>,
+  entries: (items: T[]) => FlowWorkflowBlockNodeData[],
+  canAddBlock: boolean,
+): NonNullable<FlowWorkflowBlockNodeData["structure"]> {
+  return {
+    kind: control.kind,
+    canAddBranch: control.kind === "choice" && canAddBlock,
+    addBranchLabel: t("txWorkflowChoiceAddBranch"),
+    branches: (control.kind === "loop"
+      ? [
+          {
+            id: "blocks",
+            title: t("txWorkflowLoopBody"),
+            blocks: control.blocks,
+            conditionText: undefined,
+          },
+        ]
+      : [
+          ...control.branches.map((branch, index) => ({
+            id: branch.editorId,
+            title: t("txWorkflowChoiceBranch").replace(
+              "{index}",
+              String(index + 1),
+            ),
+            blocks: branch.blocks,
+            conditionText: branch.condition,
+          })),
+          {
+            id: "otherwise",
+            title: t("txWorkflowChoiceElse"),
+            blocks: control.otherwise,
+            conditionText: undefined,
+          },
+        ]
+    ).map((branch) => ({
+      id: branch.id,
+      title: branch.title,
+      conditionText: branch.conditionText,
+      conditionLabel: t("txWorkflowChoiceCondition"),
+      entries: entries(branch.blocks),
+      emptyText: t("txWorkflowControlEmpty"),
+      canAddBlock,
+      addBlockLabel: t("txWorkflowFormAddBlock"),
+    })),
+  };
+}
+
+export function txBlockCanvasCommandRows(
+  model: TxBlockFormModel,
+  canModify = true,
+): FlowWorkflowCommandRow[] {
+  return txBlockTimelineDisplay(model).stepRows.map((row, index) => {
+    const control = model.steps[index].control;
+    if (!control) return row;
+    return {
+      ...row,
+      controlNode: {
+        title: row.kindText,
+        sequenceText: String(index + 1),
+        sourceKind: "manual",
+        commandRows: [],
+        hasSource: false,
+        hasTarget: false,
+        metaText: row.summaryText,
+        structure: {
+          ...controlStructure(
+            control,
+            (steps) => [
+              {
+                title: t("txBlockStepRunCommand"),
+                sequenceText: "",
+                sourceKind: "manual",
+                commandsOnly: true,
+                commandRows: txBlockCanvasCommandRows(
+                  {
+                    ...model,
+                    steps,
+                    rollbackPolicy: {
+                      kind:
+                        model.rollbackPolicy.kind === "per_step"
+                          ? "per_step"
+                          : "none",
+                    },
+                  },
+                  canModify,
+                ),
+                perStepRollbackEnabled:
+                  model.rollbackPolicy.kind === "per_step",
+                canAddCommand: canModify,
+                hasSource: false,
+                hasTarget: false,
+                emptyCommandText: t("txWorkflowNodeNoCommands"),
+              },
+            ],
+            false,
+          ),
+          canAddBranch: control.kind === "choice" && canModify,
+        },
+      },
+    };
+  });
 }
 
 function workflowBlockData(
@@ -95,7 +225,12 @@ function workflowBlockData(
     title: txWorkflowNodeTitle(block),
     sourceKind: isTemplate ? "template" : "manual",
     sequenceText: String(blockIndex + 1),
-    commandRows: timeline.stepRows,
+    commandRows: blockModel
+      ? txBlockCanvasCommandRows(
+          blockModel,
+          canAddCommands && (state?.editable ?? !isTemplate),
+        )
+      : [],
     perStepRollbackEnabled: blockModel?.rollbackPolicy.kind === "per_step",
     canAddCommand:
       canAddCommands && !control && (state?.editable ?? !isTemplate),
@@ -124,49 +259,14 @@ function workflowBlockData(
     hasSource: false,
     ...(control
       ? {
-          structure: {
-            kind: control.kind,
-            canAddBranch: control.kind === "choice",
-            addBranchLabel: t("txWorkflowChoiceAddBranch"),
-            branches: (control.kind === "loop"
-              ? [
-                  {
-                    id: "blocks",
-                    title: t("txWorkflowLoopBody"),
-                    blocks: control.blocks,
-                    conditionText: undefined,
-                  },
-                ]
-              : [
-                  ...control.branches.map((branch, index) => ({
-                    id: branch.editorId,
-                    title: t("txWorkflowChoiceBranch").replace(
-                      "{index}",
-                      String(index + 1),
-                    ),
-                    conditionText: branch.condition,
-                    blocks: branch.blocks,
-                  })),
-                  {
-                    id: "otherwise",
-                    title: t("txWorkflowChoiceElse"),
-                    conditionText: undefined,
-                    blocks: control.otherwise,
-                  },
-                ]
-            ).map((branch) => ({
-              id: branch.id,
-              title: branch.title,
-              conditionText: branch.conditionText,
-              conditionLabel: t("txWorkflowChoiceCondition"),
-              entries: branch.blocks.map((entry, index) =>
+          structure: controlStructure(
+            control,
+            (blocks) =>
+              blocks.map((entry, index) =>
                 workflowBlockData(entry, index, blockStates, canAddCommands),
               ),
-              emptyText: t("txWorkflowControlEmpty"),
-              canAddBlock: true,
-              addBlockLabel: t("txWorkflowFormAddBlock"),
-            })),
-          },
+            canAddCommands,
+          ),
         }
       : {}),
   };

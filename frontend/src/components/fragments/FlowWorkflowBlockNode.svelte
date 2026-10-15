@@ -246,7 +246,9 @@
   role="group"
   aria-label={data.title}
   class={classNames(
-    "flow-block-card pointer-events-auto relative flex h-full w-full min-w-0 flex-col rounded-lg border bg-background px-3 py-2 shadow-sm transition-[border-color,box-shadow] motion-reduce:transition-none",
+    data.commandsOnly
+      ? "pointer-events-auto relative flex h-full w-full min-w-0 flex-col"
+      : "flow-block-card pointer-events-auto relative flex h-full w-full min-w-0 flex-col rounded-lg border bg-background px-3 py-2 shadow-sm transition-[border-color,box-shadow] motion-reduce:transition-none",
     isLoop
       ? isSelected
         ? "border-indigo-500 bg-indigo-500/5 shadow-md ring-2 ring-indigo-500/15"
@@ -262,108 +264,115 @@
             : "border-border hover:border-chart-2/45",
   )}
 >
-  {#if data.onSelect}
-    <button
-      type="button"
-      class="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      aria-label={data.title}
-      aria-pressed={isSelected}
-      onclick={selectCard}
-    ></button>
-  {/if}
-  {#if data.editable}
+  {#if !data.commandsOnly}
+    {#if data.onSelect}
+      <button
+        type="button"
+        class="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={data.title}
+        aria-pressed={isSelected}
+        onclick={selectCard}
+      ></button>
+    {/if}
+    {#if data.editable}
+      <div
+        role="group"
+        aria-label={data.title}
+        class={classNames(
+          "flow-block-actions nodrag nopan pointer-events-auto absolute right-1.5 top-1.5 z-20 flex items-center gap-0.5 rounded-md border border-border bg-background/95 p-0.5 shadow-sm backdrop-blur transition-opacity motion-reduce:transition-none",
+          isSelected ? "opacity-100" : "opacity-0",
+        )}
+      >
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          type="button"
+          title={data.movePreviousLabel}
+          aria-label={data.movePreviousLabel}
+          disabled={data.readonly || !data.canMovePrevious}
+          onclick={(event) => runAction(event, data.onMovePrevious)}
+          ><ArrowUpIcon /></Button
+        >
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          type="button"
+          title={data.moveNextLabel}
+          aria-label={data.moveNextLabel}
+          disabled={data.readonly || !data.canMoveNext}
+          onclick={(event) => runAction(event, data.onMoveNext)}
+          ><ArrowDownIcon /></Button
+        >
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          type="button"
+          title={data.duplicateLabel}
+          aria-label={data.duplicateLabel}
+          disabled={data.readonly}
+          onclick={(event) => runAction(event, data.onDuplicate)}
+          ><CopyIcon /></Button
+        >
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          type="button"
+          title={data.deleteLabel}
+          aria-label={data.deleteLabel}
+          disabled={data.readonly}
+          class="text-destructive hover:text-destructive"
+          onclick={(event) => runAction(event, data.onDelete)}
+          ><Trash2Icon /></Button
+        >
+      </div>
+    {/if}
     <div
-      role="group"
-      aria-label={data.title}
       class={classNames(
-        "flow-block-actions nodrag nopan pointer-events-auto absolute right-1.5 top-1.5 z-20 flex items-center gap-0.5 rounded-md border border-border bg-background/95 p-0.5 shadow-sm backdrop-blur transition-opacity motion-reduce:transition-none",
-        isSelected ? "opacity-100" : "opacity-0",
+        "pointer-events-none relative flex min-w-0 items-center gap-3",
+        data.editable && "pr-[7.75rem]",
       )}
     >
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        type="button"
-        title={data.movePreviousLabel}
-        aria-label={data.movePreviousLabel}
-        disabled={data.readonly || !data.canMovePrevious}
-        onclick={(event) => runAction(event, data.onMovePrevious)}
-        ><ArrowUpIcon /></Button
+      <span
+        class={classNames(
+          "flex size-8 shrink-0 items-center justify-center rounded-md",
+          isLoop
+            ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+            : isChoice
+              ? "bg-orange-500/10 text-orange-700 dark:text-orange-300"
+              : data.sourceKind === "template"
+                ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                : "bg-chart-2/10 text-chart-2",
+        )}
       >
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        type="button"
-        title={data.moveNextLabel}
-        aria-label={data.moveNextLabel}
-        disabled={data.readonly || !data.canMoveNext}
-        onclick={(event) => runAction(event, data.onMoveNext)}
-        ><ArrowDownIcon /></Button
-      >
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        type="button"
-        title={data.duplicateLabel}
-        aria-label={data.duplicateLabel}
-        disabled={data.readonly}
-        onclick={(event) => runAction(event, data.onDuplicate)}
-        ><CopyIcon /></Button
-      >
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        type="button"
-        title={data.deleteLabel}
-        aria-label={data.deleteLabel}
-        disabled={data.readonly}
-        class="text-destructive hover:text-destructive"
-        onclick={(event) => runAction(event, data.onDelete)}
-        ><Trash2Icon /></Button
-      >
+        {#if data.structure?.kind === "loop"}<RepeatIcon class="size-4" />
+        {:else if data.structure?.kind === "choice"}<GitBranchIcon
+            class="size-4"
+          />
+        {:else}<BoxesIcon class="size-4" />{/if}
+      </span>
+      <span class="flex min-w-0 flex-1 items-center gap-2">
+        <Badge variant="secondary">{data.sequenceText}</Badge>
+        <span
+          class="truncate text-xs font-semibold text-foreground"
+          title={data.title}>{data.title}</span
+        >
+      </span>
     </div>
+    {#if data.metaText}
+      <div
+        class="pointer-events-none relative mt-1.5 truncate text-[0.6875rem] text-muted-foreground"
+        title={data.metaText}
+      >
+        {data.metaText}
+      </div>
+    {/if}
   {/if}
   <div
     class={classNames(
-      "pointer-events-none relative flex min-w-0 items-center gap-3",
-      data.editable && "pr-[7.75rem]",
+      "pointer-events-none relative min-w-0",
+      !data.commandsOnly && "mt-2",
     )}
   >
-    <span
-      class={classNames(
-        "flex size-8 shrink-0 items-center justify-center rounded-md",
-        isLoop
-          ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
-          : isChoice
-            ? "bg-orange-500/10 text-orange-700 dark:text-orange-300"
-            : data.sourceKind === "template"
-              ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
-              : "bg-chart-2/10 text-chart-2",
-      )}
-    >
-      {#if data.structure?.kind === "loop"}<RepeatIcon class="size-4" />
-      {:else if data.structure?.kind === "choice"}<GitBranchIcon
-          class="size-4"
-        />
-      {:else}<BoxesIcon class="size-4" />{/if}
-    </span>
-    <span class="flex min-w-0 flex-1 items-center gap-2">
-      <Badge variant="secondary">{data.sequenceText}</Badge>
-      <span
-        class="truncate text-xs font-semibold text-foreground"
-        title={data.title}>{data.title}</span
-      >
-    </span>
-  </div>
-  {#if data.metaText}
-    <div
-      class="pointer-events-none relative mt-1.5 truncate text-[0.6875rem] text-muted-foreground"
-      title={data.metaText}
-    >
-      {data.metaText}
-    </div>
-  {/if}
-  <div class="pointer-events-none relative mt-2 min-w-0">
     {#if data.structure}
       <div class="grid min-w-0 gap-2">
         {#each data.structure.branches as branch (branch.id)}
@@ -483,7 +492,7 @@
         >
       {/if}
     {:else}
-      {#if hasRollback}
+      {#if hasRollback && !data.commandsOnly}
         <div
           class="mb-2 grid h-4 min-w-0 grid-cols-2 gap-2 text-[0.625rem] font-medium"
         >
@@ -509,11 +518,17 @@
         <div class="grid min-w-0 grid-cols-2 items-start gap-2">
           <div class="grid min-w-0 gap-1">
             {#each data.commandRows as row, commandIndex}
-              {@render commandCard(
-                row,
-                commandIndex,
-                flowWorkflowCommandPairHeight(row),
-              )}
+              {#if row.controlNode}
+                <div style:height={`${flowWorkflowCommandPairHeight(row)}px`}>
+                  <FlowWorkflowBlockNode data={row.controlNode} />
+                </div>
+              {:else}
+                {@render commandCard(
+                  row,
+                  commandIndex,
+                  flowWorkflowCommandPairHeight(row),
+                )}
+              {/if}
             {:else}
               {@render emptyCommand()}
             {/each}
@@ -532,41 +547,47 @@
         <div class="grid min-w-0 gap-1">
           {#each data.commandRows as row, commandIndex}
             {@const height = flowWorkflowCommandPairHeight(row)}
-            <div
-              class={classNames(
-                "min-w-0",
-                hasRollback && "grid grid-cols-2 gap-2",
-              )}
-            >
-              {@render commandCard(row, commandIndex, height)}
-              {#if hasRollback}
-                {@render rollbackCard(
-                  row.rollbackSummaryText || "",
-                  row.rollbackKindText,
-                  row.onSelectRollback,
-                  row.rollbackSelected,
-                  height,
-                  commandIndex,
+            {#if row.controlNode}
+              <div style:height={`${height}px`}>
+                <FlowWorkflowBlockNode data={row.controlNode} />
+              </div>
+            {:else}
+              <div
+                class={classNames(
+                  "min-w-0",
+                  hasRollback && "grid grid-cols-2 gap-2",
                 )}
-              {/if}
-            </div>
+              >
+                {@render commandCard(row, commandIndex, height)}
+                {#if hasRollback}
+                  {@render rollbackCard(
+                    row.rollbackSummaryText || "",
+                    row.rollbackKindText,
+                    row.onSelectRollback,
+                    row.rollbackSelected,
+                    height,
+                    commandIndex,
+                  )}
+                {/if}
+              </div>
+            {/if}
           {:else}
             {@render emptyCommand()}
           {/each}
         </div>
       {/if}
       {#if data.canAddCommand}
-        <Button
-          variant="outline"
-          size="sm"
-          type="button"
-          class="nodrag nopan pointer-events-auto mt-3 h-8 w-full border-dashed border-primary/25 bg-primary/[0.025] text-primary hover:border-primary/50 hover:bg-primary/10"
-          title={data.addCommandLabel}
-          aria-label={data.addCommandLabel}
-          disabled={data.readonly}
-          onclick={(event) => runAction(event, data.onAddCommand)}
-          ><PlusIcon data-icon="inline-start" />{data.addCommandLabel}</Button
-        >
+        <div class="nodrag nopan pointer-events-auto mt-3">
+          <FlowWorkflowAddActions
+            data={{
+              readonly: data.readonly,
+              canAddBlock: true,
+              addBlockLabel: data.addCommandLabel || t("txWorkflowAddCommand"),
+              onAddBlock: data.onAddCommand,
+              addControlActions: data.addCommandControlActions,
+            }}
+          />
+        </div>
       {/if}
     {/if}
   </div>

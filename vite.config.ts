@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 
 const LUCIDE_MODULE_PATTERN = /[\\/]node_modules[\\/]@lucide[\\/]svelte[\\/]/;
 const CODE_EDITOR_MODULE_PATTERN =
-  /(?:[\\/]node_modules[\\/](?:@codemirror|@lezer|codemirror|svelte-codemirror-editor)[\\/]|[\\/](?:JsonTextEditor|TextAreaField)\.svelte(?:\?|$))/;
+  /(?:[\\/]node_modules[\\/](?:@codemirror|@lezer|codemirror|svelte-codemirror-editor)[\\/]|[\\/](?:(?:JsonTextEditor|TextAreaField)\.svelte|jsonEditorDiagnostics\.ts)(?:\?|$))/;
 const SHARED_UI_MODULE_PATTERN =
   /[\\/]frontend[\\/]src[\\/](?:components|lib[\\/]components)[\\/]/;
 const FLOW_CANVAS_NODE_MODULE_PATTERN =

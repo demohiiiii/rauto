@@ -1,7 +1,7 @@
 <script lang="ts">
   import LoadingButton from "$components/fragments/LoadingButton.svelte";
   import ValueTextSelectField from "$components/fragments/ValueTextSelectField.svelte";
-  import OrchestrationVarsFormCard from "$domains/orchestration/presentation/components/editor/OrchestrationVarsFormCard.svelte";
+  import TxVariablesForm from "./TxVariablesForm.svelte";
   import TxJsonFormSurface from "$domains/transactions/presentation/components/shared/TxJsonFormSurface.svelte";
   import { createTxTemplateRunPanelWorkspace } from "$domains/transactions/index.js";
 
@@ -122,7 +122,7 @@
   </LoadingButton>
 </div>
 {#if hiddenTextarea}
-  <OrchestrationVarsFormCard {active} prefix={varsPrefix} />
+  <TxVariablesForm {active} prefix={varsPrefix} />
 {:else}
   <TxJsonFormSurface
     {active}
@@ -136,7 +136,7 @@
     placeholder={panelDisplay.varsPlaceholderText}
   >
     {#snippet formContent()}
-      <OrchestrationVarsFormCard {active} prefix={varsPrefix} />
+      <TxVariablesForm {active} prefix={varsPrefix} />
     {/snippet}
   </TxJsonFormSurface>
 {/if}

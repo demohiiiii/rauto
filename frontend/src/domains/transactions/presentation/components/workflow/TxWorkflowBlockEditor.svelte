@@ -19,6 +19,7 @@
     TxWorkflowBlockRow,
     TxWorkflowVisualEditorDisplay,
     TxBlockCommandTarget,
+    TxStepPath,
   } from "$domains/transactions/index.js";
 
   interface Props {
@@ -29,6 +30,7 @@
     showRemoveAction?: boolean;
     canvasBody?: boolean;
     selectedStepIndex?: number | null;
+    selectedStepPath?: TxStepPath | null;
     selectedOperation?: TxBlockCommandTarget;
   }
   let {
@@ -39,6 +41,7 @@
     showRemoveAction = true,
     canvasBody = false,
     selectedStepIndex = null,
+    selectedStepPath = null,
     selectedOperation = "run",
   }: Props = $props();
   const inheritedReadonly = getContext<(() => boolean) | undefined>(
@@ -137,6 +140,7 @@
             model={form.formModel}
             {canvasBody}
             {selectedStepIndex}
+            {selectedStepPath}
             {selectedOperation}
             onChange={templateWorkspace.changeFormModel}
           />
@@ -172,6 +176,7 @@
                 model={form.formModel}
                 {canvasBody}
                 {selectedStepIndex}
+                {selectedStepPath}
                 {selectedOperation}
                 onChange={templateWorkspace.changeFormModel}
               />

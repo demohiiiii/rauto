@@ -36,6 +36,8 @@
     readonly?: boolean;
     onChange: (model: TxWorkflowFormModel) => void;
   } = $props();
+  let selectionStore = $derived(workspace.commandSelectionStateStore);
+  let stepSelection = $derived($selectionStore);
   let location = $derived(txWorkflowFindBlock(model, editorId));
   let scope = $derived(
     location
@@ -93,6 +95,10 @@
         showRemoveAction={false}
         {canvasBody}
         {selectedStepIndex}
+        selectedStepPath={stepSelection?.editorId === editorId &&
+        stepSelection.path[0] === selectedStepIndex
+          ? stepSelection.path
+          : null}
         {selectedOperation}
       />
     {/if}

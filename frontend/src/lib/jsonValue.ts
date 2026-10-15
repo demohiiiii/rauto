@@ -46,7 +46,7 @@ export function nullableNumberValue(value: unknown): number | null {
     : Number(value);
 }
 
-function jsonLocationFromOffset(text: string, offset: number) {
+export function jsonLocationFromOffset(text: string, offset: number) {
   const precedingText = text.slice(0, offset);
   const lines = precedingText.split(/\r\n|\r|\n/);
   return {
@@ -164,6 +164,9 @@ export function jsonParseErrorDetail(
   }
 
   const text = typeof jsonText === "string" ? jsonText : "";
+  if (/unexpected end of (?:JSON (?:input|data)|data)/i.test(message)) {
+    return { message, ...jsonLocationFromOffset(text, text.length) };
+  }
   const contextOffset = jsonContextErrorOffset(text, message);
   if (contextOffset !== null) {
     return { message, ...jsonLocationFromOffset(text, contextOffset) };
