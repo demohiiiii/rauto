@@ -3,11 +3,49 @@
 param(
     [string]$Version = 'latest',
     [string]$InstallDir,
-    [switch]$NoPathUpdate
+    [switch]$NoPathUpdate,
+    [switch]$NoCompletions
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+function Install-RautoCompletions {
+    param([string]$Binary, [string]$Directory)
+    $content = & $Binary completion powershell 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $content) { return }
+    $completion = Join-Path $Directory 'rauto-completion.ps1'
+    $content | Set-Content -LiteralPath $completion -Encoding UTF8
+    $profileDirectory = Split-Path -Parent $PROFILE
+    $null = New-Item -ItemType Directory -Path $profileDirectory -Force
+    $quoted = $completion.Replace("'", "''")
+    $line = "if (Test-Path -LiteralPath '$quoted') { . '$quoted' } # rauto completion"
+    $profileExists = Test-Path -LiteralPath $PROFILE
+    $encoding = [Text.UTF8Encoding]::new($true)
+    $text = ''
+    if ($profileExists) {
+        # Match each PowerShell edition's BOM-less default; retain BOM-detected encodings.
+        $fallback = if ($PSVersionTable.PSEdition -eq 'Desktop') { [Text.Encoding]::Default } else { [Text.UTF8Encoding]::new($false) }
+        $reader = [IO.StreamReader]::new($PROFILE, $fallback, $true)
+        try {
+            $text = $reader.ReadToEnd()
+            $encoding = $reader.CurrentEncoding
+        }
+        finally { $reader.Dispose() }
+    }
+    if (($text -split '\r?\n') -notcontains $line) {
+        $addition = "`r`n" + $line + "`r`n"
+        if ($profileExists) {
+            # Append bytes so ambiguous BOM-less encodings can never damage existing content.
+            $bytes = $encoding.GetBytes($addition)
+            $stream = [IO.File]::Open($PROFILE, [IO.FileMode]::Append, [IO.FileAccess]::Write)
+            try { $stream.Write($bytes, 0, $bytes.Length) }
+            finally { $stream.Dispose() }
+        }
+        else { [IO.File]::WriteAllText($PROFILE, $addition, $encoding) }
+    }
+    Write-Host 'PowerShell completions enabled. Open a new terminal to load them.'
+}
 
 function Install-Rauto {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
@@ -102,6 +140,10 @@ function Install-Rauto {
             }
         }
         Write-Host "Installed rauto $Version to $destination"
+        if (-not $NoCompletions) {
+            try { Install-RautoCompletions -Binary $destination -Directory $InstallDir }
+            catch { Write-Warning 'Could not configure completions. Run rauto completion --help to enable them manually.' }
+        }
         if ($NoPathUpdate) { Write-Host "Add $InstallDir to PATH to run rauto by name." }
         else { Write-Host 'PATH updated for this session and future terminals.' }
     }

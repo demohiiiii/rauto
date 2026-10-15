@@ -64,6 +64,7 @@ rauto web --bind 127.0.0.1 --port 3000
   - [From Binary](#from-binary)
   - [Homebrew (macOS)](#homebrew-macos)
   - [From Crates.io](#from-cratesio)
+  - [Shell Completions](#shell-completions)
 - [Skill](#skill)
 - [Usage](#usage)
   - [Command Selection Guide](#command-selection-guide)
@@ -153,6 +154,32 @@ brew install demohiiiii/rauto/rauto
 ```bash
 cargo install rauto
 ```
+
+### Shell Completions
+
+The install scripts enable completions for your current shell; restart your terminal to load them. Use `--no-completions` (Linux/macOS) or `-NoCompletions` (Windows) to opt out. Homebrew installs Bash, Zsh, and Fish completions when the packaged version supports them.
+
+For manual setup, add the corresponding command to your shell profile:
+
+```bash
+# Bash (~/.bashrc; ~/.bash_profile for macOS login shells)
+source <(rauto completion bash)
+
+# Zsh (~/.zshrc, after compinit)
+source <(rauto completion zsh)
+```
+
+```fish
+# Fish (~/.config/fish/completions/rauto.fish)
+rauto completion fish | source
+```
+
+```powershell
+# PowerShell ($PROFILE)
+rauto completion powershell | Out-String | Invoke-Expression
+```
+
+Completions are generated from the CLI definition and run locally in your shell. They cover subcommands, option names, and fixed enum values. Saved connection, credential, group, profile, and template names are not queried. Regenerate manual completions after upgrading. This is CLI-only shell integration; no Web or API endpoint is needed.
 
 ## Skill
 

@@ -25,6 +25,7 @@ class InstallTests(unittest.TestCase):
         self.destination.write_text("previous installation")
         self.mock = self.root / "mock"
         self.mock.mkdir()
+        (self.root / "home").mkdir()
         (self.root / "tmp").mkdir()
         self.env = {
             **os.environ,
@@ -33,6 +34,11 @@ class InstallTests(unittest.TestCase):
             "RAUTO_INSTALL_TEST_ROOT": str(self.root),
             "RAUTO_INSTALL_TEST_OS": "Linux",
             "RAUTO_INSTALL_TEST_ARCH": "x86_64",
+            "HOME": str(self.root / "home"),
+            "SHELL": "/bin/bash",
+            "XDG_CONFIG_HOME": str(self.root / "config"),
+            "XDG_DATA_HOME": str(self.root / "data"),
+            "ZDOTDIR": str(self.root / "home"),
         }
         self.write_mock("uname", """#!/bin/sh
 case "$1" in
@@ -73,6 +79,7 @@ shutil.copyfile(source, destination)
             content = (
                 b'#!/bin/sh\n'
                 b'case "$RAUTO_HOME" in "$TMPDIR"/*/data) ;; *) exit 1 ;; esac\n'
+                b'[ "$1" = "--version" ] || exit 2\n'
                 b'printf "rauto 9.8.7\\n"\n'
             )
         path = self.root / "archive.tar.gz"
@@ -121,6 +128,69 @@ shutil.copyfile(source, destination)
     def test_script_from_stdin(self):
         self.run_installer("--version", "9.8.7", piped=True)
         self.assertTrue(os.access(self.destination, os.X_OK))
+
+    def completion_archive(self):
+        self.archive(
+            b'#!/bin/sh\n'
+            b'case "$1" in\n'
+            b' --version) printf "rauto 9.8.7\\n" ;;\n'
+            b' completion) printf "# fixture completion for %s\\n" "$2" ;;\n'
+            b' *) exit 2 ;;\n'
+            b'esac\n'
+        )
+
+    def test_completion_installation_preserves_profiles_and_is_idempotent(self):
+        self.completion_archive()
+        for shell, profile, completion in (
+            ("bash", ".bashrc", self.root / "data/rauto/completion.bash"),
+            ("zsh", ".zshrc", self.root / "data/rauto/completion.zsh"),
+        ):
+            with self.subTest(shell=shell):
+                self.env["SHELL"] = f"/bin/{shell}"
+                path = self.root / "home" / profile
+                path.write_text("# existing settings\n")
+                self.run_installer(piped=True)
+                self.run_installer()
+                self.assertEqual(path.read_text().count("# rauto completion"), 1)
+                self.assertTrue(path.read_text().startswith("# existing settings\n"))
+                self.assertIn(f"for {shell}", completion.read_text())
+
+    def test_fish_completions_use_xdg_directory_without_profile_changes(self):
+        self.completion_archive()
+        self.env["SHELL"] = "/usr/bin/fish"
+        self.run_installer()
+        self.assertIn("for fish", (self.root / "config/fish/completions/rauto.fish").read_text())
+        self.assertEqual(list((self.root / "home").iterdir()), [])
+
+    def test_macos_bash_uses_login_profile(self):
+        self.completion_archive()
+        self.env["RAUTO_INSTALL_TEST_OS"] = "Darwin"
+        self.run_installer()
+        self.assertIn("# rauto completion", (self.root / "home/.bash_profile").read_text())
+        self.assertFalse((self.root / "home/.bashrc").exists())
+
+    def test_macos_bash_preserves_existing_login_profile_selection(self):
+        self.completion_archive()
+        self.env["RAUTO_INSTALL_TEST_OS"] = "Darwin"
+        profile = self.root / "home/.profile"
+        profile.write_text("# existing login settings\n")
+        self.run_installer()
+        self.assertIn("# rauto completion", profile.read_text())
+        self.assertFalse((self.root / "home/.bash_profile").exists())
+
+    def test_completion_opt_out_and_older_releases_leave_profiles_unchanged(self):
+        self.run_installer()
+        self.assertFalse((self.root / "home/.bashrc").exists())
+        self.completion_archive()
+        self.run_installer("--no-completions")
+        self.assertFalse((self.root / "home/.bashrc").exists())
+        self.assertFalse((self.root / "data").exists())
+
+    def test_completion_failure_does_not_fail_binary_installation(self):
+        self.completion_archive()
+        (self.root / "data").write_text("not a directory")
+        result = self.run_installer()
+        self.assertIn("Could not configure completions", result.stderr)
 
     @unittest.skipUnless(shutil.which("shasum"), "shasum is not installed")
     def test_shasum_fallback(self):

@@ -63,6 +63,7 @@ rauto web --bind 127.0.0.1 --port 3000
   - [二进制文件安装](#二进制文件安装)
   - [通过 Homebrew 安装（macOS）](#通过-homebrew-安装macos)
   - [通过-cratesio-安装](#通过-cratesio-安装)
+  - [命令自动补全](#命令自动补全)
 - [Skill](#skill)
 - [使用方法](#使用方法)
   - [命令选型指南](#命令选型指南)
@@ -152,6 +153,32 @@ brew install demohiiiii/rauto/rauto
 ```bash
 cargo install rauto
 ```
+
+### 命令自动补全
+
+一键安装脚本会为当前 Shell 配置补全，重新打开终端后生效。Linux/macOS 可加 `--no-completions`，Windows 可加 `-NoCompletions` 跳过配置。Homebrew 会在安装的版本支持补全时安装 Bash、Zsh 和 Fish 补全文件。
+
+手动配置时，将对应命令加入 Shell 配置文件：
+
+```bash
+# Bash（~/.bashrc；macOS 登录 Shell 使用 ~/.bash_profile）
+source <(rauto completion bash)
+
+# Zsh（~/.zshrc，放在 compinit 之后）
+source <(rauto completion zsh)
+```
+
+```fish
+# Fish（~/.config/fish/completions/rauto.fish）
+rauto completion fish | source
+```
+
+```powershell
+# PowerShell（$PROFILE）
+rauto completion powershell | Out-String | Invoke-Expression
+```
+
+补全脚本根据 CLI 定义静态生成，在 Shell 本地运行，支持子命令、参数名和固定枚举值。不会查询已保存的连接、凭证、设备组、profile 或模板名称。手动安装的补全脚本在升级后需要重新生成。此功能仅用于 CLI Shell 集成，无需 Web 或 API 入口。
 
 ## Skill
 

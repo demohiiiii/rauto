@@ -17,9 +17,55 @@ cleanup() {
     [ -z "$rauto_staged" ] || rm -f "$rauto_staged"
 }
 
+install_completions() {
+    rauto_shell=${SHELL##*/}
+    case "$rauto_shell" in
+        bash|zsh|fish) ;;
+        *) return 0 ;;
+    esac
+    # Older releases have no completion command. Keep installing them supported.
+    RAUTO_HOME="$rauto_tmp/data" "$rauto_dir/rauto" completion "$rauto_shell" > "$rauto_tmp/completion" 2>/dev/null || return 0
+    [ -s "$rauto_tmp/completion" ] || return 0
+    case "$rauto_shell" in
+        fish)
+            rauto_completion_dir=${XDG_CONFIG_HOME:-$HOME/.config}/fish/completions
+            mkdir -p "$rauto_completion_dir" || return 1
+            cp "$rauto_tmp/completion" "$rauto_completion_dir/rauto.fish" || return 1
+            ;;
+        bash|zsh)
+            rauto_completion_dir=${XDG_DATA_HOME:-$HOME/.local/share}/rauto
+            mkdir -p "$rauto_completion_dir" || return 1
+            cp "$rauto_tmp/completion" "$rauto_completion_dir/completion.$rauto_shell" || return 1
+            if [ "$rauto_shell" = zsh ]; then
+                rauto_profile=${ZDOTDIR:-$HOME}/.zshrc
+                rauto_init='if [ -f "${XDG_DATA_HOME:-$HOME/.local/share}/rauto/completion.zsh" ]; then autoload -Uz compinit; (( $+functions[compdef] )) || compinit; . "${XDG_DATA_HOME:-$HOME/.local/share}/rauto/completion.zsh"; fi # rauto completion'
+            else
+                rauto_profile=$HOME/.bashrc
+                case "$(uname -s)" in
+                    Darwin)
+                        rauto_profile=$HOME/.bash_profile
+                        for rauto_login_profile in .bash_profile .bash_login .profile; do
+                            if [ -f "$HOME/$rauto_login_profile" ]; then
+                                rauto_profile=$HOME/$rauto_login_profile
+                                break
+                            fi
+                        done
+                        ;;
+                esac
+                rauto_init='if [ -f "${XDG_DATA_HOME:-$HOME/.local/share}/rauto/completion.bash" ]; then . "${XDG_DATA_HOME:-$HOME/.local/share}/rauto/completion.bash"; fi # rauto completion'
+            fi
+            if [ ! -f "$rauto_profile" ] || ! grep -Fqx "$rauto_init" "$rauto_profile"; then
+                printf '\n%s\n' "$rauto_init" >> "$rauto_profile" || return 1
+            fi
+            ;;
+    esac
+    printf 'Enabled %s completions. Open a new terminal to load them.\n' "$rauto_shell"
+}
+
 main() {
     rauto_version=latest
     rauto_dir=${HOME:?HOME must be set}/.local/bin
+    rauto_completions=true
     while [ "$#" -gt 0 ]; do
         case "$1" in
             --version|--install-dir)
@@ -30,9 +76,10 @@ main() {
                 esac
                 shift 2
                 ;;
+            --no-completions) rauto_completions=false; shift ;;
             -h|--help)
-                printf '%s\n' 'Usage: sh install.sh [--version VERSION] [--install-dir DIRECTORY]' \
-                    'Defaults: latest release, ~/.local/bin. No sudo or shell profile changes.'
+                printf '%s\n' 'Usage: sh install.sh [--version VERSION] [--install-dir DIRECTORY] [--no-completions]' \
+                    'Defaults: latest release, ~/.local/bin, completions for $SHELL. No sudo.'
                 return
                 ;;
             *) fail "Unknown option: $1" ;;
@@ -122,6 +169,11 @@ main() {
     mv -f "$rauto_staged" "$rauto_dir/rauto"
     rauto_staged=
     printf 'Installed rauto %s to %s/rauto\n' "$rauto_version" "$rauto_dir"
+    if [ "$rauto_completions" = true ] && [ -n "${SHELL:-}" ]; then
+        if ! install_completions; then
+            printf 'Could not configure completions. Run rauto completion --help to enable them manually.\n' >&2
+        fi
+    fi
     case ":${PATH:-}:" in
         *":$rauto_dir:"*) ;;
         *) printf 'Add %s to PATH in your shell profile to run rauto by name.\n' "$rauto_dir" ;;

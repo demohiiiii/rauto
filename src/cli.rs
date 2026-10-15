@@ -1,6 +1,7 @@
 mod args;
 mod commands;
 
+pub(crate) mod completion;
 pub(crate) mod config_fetch;
 pub(crate) mod discovery;
 pub(crate) mod discovery_tui;

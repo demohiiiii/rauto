@@ -19,6 +19,9 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum Commands {
+    /// Generate static shell completions for commands and options
+    Completion(super::completion::CompletionArgs),
+
     /// Render and execute a command template
     Template(TemplateArgs),
 

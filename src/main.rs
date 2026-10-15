@@ -42,9 +42,20 @@ pub(crate) use cli::runtime::{
     write_recording_if_requested, write_recording_text_if_requested,
 };
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let cli = Cli::parse();
+    if let Commands::Completion(args) = &cli.command {
+        if let Err(error) = cli::completion::generate(args.shell, &mut std::io::stdout().lock()) {
+            eprintln!("Failed to generate completions: {error}");
+            process::exit(1);
+        }
+        return;
+    }
+    main_async(cli);
+}
+
+#[tokio::main]
+async fn main_async(cli: Cli) {
     init_tracing(&cli);
 
     if let Err(e) = ensure_default_layout() {
@@ -88,6 +99,7 @@ impl FormatTime for LocalTimer {
 
 async fn run(cli: Cli) -> Result<()> {
     match cli.command {
+        Commands::Completion(_) => unreachable!("completion is handled before initialization"),
         Commands::Template(args) => {
             cli::exec::run_template(args, &cli.global_opts).await?;
         }

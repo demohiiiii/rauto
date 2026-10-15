@@ -5,7 +5,7 @@ Set-StrictMode -Version Latest
 $installer = Join-Path (Split-Path $PSScriptRoot -Parent) 'install.ps1'
 $parseErrors = $null
 $tokens = $null
-$null = [Management.Automation.Language.Parser]::ParseFile($installer, [ref]$tokens, [ref]$parseErrors)
+$installerAst = [Management.Automation.Language.Parser]::ParseFile($installer, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
 $root = Join-Path ([IO.Path]::GetTempPath()) ('rauto-installer-test-' + [Guid]::NewGuid().ToString('N'))
 $originalUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -14,6 +14,7 @@ foreach ($name in @('TEMP', 'TMP', 'PATH', 'RAUTO_HOME', 'PROCESSOR_ARCHITECTURE
     $originalEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 $originalTls = [Net.ServicePointManager]::SecurityProtocol
+$originalProfile = $PROFILE
 $fixture = @{
     Requests = [Collections.Generic.List[string]]::new()
     Mode = ''
@@ -91,13 +92,51 @@ if ($checksum -ne $expected) { throw 'Mock checksum mismatch' }
 }
 
 Test-DownloadMockScopes
+
+function Test-CompletionProfileEncodings {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ('rauto-profile-test-' + [Guid]::NewGuid().ToString('N'))
+    $PROFILE = Join-Path $directory 'profile.ps1'
+    $definition = $installerAst.Find({ param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Install-RautoCompletions'
+    }, $true)
+    . ([scriptblock]::Create($definition.Extent.Text))
+    function Invoke-FixtureCompletion {
+        $script:LASTEXITCODE = 0
+        '# fixture PowerShell completions'
+    }
+    try {
+        $null = New-Item -ItemType Directory -Path $directory
+        $content = '$work = "C:\caf' + [char]233 + '"'
+        foreach ($encoding in @(
+            [Text.Encoding]::GetEncoding(1252),
+            [Text.UTF8Encoding]::new($false),
+            [Text.UTF8Encoding]::new($true),
+            [Text.Encoding]::Unicode,
+            [Text.Encoding]::BigEndianUnicode,
+            [Text.Encoding]::UTF32
+        )) {
+            $original = [byte[]]($encoding.GetPreamble() + $encoding.GetBytes($content))
+            [IO.File]::WriteAllBytes($PROFILE, $original)
+            Install-RautoCompletions -Binary Invoke-FixtureCompletion -Directory $directory
+            $after = [IO.File]::ReadAllBytes($PROFILE)
+            Assert-True ($after.Length -gt $original.Length) 'Completion registration was not appended'
+            Assert-True ([Convert]::ToBase64String($after[0..($original.Length - 1)]) -eq [Convert]::ToBase64String($original)) "Profile bytes changed for $($encoding.WebName)"
+            Install-RautoCompletions -Binary Invoke-FixtureCompletion -Directory $directory
+            Assert-True ([Convert]::ToBase64String([IO.File]::ReadAllBytes($PROFILE)) -eq [Convert]::ToBase64String($after)) "Duplicate registration for $($encoding.WebName)"
+        }
+        Write-Host 'PASS: completion registration preserves ANSI, UTF-8, UTF-16 and UTF-32 profile bytes'
+    }
+    finally { if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force } }
+}
+
+Test-CompletionProfileEncodings
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
     Write-Host 'PowerShell syntax and mock scopes OK. Windows is required for installation tests.'
     return
 }
 
 function Test-Install {
-    param([string]$Name, [string]$Mode = '', [string]$RequestedVersion, [switch]$Fails, [switch]$UpdatePath, [switch]$ScriptBlock, [switch]$Fresh)
+    param([string]$Name, [string]$Mode = '', [string]$RequestedVersion, [switch]$Fails, [switch]$UpdatePath, [switch]$ScriptBlock, [switch]$Fresh, [switch]$Completions)
     $fixture.Mode = $Mode
     $fixture.Requests.Clear()
     $bin = Join-Path $root 'installed bin'
@@ -119,7 +158,7 @@ function Test-Install {
     $fixture.Archive = Join-Path $root 'release.zip'
     if ($Mode -eq 'missing-binary') { $fixture.Archive = Join-Path $root 'missing.zip' }
     $fixture.Digest = (Get-FileHash -LiteralPath $fixture.Archive -Algorithm SHA256).Hash.ToLowerInvariant()
-    $parameters = @{ InstallDir = $bin; NoPathUpdate = -not $UpdatePath }
+    $parameters = @{ InstallDir = $bin; NoPathUpdate = -not $UpdatePath; NoCompletions = -not $Completions }
     if ($RequestedVersion) { $parameters.Version = $RequestedVersion }
     $lock = $null
     if ($Mode -eq 'locked') { $lock = [IO.File]::Open($destination, 'Open', 'Read', 'None') }
@@ -158,6 +197,7 @@ function Test-Install {
 }
 
 try {
+    $PROFILE = Join-Path $root 'profile\Microsoft.PowerShell_profile.ps1'
     $null = New-Item -ItemType Directory -Path $root
     $env:TEMP = Join-Path $root 'temp'
     $env:TMP = $env:TEMP
@@ -167,6 +207,10 @@ try {
 using System;
 class Fixture {
     static int Main(string[] args) {
+        if (args.Length > 0 && args[0] == "completion") {
+            Console.WriteLine("# fixture PowerShell completions");
+            return 0;
+        }
         if (!Environment.GetEnvironmentVariable("RAUTO_HOME").Contains("rauto-install-")) return 2;
         Console.WriteLine("rauto " + Environment.GetEnvironmentVariable("RAUTO_FIXTURE_VERSION"));
         return int.Parse(Environment.GetEnvironmentVariable("RAUTO_FIXTURE_EXIT"));
@@ -205,6 +249,19 @@ class Fixture {
     }
     Test-Install 'invalid version' -RequestedVersion '../bad' -Fails
     Assert-True ($fixture.Requests.Count -eq 0) 'Invalid version attempted a download'
+    Assert-True (-not (Test-Path -LiteralPath $PROFILE)) 'NoCompletions changed the PowerShell profile'
+    $null = New-Item -ItemType Directory -Path (Split-Path -Parent $PROFILE) -Force
+    '# existing settings' | Set-Content -LiteralPath $PROFILE
+    Test-Install 'PowerShell completions' -Completions -ScriptBlock
+    Test-Install 'PowerShell completion registration is idempotent' -Completions
+    Assert-True ((Get-Content -LiteralPath $PROFILE -Raw).StartsWith('# existing settings')) 'Completion setup replaced the profile'
+    Assert-True (@(Get-Content -LiteralPath $PROFILE | Where-Object { $_ -like '*# rauto completion' }).Count -eq 1) 'Duplicate completion profile entry'
+    Assert-True ((Get-Content -LiteralPath (Join-Path $root 'installed bin\rauto-completion.ps1') -Raw) -match 'fixture PowerShell completions') 'Completion script was not installed'
+    [IO.File]::WriteAllText($PROFILE, '# UTF-16 profile', [Text.Encoding]::Unicode)
+    Test-Install 'UTF-16 PowerShell profile' -Completions
+    $profileBytes = [IO.File]::ReadAllBytes($PROFILE)
+    Assert-True ($profileBytes[0] -eq 255 -and $profileBytes[1] -eq 254) 'Profile encoding changed'
+    Assert-True ((Get-Content -LiteralPath $PROFILE -Raw).StartsWith('# UTF-16 profile')) 'UTF-16 profile content changed'
     Test-Install 'user PATH registration' -UpdatePath
     Test-Install 'PATH registration is idempotent' -UpdatePath
     $entries = [Environment]::GetEnvironmentVariable('Path', 'User') -split ';'
@@ -212,6 +269,7 @@ class Fixture {
     Write-Host "$script:passed Windows installer tests passed"
 }
 finally {
+    $PROFILE = $originalProfile
     [Environment]::SetEnvironmentVariable('Path', $originalUserPath, 'User')
     foreach ($name in $originalEnvironment.Keys) {
         [Environment]::SetEnvironmentVariable($name, $originalEnvironment[$name], 'Process')
