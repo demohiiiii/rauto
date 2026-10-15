@@ -19,6 +19,9 @@ async fn execute_tx_workflow_request(
     req: ExecuteTxWorkflowRequest,
     force_tracking: bool,
 ) -> Result<Json<ApiResponse<ExecuteTxWorkflowResponse>>, ApiError> {
+    if req.preview_commands && !req.run.dry_run.unwrap_or(false) {
+        return Err(ApiError::bad_request("preview_commands requires dry_run"));
+    }
     let (task_ctx, task_guard) = begin_reported_task_with_tracking(
         &state,
         TaskOperation::TxWorkflow,
@@ -33,7 +36,13 @@ async fn execute_tx_workflow_request(
             let record_level = req.target.record_level;
             let dry_run = req.run.dry_run.unwrap_or(false);
             let connection_for_context = if dry_run {
-                merge_connection_options(&state.defaults, req.target.connection.clone()).ok()
+                let connection =
+                    merge_connection_options(&state.defaults, req.target.connection.clone());
+                if req.preview_commands {
+                    Some(connection?)
+                } else {
+                    connection.ok()
+                }
             } else {
                 Some(
                     resolve_autodetect_connection(merge_connection_options(
@@ -69,16 +78,18 @@ async fn execute_tx_workflow_request(
                 .map_err(ApiError::from)?;
             let workflow_value =
                 render_json_template_value(&workflow_source, &mut workflow_context, &renderer)?;
+            let mut preview_contexts = req.preview_commands.then(|| vec![workflow_context]);
             let workflow_value = resolve_tx_workflow_blocks_from_templates(
                 workflow_value,
                 connection_for_context.as_ref(),
+                &mut preview_contexts,
             )?;
             let workflow: rneter::session::TxWorkflow =
                 serde_json::from_value(workflow_value.clone()).map_err(ApiError::from)?;
             workflow
                 .validate()
                 .map_err(|error| ApiError::bad_request(error.to_string()))?;
-            let workflow_response_value =
+            let mut workflow_response_value =
                 serde_json::to_value(&workflow).map_err(ApiError::from)?;
             emit_task_event(
                 &state,
@@ -93,6 +104,21 @@ async fn execute_tx_workflow_request(
             );
 
             if dry_run {
+                if let Some(contexts) = preview_contexts {
+                    crate::domain::template::redaction::redact_preview_json(
+                        &mut workflow_response_value,
+                        &Value::Array(contexts),
+                    );
+                }
+                if req.preview_commands
+                    && let Some(connection) = &connection_for_context
+                {
+                    crate::config::session_recording::redact_authentication_json(
+                        &mut workflow_response_value,
+                        &connection.auth,
+                        connection.enable_password.as_deref(),
+                    );
+                }
                 return Ok(ExecuteTxWorkflowResponse {
                     workflow: workflow_response_value,
                     tx_workflow_result: None,

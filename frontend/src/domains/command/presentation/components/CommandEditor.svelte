@@ -32,7 +32,7 @@
   }: Props = $props();
 </script>
 
-<div data-command-editor class="grid min-w-0 gap-3">
+<div data-command-editor class="command-editor grid min-w-0 gap-3">
   <label class="grid min-w-0 gap-2">
     <span class="text-sm font-medium text-foreground">
       {commandLabel || t("txBlockFormCommand")}
@@ -49,7 +49,7 @@
 
   <div
     class={modeField
-      ? "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3"
+      ? "command-mode-controls grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3"
       : "flex min-w-0 items-center"}
   >
     {@render modeField?.()}
@@ -61,3 +61,15 @@
 
   {@render children?.()}
 </div>
+
+<style>
+  .command-editor {
+    container: command-editor / inline-size;
+  }
+
+  @container command-editor (max-width: 24rem) {
+    .command-mode-controls {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

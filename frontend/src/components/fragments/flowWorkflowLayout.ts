@@ -35,12 +35,13 @@ export function flowCommandRowHeight(command: string): number {
 
 type FlowWorkflowCommands = Pick<
   FlowWorkflowBlockNodeData,
-  "commandRows" | "wholeResourceRollback"
+  "commandRows" | "wholeResourceRollback" | "perStepRollbackEnabled"
 >;
 
 export function flowWorkflowHasRollback(block: FlowWorkflowCommands): boolean {
   return (
     !!block.wholeResourceRollback ||
+    !!block.perStepRollbackEnabled ||
     block.commandRows.some((row) => !!row.rollbackSummaryText)
   );
 }
@@ -78,7 +79,12 @@ export function flowWorkflowCommandBodyHeight(
 export function flowWorkflowBlockHeight(
   block: Pick<
     FlowWorkflowBlockNodeData,
-    "commandRows" | "metaText" | "wholeResourceRollback" | "structure"
+    | "commandRows"
+    | "metaText"
+    | "wholeResourceRollback"
+    | "structure"
+    | "canAddCommand"
+    | "perStepRollbackEnabled"
   >,
 ): number {
   if (block.structure) {
@@ -108,6 +114,7 @@ export function flowWorkflowBlockHeight(
   return (
     58 +
     flowWorkflowCommandBodyHeight(block) +
+    (block.canAddCommand ? ADD_BLOCK_HEIGHT : 0) +
     (block.metaText ? 24 : 0) +
     (flowWorkflowHasRollback(block) ? 24 : 0)
   );

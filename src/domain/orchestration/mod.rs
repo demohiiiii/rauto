@@ -74,6 +74,17 @@ pub struct TxWorkflowAction {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct RenderedOrchestrationWorkflow {
+    pub stage_index: usize,
+    pub stage_name: String,
+    pub job_index: usize,
+    pub job_name: String,
+    pub connection_name: Option<String>,
+    pub host: String,
+    pub workflow: rneter::session::TxWorkflow,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct OrchestrationExecutionResult {
     pub plan_name: String,
     pub success: bool,

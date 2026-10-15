@@ -116,7 +116,15 @@
   );
   let titleText = $derived(
     selection?.kind === "workflow-block"
-      ? blockTitleText
+      ? selection.operation === "whole_resource_rollback"
+        ? t("txBlockFormWholeRollback")
+        : selection.stepIndex !== undefined
+          ? t(
+              selection.operation === "rollback"
+                ? "txWorkflowRollbackCommandPosition"
+                : "txWorkflowCommandPosition",
+            ).replace("{index}", String(selection.stepIndex + 1))
+          : blockTitleText
       : selection?.kind === "job"
         ? currentJob?.name || jobRow?.titleText || t("orchestrationFormJob")
         : currentStage?.name ||
@@ -264,6 +272,8 @@
           model={workflowModel}
           editorId={selectedBlock.editorId}
           workspace={workflowWorkspace}
+          selectedStepIndex={selection.stepIndex ?? null}
+          selectedOperation={selection.operation ?? "run"}
           readonly={readonly || workflowPreview?.sourceKind === "template"}
           onChange={onWorkflowModelChange}
         />

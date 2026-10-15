@@ -1,4 +1,5 @@
 export { createTxProfileModeLoader } from "./application/transactionProfileModes.js";
+export * from "./model/renderedWorkflow.js";
 export { createTransactionEditorSession } from "./application/transactionEditorSession.js";
 export * from "./application/transactionJsonEditorState.js";
 export * from "./application/transactionJsonTemplateState.js";

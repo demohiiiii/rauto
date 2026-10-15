@@ -77,6 +77,7 @@ interface TxBlockVisualEditorOptions {
 
 interface TxBlockCommandEditorOptions {
   command?: TxCommandModel;
+  initializeDefaultMode?: boolean;
   confirmReplace?: TxBlockRuntime["confirm"];
   metadataFieldDefs?: readonly TxMetadataFieldDefinition[];
   onChange?: ChangeHandler<Partial<TxCommandModel>>;
@@ -376,6 +377,7 @@ export function createTxBlockVisualEditorWorkspace({
 
 export function createTxBlockCommandEditorWorkspace({
   command = txBlockCommandDraft(),
+  initializeDefaultMode = true,
   confirmReplace = transactionBlockRuntime.confirm,
   metadataFieldDefs = [],
   onChange = null,
@@ -385,6 +387,7 @@ export function createTxBlockCommandEditorWorkspace({
   validationErrors = [],
 }: TxBlockCommandEditorOptions = {}) {
   const commandStateStore = writable(command);
+  let shouldInitializeDefaultMode = initializeDefaultMode;
   const metadataFieldDefsStateStore = writable(
     Array.isArray(metadataFieldDefs) ? metadataFieldDefs : [],
   );
@@ -411,6 +414,7 @@ export function createTxBlockCommandEditorWorkspace({
   });
   const unsubscribeCommandModeInitialization =
     commandModeLoader.state.subscribe((modeState) => {
+      if (!shouldInitializeDefaultMode) return;
       const commandValue = get(commandStateStore);
       if (stringValue(commandValue?.mode).trim()) return;
       const defaultMode = stringValue(modeState?.defaultMode).trim();
@@ -552,12 +556,14 @@ export function createTxBlockCommandEditorWorkspace({
     selectCommandTemplate,
     setCommandEditorContext({
       command: nextCommand = txBlockCommandDraft(),
+      initializeDefaultMode: nextInitializeDefaultMode = true,
       metadataFieldDefs: nextMetadataFieldDefs = [],
       onChange: nextOnChange = null,
       pathPrefix: nextPathPrefix = "",
       validationErrors: nextValidationErrors = [],
     }: TxBlockCommandEditorOptions = {}) {
       const commandValue = nextCommand;
+      shouldInitializeDefaultMode = nextInitializeDefaultMode;
       const previousPathPrefix = get(pathPrefixStateStore);
       if (previousPathPrefix && previousPathPrefix !== nextPathPrefix) {
         templateLoadVersion += 1;

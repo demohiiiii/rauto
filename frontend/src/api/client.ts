@@ -353,9 +353,11 @@ async function apiRequest<TResponse>(
   method: string,
   path: string,
   body?: JsonBody,
+  signal?: AbortSignal,
 ): Promise<TResponse> {
   const headers = authHeaders(body);
   const response = await fetch(path, {
+    signal,
     method,
     headers: Object.keys(headers).length ? headers : undefined,
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -414,9 +416,10 @@ async function apiExecutionRequest<TResponse extends object = JsonRecord>(
   method: string,
   path: string,
   body?: JsonBody,
+  signal?: AbortSignal,
 ): Promise<TResponse> {
   return unwrapExecutionResponse<TResponse>(
-    await apiRequest<unknown>(method, path, body),
+    await apiRequest<unknown>(method, path, body, signal),
   );
 }
 
@@ -804,21 +807,25 @@ export function executeUpload(
 
 export function executeTxWorkflow(
   payload: TxWorkflowExecutionRequest,
+  signal?: AbortSignal,
 ): Promise<TxWorkflowExecutionResponse> {
   return apiExecutionRequest<TxWorkflowExecutionResponse>(
     "POST",
     "/api/tx/workflow",
     payload,
+    signal,
   );
 }
 
 export function executeOrchestration(
   payload: OrchestrationExecutionRequest,
+  signal?: AbortSignal,
 ): Promise<ExecuteOrchestrationResponse> {
   return apiExecutionRequest<ExecuteOrchestrationResponse>(
     "POST",
     "/api/orchestrate",
     payload,
+    signal,
   );
 }
 

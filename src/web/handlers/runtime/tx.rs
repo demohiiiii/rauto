@@ -21,6 +21,7 @@ struct TxWorkflowBlockTemplateRefPayload {
 pub(crate) fn resolve_tx_workflow_blocks_from_templates(
     workflow: Value,
     conn: Option<&ResolvedConnection>,
+    preview_contexts: &mut Option<Vec<Value>>,
 ) -> Result<Value, ApiError> {
     let mut root = match workflow {
         Value::Object(map) => map,
@@ -64,6 +65,7 @@ pub(crate) fn resolve_tx_workflow_blocks_from_templates(
             block_ref.tx_block_template_content.as_deref(),
             block_ref.tx_block_template_vars,
             conn,
+            preview_contexts,
         )?;
         let mut tx_block: TxBlock =
             serde_json::from_value(rendered_value).map_err(ApiError::from)?;
@@ -87,6 +89,7 @@ fn resolve_tx_block_value_from_input(
     template_content: Option<&str>,
     template_vars: Value,
     conn: Option<&ResolvedConnection>,
+    preview_contexts: &mut Option<Vec<Value>>,
 ) -> Result<Value, ApiError> {
     let has_template_name = template_name
         .map(str::trim)
@@ -123,5 +126,9 @@ fn resolve_tx_block_value_from_input(
     let mut context = build_json_template_context(resolved_template_vars, conn);
     enrich_context_with_connection_refs_from_value(&mut context, &source)
         .map_err(ApiError::from)?;
-    render_json_template_value(&source, &mut context, &renderer)
+    let rendered = render_json_template_value(&source, &mut context, &renderer)?;
+    if let Some(contexts) = preview_contexts {
+        contexts.push(context);
+    }
+    Ok(rendered)
 }

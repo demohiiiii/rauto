@@ -1,5 +1,4 @@
 use super::*;
-use std::cmp::Reverse;
 
 pub(crate) fn load_json_template_from_input(
     template_name: Option<&str>,
@@ -167,59 +166,7 @@ fn resolve_template_runtime_vars_with_connection(
     resolve_runtime_vars_with_connection(vars, conn)
 }
 
-fn is_sensitive_key_name(key: &str) -> bool {
-    let normalized = key.trim().to_ascii_lowercase().replace('-', "_");
-    normalized.contains("password")
-        || normalized.contains("passwd")
-        || normalized == "pass"
-        || normalized.ends_with("_pass")
-        || normalized.contains("secret")
-        || normalized.contains("token")
-        || normalized == "enable_password"
-        || normalized.contains("private_key")
-}
-
-fn collect_sensitive_strings(value: &Value, parent_key: Option<&str>, out: &mut Vec<String>) {
-    match value {
-        Value::Object(map) => {
-            for (key, item) in map {
-                collect_sensitive_strings(item, Some(key), out);
-            }
-        }
-        Value::Array(items) => {
-            for item in items {
-                collect_sensitive_strings(item, parent_key, out);
-            }
-        }
-        Value::String(text) => {
-            if let Some(key) = parent_key
-                && is_sensitive_key_name(key)
-                && !text.trim().is_empty()
-            {
-                out.push(text.clone());
-            }
-        }
-        _ => {}
-    }
-}
-
-pub(crate) fn sanitize_rendered_output_for_response(rendered: &str, context: &Value) -> String {
-    let mut secrets = Vec::new();
-    collect_sensitive_strings(context, None, &mut secrets);
-    if secrets.is_empty() {
-        return rendered.to_string();
-    }
-    secrets.sort_by_key(|value| Reverse(value.len()));
-    secrets.dedup();
-    let mut masked = rendered.to_string();
-    for secret in secrets {
-        if secret.trim().is_empty() {
-            continue;
-        }
-        masked = masked.replace(&secret, "******");
-    }
-    masked
-}
+pub(crate) use crate::domain::template::redaction::sanitize_rendered_output as sanitize_rendered_output_for_response;
 
 pub(crate) fn resolve_render_connection_context_fallback(
     defaults: &crate::cli::GlobalOpts,

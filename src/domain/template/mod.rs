@@ -4,6 +4,7 @@
 
 pub mod content;
 pub mod interactive;
+pub mod redaction;
 pub mod renderer;
 mod variables;
 

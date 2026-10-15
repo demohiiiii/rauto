@@ -19,6 +19,7 @@ import {
   txWorkflowFindBlock,
   txWorkflowFormModelFromJson,
 } from "../src/domains/transactions/index.js";
+import type { TxBlockCommandTarget } from "../src/domains/transactions/index.js";
 import type {
   JsonObject,
   OrchestrationPlanFormModel,
@@ -76,7 +77,12 @@ function harness({ delayedPublication = false } = {}) {
   });
   let unlocked = true;
   let pendingModel: OrchestrationPlanFormModel | null = null;
-  let selected: { jobId: string; id: string | null } | null = null;
+  let selected: {
+    jobId: string;
+    id: string | null;
+    stepIndex?: number;
+    operation?: TxBlockCommandTarget;
+  } | null = null;
   let load = async (name: string) => ({
     name,
     content: JSON.stringify(command),
@@ -92,6 +98,16 @@ function harness({ delayedPublication = false } = {}) {
     getSelectedId: (jobId) => (selected?.jobId === jobId ? selected.id : null),
     onSelect: (jobId, id) => {
       selected = { jobId, id };
+    },
+    getSelectedStepIndex: (jobId) =>
+      selected?.jobId === jobId ? (selected.stepIndex ?? null) : null,
+    getSelectedOperation: (jobId) =>
+      selected?.jobId === jobId ? (selected.operation ?? "run") : "run",
+    onSelectStep: (jobId, id, stepIndex, operation) => {
+      selected = { jobId, id, stepIndex, ...(operation ? { operation } : {}) };
+    },
+    onSelectWholeRollback: (jobId, id) => {
+      selected = { jobId, id, operation: "whole_resource_rollback" };
     },
     templateOptions: {
       listTemplateResource: async () => [{ name: "base" }],
@@ -445,4 +461,147 @@ test("unresolved template enums cannot crash the canvas or poison a later previe
     }
   }
   registry.destroy();
+});
+
+test("orchestration command actions share workflow editing and keep nested command selection", () => {
+  const h = harness();
+  const workspace = h.workspace();
+  const child = txWorkflowFlowGraph(workspace.model()).blocks[0].data.structure!
+    .branches[0].entries[0].structure!.branches[0].entries[0];
+  const childId = child.id!;
+  workspace.addCommand(childId);
+  const selection = h.selected()!;
+  assert.equal(selection.stepIndex, 1);
+  const models = h.sync();
+  const normalized = orchestrationNormalizeFlowSelection(
+    h.model(),
+    {
+      kind: "workflow-block",
+      stageIndex: 0,
+      jobIndex: 0,
+      blockIndex: 0,
+      editorId: childId,
+      stepIndex: selection.stepIndex,
+    },
+    {},
+    models,
+    get(h.registry.canvasStateStore),
+  );
+  assert.equal(
+    normalized?.kind === "workflow-block" ? normalized.stepIndex : null,
+    1,
+  );
+  const graph = orchestrationFlowGraph(
+    h.model(),
+    {},
+    models,
+    get(h.registry.canvasStateStore),
+  );
+  const job = graph.nodes.find((node) => node.id === "stage-0-job-0")!;
+  assert.equal(
+    job.height,
+    txWorkflowFlowGraph(workspace.model(), {
+      blockStates: get(workspace.templates.canvasStateStore),
+    }).group.height,
+  );
+  workspace.removeCommand(childId, 1);
+  assert.equal(h.selected()?.stepIndex, 0);
+  const invalid = orchestrationNormalizeFlowSelection(
+    h.model(),
+    normalized,
+    {},
+    h.sync(),
+    get(h.registry.canvasStateStore),
+  );
+  assert.equal(
+    invalid?.kind === "workflow-block" ? invalid.stepIndex : null,
+    undefined,
+  );
+  h.registry.destroy();
+  assert.deepEqual(get(h.registry.canvasStateStore), {});
+});
+
+test("orchestration splits nested commands with the shared workflow canvas and persists each line", () => {
+  const h = harness();
+  const workspace = h.workspace();
+  const loop = workspace.decorateBlock(
+    txWorkflowFlowGraph(workspace.model()).blocks[0].data,
+  );
+  const child =
+    loop.structure!.branches[0].entries[0].structure!.branches[0].entries[0];
+  assert.equal(child.commandRows[0].canSplit, true);
+  child.commandRows[0].onSplit!();
+  assert.equal(h.selected()?.id, child.id);
+  assert.equal(h.selected()?.stepIndex, 0);
+  h.sync();
+  const split = txWorkflowFindBlock(workspace.model(), child.id!)!.block
+    .inlineBlock;
+  assert.deepEqual(
+    split.steps.map((step) => step.run.command.command),
+    ["configure", "interface port", "commit"],
+  );
+  assert.equal(split.steps[0].rollback?.command.command, "restore");
+  assert.equal(split.steps[1].rollback?.command.command, "verify");
+  assert.equal(split.steps[2].rollback, null);
+  const saved = JSON.parse(orchestrationPlanFormModelToJsonText(h.model()));
+  const savedSteps =
+    saved.stages[0].jobs[0].action.workflow.blocks[0].blocks[0].branches[0]
+      .blocks[0].steps;
+  assert.deepEqual(
+    savedSteps.map((step: { run: { command: string } }) => step.run.command),
+    ["configure", "interface port", "commit"],
+  );
+  assert.equal(savedSteps[0].rollback.command, "restore");
+  assert.equal(savedSteps[1].rollback.command, "verify");
+  assert.equal(savedSteps[2].rollback, null);
+  assert.equal(workspace.model().blocks[1].inlineBlock.steps.length, 1);
+  h.registry.destroy();
+});
+
+test("orchestration preserves independent nested rollback selection and normalizes it when rollback is disabled", () => {
+  const h = harness();
+  const workspace = h.workspace();
+  const nested = workspace.decorateBlock(
+    txWorkflowFlowGraph(workspace.model()).blocks[0].data,
+  ).structure!.branches[0].entries[0].structure!.branches[0].entries[0];
+  const before = orchestrationPlanFormModelToJsonText(h.model());
+  nested.commandRows[0].onSelectRollback!();
+  assert.equal(h.selected()?.operation, "rollback");
+  const selection = {
+    kind: "workflow-block" as const,
+    stageIndex: 0,
+    jobIndex: 0,
+    blockIndex: 0,
+    editorId: nested.id!,
+    stepIndex: 0,
+    operation: "rollback" as const,
+  };
+  const normalized = orchestrationNormalizeFlowSelection(
+    h.model(),
+    selection,
+    {},
+    h.sync(),
+    get(h.registry.canvasStateStore),
+  );
+  assert.equal(
+    normalized?.kind === "workflow-block" ? normalized.operation : null,
+    "rollback",
+  );
+  assert.equal(orchestrationPlanFormModelToJsonText(h.model()), before);
+  const next = structuredClone(workspace.model());
+  txWorkflowFindBlock(next, nested.id!)!.block.inlineBlock.rollbackPolicy.kind =
+    "none";
+  h.registry.update(h.jobId, next);
+  const disabled = orchestrationNormalizeFlowSelection(
+    h.model(),
+    selection,
+    {},
+    h.sync(),
+    get(h.registry.canvasStateStore),
+  );
+  assert.equal(
+    disabled?.kind === "workflow-block" ? disabled.operation : null,
+    "run",
+  );
+  h.registry.destroy();
 });

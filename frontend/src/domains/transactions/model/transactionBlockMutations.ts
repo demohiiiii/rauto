@@ -16,6 +16,7 @@ import type {
   TxRollbackKind,
   TxStepFormModel,
 } from "./types.js";
+import { transactionOperationEditorKind } from "./transactionCommandEditor.js";
 
 function cloneTxJsonValue<T>(value: T, fallback: T): T {
   return cloneJsonValue(value, fallback);
@@ -283,6 +284,84 @@ export function txBlockDuplicateStep(
     return next;
   }
   next.steps.splice(stepIndex + 1, 0, structuredClone(next.steps[stepIndex]));
+  return next;
+}
+
+function txBlockOperationCanSplit(operation: TxOperationModel): boolean {
+  return (
+    transactionOperationEditorKind(operation) === "command" &&
+    operation.command.interaction.prompts.length === 0
+  );
+}
+
+function txBlockOperationCommandLines(operation: TxOperationModel): string[] {
+  return operation.command.command
+    .split(/\r\n|\r|\n/)
+    .filter((line) => line.trim().length > 0);
+}
+
+export function txBlockStepSplitStatus(
+  step: TxStepFormModel | undefined,
+): "unavailable" | "ready" | "rollback_exceeds_run" | "interactive_rollback" {
+  if (!step || !txBlockOperationCanSplit(step.run)) return "unavailable";
+  const runLineCount = txBlockOperationCommandLines(step.run).length;
+  if (runLineCount < 2) return "unavailable";
+  if (step.rollback) {
+    if (!txBlockOperationCanSplit(step.rollback)) return "interactive_rollback";
+    if (txBlockOperationCommandLines(step.rollback).length > runLineCount)
+      return "rollback_exceeds_run";
+  }
+  return "ready";
+}
+
+export function txBlockCanSplitStep(
+  step: TxStepFormModel | undefined,
+): boolean {
+  return txBlockStepSplitStatus(step) === "ready";
+}
+
+export function txBlockSplitStep(
+  model: TxBlockFormModel,
+  stepIndex: number,
+): TxBlockFormModel {
+  if (
+    !Number.isInteger(stepIndex) ||
+    stepIndex < 0 ||
+    stepIndex >= model.steps.length
+  )
+    return model;
+  const original = model.steps[stepIndex];
+  if (!txBlockCanSplitStep(original)) return model;
+  const lines = txBlockOperationCommandLines(original.run);
+  const rollbackLines = original.rollback
+    ? txBlockOperationCommandLines(original.rollback)
+    : [];
+  const next = txBlockCloneModel(model);
+  const source = next.steps[stepIndex];
+  const steps = lines.map((command, index) => {
+    const step = structuredClone(source);
+    step.run.command.command = command;
+    step.run.command.multilineMode = "split_lines";
+    if (step.rollback && index < rollbackLines.length) {
+      step.rollback.command.command = rollbackLines[index];
+      step.rollback.command.multilineMode = "split_lines";
+    } else {
+      step.rollback = null;
+      step.hasRollback = false;
+      step.rollbackOnFailure = false;
+      step.hasRollbackOnFailure = false;
+    }
+    return step;
+  });
+  next.steps.splice(stepIndex, 1, ...steps);
+  const wholeResource = next.rollbackPolicy.wholeResource;
+  if (
+    wholeResource?.hasTriggerStepIndex &&
+    wholeResource.triggerStepIndex !== null &&
+    wholeResource.triggerStepIndex > stepIndex
+  ) {
+    wholeResource.triggerStepIndex += steps.length - 1;
+  }
   return next;
 }
 

@@ -3,6 +3,7 @@
   import EyeIcon from "@lucide/svelte/icons/eye";
   import { get } from "svelte/store";
   import { onDestroy } from "svelte";
+  import type { Snippet } from "svelte";
   import { browserConfirm } from "$lib/browser.js";
   import { createExecutionTemplateWorkspace } from "$domains/templates/index.js";
   import { txWorkflowEditorFormStateFromJsonText } from "$domains/transactions/index.js";
@@ -39,11 +40,12 @@
   type CanvasViewMode = "json" | "readonly";
 
   interface Props {
+    runBar?: Snippet<[string]>;
     active?: boolean;
     onEditorInput?: (text: string) => void;
   }
 
-  let { active, onEditorInput }: Props = $props();
+  let { active, onEditorInput, runBar }: Props = $props();
 
   const directVarsKey = TX_VARS.txWorkflowDirect;
   const txWorkflowInputWorkspace = createTxWorkflowInputPanelWorkspace<File>();
@@ -335,3 +337,5 @@
   onClose={templateWorkspace.closeNameDialog}
   onSave={templateWorkspace.submitNameDialog}
 />
+
+{@render runBar?.(txWorkflowJsonText)}

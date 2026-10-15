@@ -154,6 +154,7 @@ pub(super) fn map_execute_tx_workflow_request(
     req: GrpcExecuteTxWorkflowRequest,
 ) -> Result<WebExecuteTxWorkflowRequest, Status> {
     Ok(WebExecuteTxWorkflowRequest {
+        preview_commands: req.preview_commands,
         workflow_template_name: optional_string(req.workflow_template_name),
         workflow_template_content: optional_string(req.workflow_template_content),
         workflow_vars: parse_json_value(
@@ -174,6 +175,7 @@ pub(super) fn map_execute_orchestration_request(
     req: GrpcExecuteOrchestrationRequest,
 ) -> Result<WebExecuteOrchestrationRequest, Status> {
     Ok(WebExecuteOrchestrationRequest {
+        preview_commands: req.preview_commands,
         plan_template_name: optional_string(req.plan_template_name),
         plan_template_content: optional_string(req.plan_template_content),
         plan_vars: parse_json_value(&req.plan_vars_json, "plan_vars_json", Value::Null)?,
@@ -336,6 +338,13 @@ pub(super) fn map_execute_orchestration_response(
     response: crate::web::models::ExecuteOrchestrationResponse,
 ) -> Result<ExecuteOrchestrationResponse, Status> {
     Ok(ExecuteOrchestrationResponse {
+        rendered_workflows_json: response
+            .rendered_workflows
+            .map(|workflows| serde_json::to_string(&workflows))
+            .transpose()
+            .map_err(|error| {
+                Status::internal(format!("failed to serialize rendered_workflows: {error}"))
+            })?,
         plan_json: serialize_json(&response.plan, "plan")?,
         orchestration_result_json: serialize_json_option(
             response.orchestration_result,
@@ -502,6 +511,33 @@ pub(super) fn map_device_credential(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn orchestration_preview_flag_and_rendered_workflows_survive_grpc_mapping() {
+        let request = map_execute_orchestration_request(GrpcExecuteOrchestrationRequest {
+            dry_run: true,
+            preview_commands: true,
+            plan_json: "{}".into(),
+            ..Default::default()
+        })
+        .unwrap();
+        assert!(request.preview_commands);
+        assert_eq!(request.run.dry_run, Some(true));
+        let response =
+            map_execute_orchestration_response(crate::web::models::ExecuteOrchestrationResponse {
+                plan: serde_json::json!({"name":"preview"}),
+                rendered_workflows: Some(Vec::new()),
+                orchestration_result: None,
+                result_summary: crate::domain::task::build_result_summary(
+                    crate::domain::task::TaskOperation::Orchestrate,
+                    crate::domain::task::TaskResultOutcome::DryRun,
+                    "Preview",
+                ),
+            })
+            .unwrap();
+        assert_eq!(response.rendered_workflows_json.as_deref(), Some("[]"));
+        assert!(response.orchestration_result_json.is_none());
+    }
 
     #[test]
     fn credential_response_mapping_exposes_metadata_without_secrets() {

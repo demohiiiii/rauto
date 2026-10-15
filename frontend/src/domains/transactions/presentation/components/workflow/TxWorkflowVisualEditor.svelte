@@ -39,6 +39,7 @@
   import {
     txWorkflowFlowGraph,
     txWorkflowInspectorWidth,
+    txWorkflowNormalizeCommandSelection,
     TX_WORKFLOW_GROUP_ID,
     txWorkflowNodeTitle,
     txWorkflowFindBlock,
@@ -57,6 +58,7 @@
     TxWorkflowCanvasBlockData,
     TxWorkflowCanvasGroupData,
     TxWorkflowFormModel,
+    TxBlockCommandTarget,
   } from "$domains/transactions/index.js";
 
   type TxWorkflowEditorView = "json" | "readonly";
@@ -65,7 +67,13 @@
   type TxWorkflowGraphNode = TxWorkflowBlockNode | TxWorkflowGroupNode;
   type TxWorkflowGraphEdge = Edge<Record<string, never>, "smoothstep">;
   type TxWorkflowSelection =
-    { editorId: string; kind: "block" } | { editorId: null; kind: "none" };
+    | {
+        editorId: string;
+        kind: "block";
+        stepIndex?: number;
+        operation?: TxBlockCommandTarget;
+      }
+    | { editorId: null; kind: "none" };
 
   interface Props {
     readonly?: boolean;
@@ -99,6 +107,26 @@
     getModel: () => model,
     onChange: (next) => onChange?.(next),
     getSelectedId: () => selectedTarget.editorId,
+    getSelectedStepIndex: () =>
+      selectedTarget.kind === "block"
+        ? (selectedTarget.stepIndex ?? null)
+        : null,
+    getSelectedOperation: () =>
+      selectedTarget.kind === "block"
+        ? (selectedTarget.operation ?? "run")
+        : "run",
+    onSelectStep: (editorId, stepIndex, operation = "run") => {
+      selectedTarget = { kind: "block", editorId, stepIndex, operation };
+      openInspector();
+    },
+    onSelectWholeRollback: (editorId) => {
+      selectedTarget = {
+        kind: "block",
+        editorId,
+        operation: "whole_resource_rollback",
+      };
+      openInspector();
+    },
     onSelect: (editorId) => {
       if (editorId) selectBlockId(editorId);
       else selectedTarget = { kind: "none", editorId: null };
@@ -110,6 +138,7 @@
     },
   });
   const { addNode, moveBlock, duplicateBlock, removeBlock } = canvasWorkspace;
+  const blockCanvasStateStore = canvasWorkspace.templates.canvasStateStore;
   $effect(() => canvasWorkspace.sync());
   onDestroy(canvasWorkspace.destroy);
 
@@ -192,19 +221,48 @@
   });
   let inspectorTitle = $derived.by(() => {
     currentLanguage;
+    if (
+      selectedTarget.kind === "block" &&
+      selectedTarget.operation === "whole_resource_rollback"
+    )
+      return t("txBlockFormWholeRollback");
+    if (
+      selectedTarget.kind === "block" &&
+      selectedTarget.operation === "rollback"
+    )
+      return t("txBlockStepRollbackCommand");
+    if (
+      selectedTarget.kind === "block" &&
+      selectedTarget.stepIndex !== undefined
+    ) {
+      const operation = (
+        $blockCanvasStateStore[selectedTarget.editorId]?.formModel ??
+        selectedBlockRow?.block.inlineBlock
+      )?.steps[selectedTarget.stepIndex]?.run;
+      return operation?.kind === "flow" ||
+        operation?.commandEditorKind === "interactive" ||
+        !!operation?.command.interaction?.prompts.length
+        ? t("txBlockOperationKindInteractive")
+        : t("txBlockFormCommand");
+    }
     return selectedBlockRow
       ? blockName(selectedBlockRow)
       : t("txWorkflowInspectorNoSelection");
   });
   let inspectorHint = $derived.by(() => {
     currentLanguage;
+    if (
+      selectedTarget.kind === "block" &&
+      selectedTarget.stepIndex !== undefined
+    )
+      return `${t("txWorkflowFormBlock")} · ${t(selectedTarget.operation === "rollback" ? "txWorkflowRollbackCommandPosition" : "txWorkflowCommandPosition").replace("{index}", String(selectedTarget.stepIndex + 1))}`;
     return selectedBlockRow
       ? blockMeta(selectedBlockRow)
       : t("txWorkflowInspectorNoSelectionHint");
   });
   let baseGraph = $derived.by(() => {
     currentLanguage;
-    return txWorkflowFlowGraph(model);
+    return txWorkflowFlowGraph(model, { blockStates: $blockCanvasStateStore });
   });
   let graphLayoutRevision = $derived(
     [baseGraph.group, ...baseGraph.blocks]
@@ -287,7 +345,7 @@
       ? inlineBlock.steps.length
       : 0;
     const rollbackKind = inlineBlock.rollbackPolicy?.kind || "none";
-    return `${stepCount} ${t("txBlockSummarySteps")} · ${rollbackKind}`;
+    return `${t("txWorkflowNodeCommandCount").replace("{count}", String(stepCount))} · ${rollbackKind}`;
   }
 
   function openInspector(): void {
@@ -391,7 +449,28 @@
     const hasSelectedBlock =
       selectedTarget.kind === "block" &&
       !!txWorkflowFindBlock(model, selectedTarget.editorId);
-    if (hasSelectedBlock) return;
+    if (hasSelectedBlock) {
+      if (selectedTarget.kind === "block") {
+        const block = txWorkflowFindBlock(
+          model,
+          selectedTarget.editorId,
+        )?.block;
+        const form =
+          $blockCanvasStateStore[selectedTarget.editorId]?.formModel ??
+          (block?.sourceKind === "inline" ? block.inlineBlock : null);
+        const next = txWorkflowNormalizeCommandSelection(form, selectedTarget);
+        if (
+          next.stepIndex !== selectedTarget.stepIndex ||
+          next.operation !== selectedTarget.operation
+        )
+          selectedTarget = {
+            kind: "block",
+            editorId: selectedTarget.editorId,
+            ...next,
+          };
+      }
+      return;
+    }
     if (blockRows.length) {
       selectedTarget = { kind: "block", editorId: model.blocks[0].editorId };
     } else if (selectedTarget.kind !== "none") {
@@ -486,6 +565,14 @@
       editorId={blockRow.block.editorId}
       workspace={canvasWorkspace}
       canvasBody={!embedded}
+      selectedStepIndex={selectedTarget.kind === "block" &&
+      selectedTarget.editorId === blockRow.block.editorId
+        ? (selectedTarget.stepIndex ?? null)
+        : null}
+      selectedOperation={selectedTarget.kind === "block" &&
+      selectedTarget.editorId === blockRow.block.editorId
+        ? (selectedTarget.operation ?? "run")
+        : "run"}
       readonly={locked}
       onChange={(next) => onChange?.(next)}
     />
@@ -888,7 +975,7 @@
               <PanelRightCloseIcon />
             </Button>
           </div>
-          {#if selectedBlockRow}
+          {#if selectedBlockRow && (selectedTarget.kind !== "block" || (selectedTarget.stepIndex === undefined && !selectedTarget.operation))}
             <div
               class="mt-3 flex items-center gap-1 border-t border-border/60 pt-2"
             >

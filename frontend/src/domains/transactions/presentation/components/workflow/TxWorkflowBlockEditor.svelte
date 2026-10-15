@@ -18,6 +18,7 @@
     TxWorkflowBlockActionHandlers,
     TxWorkflowBlockRow,
     TxWorkflowVisualEditorDisplay,
+    TxBlockCommandTarget,
   } from "$domains/transactions/index.js";
 
   interface Props {
@@ -26,6 +27,9 @@
     editorDisplay: TxWorkflowVisualEditorDisplay;
     templateWorkspace: TransactionBlockTemplateAuthoring;
     showRemoveAction?: boolean;
+    canvasBody?: boolean;
+    selectedStepIndex?: number | null;
+    selectedOperation?: TxBlockCommandTarget;
   }
   let {
     blockRow,
@@ -33,6 +37,9 @@
     blockActionHandlers,
     templateWorkspace,
     showRemoveAction = true,
+    canvasBody = false,
+    selectedStepIndex = null,
+    selectedOperation = "run",
   }: Props = $props();
   const inheritedReadonly = getContext<(() => boolean) | undefined>(
     readonlyFieldsContextKey,
@@ -78,79 +85,101 @@
       ? "grid min-w-0 gap-4 p-4"
       : "grid min-w-0 gap-4 p-0 group-data-[size=sm]/card:px-0"}
   >
-    <TemplateSourceField
-      value={display.selectedName}
-      optionValues={display.templateNames}
-      disabled={busy}
-      onValueChange={templateWorkspace.selectTemplate}
-    >
-      {#snippet actions()}
-        <TemplateSourceActions
-          readonly={display.readonly}
-          editing={display.editing}
-          busy={busy || !contentReady}
-          saving={display.loadingAction.startsWith("save")}
-          canSave={!form.formError}
-          onEdit={templateWorkspace.startEditing}
-          onCopy={templateWorkspace.copyToManual}
-          onSave={templateWorkspace.saveTemplate}
-          onCancel={templateWorkspace.cancelEditing}
-        />
-      {/snippet}
-    </TemplateSourceField>
-    {#if display.errorMessage}<StatusCard
-        message={display.errorMessage}
-        tone="error"
-      />{/if}
-    {#if !contentReady && display.errorMessage}
-      <Button
-        variant="outline"
-        size="sm"
+    {#if !canvasBody || (selectedStepIndex === null && selectedOperation !== "whole_resource_rollback")}
+      <TemplateSourceField
+        value={display.selectedName}
+        optionValues={display.templateNames}
         disabled={busy}
-        onclick={() => templateWorkspace.initialize()}>{t("refreshBtn")}</Button
+        onValueChange={templateWorkspace.selectTemplate}
       >
+        {#snippet actions()}
+          <TemplateSourceActions
+            readonly={display.readonly}
+            editing={display.editing}
+            busy={busy || !contentReady}
+            saving={display.loadingAction.startsWith("save")}
+            canSave={!form.formError}
+            onEdit={templateWorkspace.startEditing}
+            onCopy={templateWorkspace.copyToManual}
+            onSave={templateWorkspace.saveTemplate}
+            onCancel={templateWorkspace.cancelEditing}
+          />
+        {/snippet}
+      </TemplateSourceField>
+      {#if display.errorMessage}<StatusCard
+          message={display.errorMessage}
+          tone="error"
+        />{/if}
+      {#if !contentReady && display.errorMessage}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={busy}
+          onclick={() => templateWorkspace.initialize()}
+          >{t("refreshBtn")}</Button
+        >
+      {/if}
+      {#if blockRow.showTemplateRef || display.selectedName}
+        <ReadonlyFields disabled={busy}>
+          <JsonObjectFieldsEditor
+            title={t("txWorkflowFormBlockTemplateVars")}
+            source={blockRow.block.templateRef.txBlockTemplateVars || {}}
+            typeRows={[...editorDisplay.jsonValueTypeRows]}
+            onChange={templateWorkspace.changeVariables}
+          />
+        </ReadonlyFields>
+      {/if}
     {/if}
-    {#if blockRow.showTemplateRef || display.selectedName}
-      <ReadonlyFields disabled={busy}>
-        <JsonObjectFieldsEditor
-          title={t("txWorkflowFormBlockTemplateVars")}
-          source={blockRow.block.templateRef.txBlockTemplateVars || {}}
-          typeRows={[...editorDisplay.jsonValueTypeRows]}
-          onChange={templateWorkspace.changeVariables}
-        />
-      </ReadonlyFields>
+    {#if canvasBody}
+      {#if form.formModel}
+        <ReadonlyFields disabled={display.readonly || busy} scopeOnly>
+          <TxBlockVisualEditor
+            model={form.formModel}
+            {canvasBody}
+            {selectedStepIndex}
+            {selectedOperation}
+            onChange={templateWorkspace.changeFormModel}
+          />
+        </ReadonlyFields>
+      {:else if form.formError}
+        <StatusCard message={form.formError} tone="warning" />
+      {/if}
+    {:else}
+      <TxJsonFormSurface
+        active={true}
+        editorKind="inline"
+        editorDisplayMode={editorView}
+        editorValue={json}
+        editorTitle={blockRow.titleText}
+        readonly={display.readonly || busy}
+        formError={form.formError}
+        formErrorDetail={form.formErrorDetail}
+        hostClass="tx-json-editor tx-json-editor-compact"
+        tabItems={[
+          { value: "form", labelKey: "txBlockEditorFormTab" },
+          { value: "json", labelKey: "txBlockEditorJsonTab" },
+        ]}
+        onEditorViewSelect={(view) => {
+          editorView = view;
+        }}
+        onInlineEditorChange={templateWorkspace.changeJson}
+        immediateEditorInput
+      >
+        {#snippet formContent()}
+          {#if form.formModel}
+            <ReadonlyFields disabled={display.readonly || busy} scopeOnly>
+              <TxBlockVisualEditor
+                model={form.formModel}
+                {canvasBody}
+                {selectedStepIndex}
+                {selectedOperation}
+                onChange={templateWorkspace.changeFormModel}
+              />
+            </ReadonlyFields>
+          {/if}
+        {/snippet}
+      </TxJsonFormSurface>
     {/if}
-    <TxJsonFormSurface
-      active={true}
-      editorKind="inline"
-      editorDisplayMode={editorView}
-      editorValue={json}
-      editorTitle={blockRow.titleText}
-      readonly={display.readonly || busy}
-      formError={form.formError}
-      formErrorDetail={form.formErrorDetail}
-      hostClass="tx-json-editor tx-json-editor-compact"
-      tabItems={[
-        { value: "form", labelKey: "txBlockEditorFormTab" },
-        { value: "json", labelKey: "txBlockEditorJsonTab" },
-      ]}
-      onEditorViewSelect={(view) => {
-        editorView = view;
-      }}
-      onInlineEditorChange={templateWorkspace.changeJson}
-      immediateEditorInput
-    >
-      {#snippet formContent()}
-        {#if form.formModel}
-          <ReadonlyFields disabled={display.readonly || busy} scopeOnly>
-            <TxBlockVisualEditor
-              model={form.formModel}
-              onChange={templateWorkspace.changeFormModel}
-            />
-          </ReadonlyFields>
-        {/if}
-      {/snippet}
-    </TxJsonFormSurface>
   </Card.Content>
 </Card.Root>
 

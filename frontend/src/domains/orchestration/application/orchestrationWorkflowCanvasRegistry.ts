@@ -6,8 +6,12 @@ import {
 import type {
   TransactionWorkflowCanvasWorkspace,
   TxWorkflowFormModel,
+  TxBlockCommandTarget,
 } from "$domains/transactions/index.js";
 import { plainObject } from "$lib/jsonValue.js";
+import { readonly, writable } from "svelte/store";
+import type { Unsubscriber } from "svelte/store";
+import type { TransactionBlockCanvasState } from "$domains/transactions/index.js";
 import { orchestrationUpdateInlineWorkflow } from "../model/orchestrationTxWorkflowActions.js";
 import { orchestrationWorkflowPreviewFormState } from "../model/orchestrationWorkflowPreview.js";
 import type {
@@ -22,6 +26,7 @@ interface Entry {
   // Preserve editor IDs while the parent still exposes the source we just changed.
   pendingSource?: string;
   workspace: TransactionWorkflowCanvasWorkspace;
+  unsubscribe?: Unsubscriber;
 }
 
 export function createOrchestrationWorkflowCanvasRegistry({
@@ -29,19 +34,35 @@ export function createOrchestrationWorkflowCanvasRegistry({
   onChange,
   canModify,
   getSelectedId,
+  getSelectedStepIndex = () => null,
+  getSelectedOperation = () => "run",
   onSelect,
+  onSelectStep,
+  onSelectWholeRollback,
   templateOptions,
 }: {
   getModel: () => OrchestrationPlanFormModel;
   onChange: (model: OrchestrationPlanFormModel) => void;
   canModify: () => boolean;
   getSelectedId: (jobId: string) => string | null;
+  getSelectedStepIndex?: (jobId: string) => number | null;
+  getSelectedOperation?: (jobId: string) => TxBlockCommandTarget;
   onSelect: (jobId: string, editorId: string | null) => void;
+  onSelectStep?: (
+    jobId: string,
+    editorId: string,
+    stepIndex: number,
+    operation?: "run" | "rollback",
+  ) => void;
+  onSelectWholeRollback?: (jobId: string, editorId: string) => void;
   templateOptions?: Parameters<
     typeof createTransactionWorkflowCanvasWorkspace
   >[0]["templateOptions"];
 }) {
   const entries = new Map<string, Entry>();
+  const canvasStates = writable<
+    Record<string, Record<string, TransactionBlockCanvasState>>
+  >({});
   function findJob(jobId: string) {
     for (const [stageIndex, stage] of getModel().stages.entries()) {
       const jobIndex = stage.jobs.findIndex((job) => job.editorId === jobId);
@@ -124,11 +145,24 @@ export function createOrchestrationWorkflowCanvasRegistry({
                 !!findJob(jobId) &&
                 !findJob(jobId)?.job.action.txWorkflow.workflowTemplateName,
               getSelectedId: () => getSelectedId(jobId),
+              getSelectedStepIndex: () => getSelectedStepIndex(jobId),
+              getSelectedOperation: () => getSelectedOperation(jobId),
               onSelect: (id) => onSelect(jobId, id),
+              onSelectStep: onSelectStep
+                ? (id, index, operation) =>
+                    onSelectStep(jobId, id, index, operation)
+                : undefined,
+              onSelectWholeRollback: onSelectWholeRollback
+                ? (id) => onSelectWholeRollback(jobId, id)
+                : undefined,
               templateOptions,
             }),
           };
           entries.set(jobId, created);
+          created.unsubscribe =
+            created.workspace.templates.canvasStateStore.subscribe((state) =>
+              canvasStates.update((states) => ({ ...states, [jobId]: state })),
+            );
           entry = created;
         } else if (
           entry.source !== next.text &&
@@ -146,18 +180,29 @@ export function createOrchestrationWorkflowCanvasRegistry({
     );
     for (const [id, entry] of entries)
       if (!live.has(id)) {
+        entry.unsubscribe?.();
         entry.workspace.destroy();
         entries.delete(id);
+        canvasStates.update((states) => {
+          const next = { ...states };
+          delete next[id];
+          return next;
+        });
       }
     return result;
   }
   return {
     models,
+    canvasStateStore: readonly(canvasStates),
     update,
     get: (jobId: string) => entries.get(jobId)?.workspace ?? null,
     destroy: () => {
-      for (const entry of entries.values()) entry.workspace.destroy();
+      for (const entry of entries.values()) {
+        entry.unsubscribe?.();
+        entry.workspace.destroy();
+      }
       entries.clear();
+      canvasStates.set({});
     },
   };
 }

@@ -19,6 +19,9 @@ async fn execute_orchestration_request(
     req: ExecuteOrchestrationRequest,
     force_tracking: bool,
 ) -> Result<Json<ApiResponse<ExecuteOrchestrationResponse>>, ApiError> {
+    if req.preview_commands && !req.run.dry_run.unwrap_or(false) {
+        return Err(ApiError::bad_request("preview_commands requires dry_run"));
+    }
     let (task_ctx, task_guard) = begin_reported_task_with_tracking(
         &state,
         TaskOperation::Orchestrate,
@@ -78,7 +81,7 @@ async fn execute_orchestration_request(
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("."));
             orchestrator::validate_plan(&plan).map_err(ApiError::from)?;
-            let plan_value = serde_json::to_value(&plan).map_err(ApiError::from)?;
+            let mut plan_value = serde_json::to_value(&plan).map_err(ApiError::from)?;
             emit_task_event(
                 &state,
                 &task_ctx,
@@ -92,8 +95,29 @@ async fn execute_orchestration_request(
             );
 
             if req.run.dry_run.unwrap_or(false) {
+                let rendered_workflows = if req.preview_commands {
+                    crate::domain::template::redaction::redact_preview_json(
+                        &mut plan_value,
+                        &plan_context,
+                    );
+                    let mut workflows = orchestrator::preview_plan_commands(&plan, &state.defaults)
+                        .map_err(|error| ApiError::bad_request(format!("{error:#}")))?;
+                    for entry in &mut workflows {
+                        let mut value =
+                            serde_json::to_value(&entry.workflow).map_err(ApiError::from)?;
+                        crate::domain::template::redaction::redact_preview_json(
+                            &mut value,
+                            &plan_context,
+                        );
+                        entry.workflow = serde_json::from_value(value).map_err(ApiError::from)?;
+                    }
+                    Some(workflows)
+                } else {
+                    None
+                };
                 return Ok(ExecuteOrchestrationResponse {
                     plan: plan_value,
+                    rendered_workflows,
                     orchestration_result: None,
                     result_summary: task_result_with_details(
                         task_result_with_counts(
@@ -141,6 +165,7 @@ async fn execute_orchestration_request(
 
             Ok(ExecuteOrchestrationResponse {
                 plan: plan_value,
+                rendered_workflows: None,
                 orchestration_result: Some(
                     serde_json::to_value(&orchestration_result).map_err(ApiError::from)?,
                 ),

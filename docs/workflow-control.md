@@ -15,6 +15,31 @@ Control expressions are MiniJinja expressions without `{{ }}`. They are evaluate
 from the workflow variables and connection context **before device execution**.
 They do not inspect command output or implement retry-until-success behavior.
 
+## Rendered command preview
+
+The transaction workflow and orchestration Web pages share a **Preview commands**
+action in the execution bar. It renders the current source and runtime variables,
+expands loops and choices, resolves block/workflow templates, and displays complete
+commands, interactive responses and configured rollbacks. Orchestration previews
+are resolved separately for each stage/job/target using its saved connection.
+The dialog also provides the rendered workflow JSON. Changed inputs invalidate
+the preview; use **Render again** to update it.
+
+Previews do not open device sessions or create execution-history entries. They
+show commands prepared before execution; rollback execution still depends on
+failure and trigger policies. Authentication secrets are masked in previews.
+
+HTTP clients use `POST /api/tx/workflow` with `dry_run: true` and
+`preview_commands: true` for a workflow; the flag requires a resolved target and
+masks authentication material while preserving the original dry-run contract.
+For orchestration, use `POST /api/orchestrate` with both `dry_run: true` and
+`preview_commands: true`; the response adds `rendered_workflows`, containing
+stage/job indices and names, target connection/host, and the fully rendered
+workflow. Omitting `preview_commands` preserves the existing plan-only dry run.
+The agent gRPC orchestration request supports the same flag and returns
+`rendered_workflows_json`. CLI dry-run flags retain their existing output; the
+per-device preview selector is a Web capability.
+
 ## Loop
 
 `iterations` must evaluate to a nonnegative integer or a JSON list. Integer

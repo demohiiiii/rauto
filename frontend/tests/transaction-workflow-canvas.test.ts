@@ -5,6 +5,7 @@ import {
   txWorkflowFlowGraph,
   txWorkflowInspectorWidth,
   txWorkflowFormModelFromJson,
+  txWorkflowNormalizeCommandSelection,
   TX_WORKFLOW_CANVAS_DESKTOP_ZOOM,
   TX_WORKFLOW_GROUP_ID,
 } from "../src/domains/transactions/index.js";
@@ -126,8 +127,10 @@ test("all commands and rollback rows expand the shared container without overlap
   model.blocks[0].inlineBlock.steps = [];
   const cleared = txWorkflowFlowGraph(model);
   assert.ok(cleared.group.height < graph.group.height);
-  assert.ok(cleared.group.width < graph.group.width);
+  assert.equal(cleared.group.width, graph.group.width);
   assert.ok(cleared.blocks[1].position.y < graph.blocks[1].position.y);
+  model.blocks[0].inlineBlock.rollbackPolicy.kind = "none";
+  assert.ok(txWorkflowFlowGraph(model).group.width < cleared.group.width);
 });
 
 test("whole-resource rollback reserves space separately from step commands", () => {
@@ -263,5 +266,80 @@ test("shared layout leaves footer space and handles template containers", () => 
   );
   assert.ok(
     template.height > template.blocks[1].position.y + template.blocks[1].height,
+  );
+});
+
+test("command selections follow rollback policies and recover after command removal", () => {
+  const model = txWorkflowFormModelFromJson({
+    blocks: [
+      {
+        rollback_policy: "per_step",
+        steps: [{ run: { kind: "command", command: "run" } }],
+      },
+    ],
+  }).blocks[0].inlineBlock;
+  assert.deepEqual(
+    txWorkflowNormalizeCommandSelection(model, {
+      stepIndex: 0,
+      operation: "rollback",
+    }),
+    { stepIndex: 0, operation: "rollback" },
+  );
+  model.rollbackPolicy.kind = "none";
+  assert.deepEqual(
+    txWorkflowNormalizeCommandSelection(model, {
+      stepIndex: 0,
+      operation: "rollback",
+    }),
+    { stepIndex: 0, operation: "run" },
+  );
+  for (const stepIndex of [-1, 1, 0.5, NaN])
+    assert.deepEqual(
+      txWorkflowNormalizeCommandSelection(model, {
+        stepIndex,
+        operation: "rollback",
+      }),
+      {},
+    );
+  model.steps = [];
+  assert.deepEqual(
+    txWorkflowNormalizeCommandSelection(model, {
+      stepIndex: 0,
+      operation: "run",
+    }),
+    {},
+  );
+  assert.deepEqual(
+    txWorkflowNormalizeCommandSelection(null, {
+      operation: "whole_resource_rollback",
+    }),
+    {},
+  );
+});
+
+test("whole-resource rollback selections are independent of command indexes and reset with the policy", () => {
+  const model = txWorkflowFormModelFromJson({
+    blocks: [
+      {
+        steps: [],
+        rollback_policy: {
+          whole_resource: { rollback: { kind: "command", command: "" } },
+        },
+      },
+    ],
+  }).blocks[0].inlineBlock;
+  assert.deepEqual(
+    txWorkflowNormalizeCommandSelection(model, {
+      operation: "whole_resource_rollback",
+      stepIndex: 50,
+    }),
+    { operation: "whole_resource_rollback" },
+  );
+  model.rollbackPolicy.kind = "per_step";
+  assert.deepEqual(
+    txWorkflowNormalizeCommandSelection(model, {
+      operation: "whole_resource_rollback",
+    }),
+    {},
   );
 });

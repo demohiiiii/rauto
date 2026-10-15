@@ -642,6 +642,7 @@ message ExecuteTxWorkflowRequest {
   string        workflow_template_name      = 6;
   string        workflow_template_content   = 7;
   string        workflow_vars_json          = 8;
+  bool          preview_commands            = 9;
 }
 
 message ExecuteOrchestrationRequest {
@@ -654,6 +655,7 @@ message ExecuteOrchestrationRequest {
   string plan_template_content = 7;
   string plan_vars_json        = 8;
   ConnectionRef connection     = 9;
+  bool preview_commands        = 10;
 }
 
 message AcceptedTaskResponse {
@@ -740,6 +742,7 @@ message ExecuteOrchestrationResponse {
   string          plan_json                 = 1;
   optional string orchestration_result_json = 2;
   optional string result_summary_json       = 3;
+  optional string rendered_workflows_json   = 4;
 }
 
 message AgentInfoResponse {

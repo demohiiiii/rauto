@@ -462,6 +462,8 @@ pub struct ExecuteUploadResponse {
 #[derive(Debug, Deserialize)]
 pub struct ExecuteTxWorkflowRequest {
     #[serde(default)]
+    pub preview_commands: bool,
+    #[serde(default)]
     pub workflow_template_name: Option<String>,
     #[serde(default)]
     pub workflow_template_content: Option<String>,
@@ -487,6 +489,8 @@ pub struct ExecuteTxWorkflowResponse {
 #[derive(Debug, Deserialize)]
 pub struct ExecuteOrchestrationRequest {
     #[serde(default)]
+    pub preview_commands: bool,
+    #[serde(default)]
     pub plan_template_name: Option<String>,
     #[serde(default)]
     pub plan_template_content: Option<String>,
@@ -505,6 +509,9 @@ pub struct ExecuteOrchestrationRequest {
 #[derive(Debug, Serialize)]
 pub struct ExecuteOrchestrationResponse {
     pub plan: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rendered_workflows:
+        Option<Vec<crate::domain::orchestration::RenderedOrchestrationWorkflow>>,
     pub orchestration_result: Option<Value>,
     pub result_summary: TaskResultSummary,
 }
@@ -520,6 +527,21 @@ pub enum RecordLevel {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn orchestration_command_preview_is_opt_in() {
+        let ordinary: ExecuteOrchestrationRequest =
+            serde_json::from_value(json!({"plan": {}, "dry_run": true})).unwrap();
+        assert!(!ordinary.preview_commands);
+        let preview: ExecuteOrchestrationRequest =
+            serde_json::from_value(json!({"plan": {}, "dry_run": true, "preview_commands": true}))
+                .unwrap();
+        assert!(preview.preview_commands);
+        assert_eq!(preview.run.dry_run, Some(true));
+        let ordinary: ExecuteTxWorkflowRequest =
+            serde_json::from_value(json!({"workflow": {}, "dry_run": true})).unwrap();
+        assert!(!ordinary.preview_commands);
+    }
 
     #[test]
     fn config_fetch_request_accepts_current_connection() {

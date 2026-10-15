@@ -73,7 +73,10 @@
     OrchestrationVisualEditorDisplay,
     OrchestrationWorkflowPreview,
   } from "$domains/orchestration/index.js";
-  import type { TxWorkflowFormModel } from "$domains/transactions/index.js";
+  import type {
+    TxWorkflowFormModel,
+    TxBlockCommandTarget,
+  } from "$domains/transactions/index.js";
 
   type StageNodeData = ComponentProps<
     typeof OrchestrationFlowStageNode
@@ -173,11 +176,26 @@
         ? (selection.editorId ?? null)
         : null,
     onSelect: selectWorkflowNode,
+    getSelectedStepIndex: (jobId) =>
+      selection?.kind === "workflow-block" &&
+      stages[selection.stageIndex]?.jobs[selection.jobIndex]?.editorId === jobId
+        ? (selection.stepIndex ?? null)
+        : null,
+    getSelectedOperation: (jobId) =>
+      selection?.kind === "workflow-block" &&
+      stages[selection.stageIndex]?.jobs[selection.jobIndex]?.editorId === jobId
+        ? (selection.operation ?? "run")
+        : "run",
+    onSelectStep: (jobId, id, stepIndex, operation) =>
+      selectWorkflowNode(jobId, id, stepIndex, operation),
+    onSelectWholeRollback: (jobId, id) =>
+      selectWorkflowNode(jobId, id, undefined, "whole_resource_rollback"),
     templateOptions: {
       confirmReplace: () =>
         browserConfirm(t("orchestrationDiscardChangesConfirm")),
     },
   });
+  const workflowBlockStatesStore = workflowCanvas.canvasStateStore;
   // Keep registry models cloneable when nested editors publish changes.
   let workflowModels = $state.raw<Record<string, TxWorkflowFormModel>>({});
   $effect(() => {
@@ -186,7 +204,12 @@
   onDestroy(workflowCanvas.destroy);
   let baseGraph = $derived.by(() => {
     currentLanguage;
-    return orchestrationFlowGraph(model, workflowPreviews, workflowModels);
+    return orchestrationFlowGraph(
+      model,
+      workflowPreviews,
+      workflowModels,
+      $workflowBlockStatesStore,
+    );
   });
   let graphLayoutRevision = $derived(
     baseGraph.nodes
@@ -479,7 +502,12 @@
         : false,
   );
 
-  function selectWorkflowNode(jobId: string, editorId: string | null): void {
+  function selectWorkflowNode(
+    jobId: string,
+    editorId: string | null,
+    stepIndex?: number,
+    operation?: TxBlockCommandTarget,
+  ): void {
     for (const [stageIndex, stage] of stages.entries()) {
       const jobIndex = stage.jobs.findIndex((job) => job.editorId === jobId);
       if (jobIndex < 0) continue;
@@ -498,6 +526,8 @@
               jobIndex,
               blockIndex: location.blockIndex,
               editorId,
+              ...(stepIndex !== undefined ? { stepIndex } : {}),
+              ...(operation ? { operation } : {}),
             }
           : { kind: "job", stageIndex, jobIndex };
       inspectorCollapsed = false;
@@ -696,6 +726,7 @@
       selection,
       workflowPreviews,
       workflowModels,
+      $workflowBlockStatesStore,
     );
     if (normalized) {
       selection = normalized;

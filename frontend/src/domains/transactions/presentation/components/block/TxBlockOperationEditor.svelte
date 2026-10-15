@@ -22,6 +22,7 @@
     editorDisplay: ReturnType<typeof txBlockVisualEditorDisplay>;
     onChange?: (operation: TxOperationModel) => void;
     operation: TxOperationModel;
+    initializeDefaultMode?: boolean;
     pathPrefix?: string;
     showTitle?: boolean;
     title: string;
@@ -31,6 +32,7 @@
   let {
     options,
     operation,
+    initializeDefaultMode = true,
     title,
     showTitle = true,
     editorDisplay,
@@ -80,6 +82,7 @@
     {:else}
       <TxBlockCommandEditor
         command={operation.command}
+        {initializeDefaultMode}
         metadataFieldDefs={[...commandMetadataFieldDefs]}
         interactive={editorKind === "interactive"}
         onChange={(patch) =>

@@ -7,8 +7,13 @@ import {
   txWorkflowFlowGraph,
   txWorkflowFormModelFromJson,
   txWorkflowFindBlock,
+  txWorkflowNormalizeCommandSelection,
 } from "$domains/transactions/index.js";
-import type { TxWorkflowFormModel } from "$domains/transactions/index.js";
+import type {
+  TransactionBlockCanvasState,
+  TxWorkflowFormModel,
+  TxBlockCommandTarget,
+} from "$domains/transactions/index.js";
 import type { FlowWorkflowBlockNodeData } from "../../../components/fragments/flowWorkflowTypes.js";
 import type {
   JsonObject,
@@ -38,6 +43,8 @@ export type OrchestrationFlowSelection =
   | {
       blockIndex: number;
       editorId?: string;
+      stepIndex?: number;
+      operation?: TxBlockCommandTarget;
       jobIndex: number;
       kind: "workflow-block";
       stageIndex: number;
@@ -471,6 +478,10 @@ export function orchestrationFlowGraph(
   model: Pick<OrchestrationPlanFormModel, "stages"> = { stages: [] },
   workflowPreviews: WorkflowPreviewMap = {},
   workflowModels: WorkflowModelMap = {},
+  workflowBlockStates: Record<
+    string,
+    Record<string, TransactionBlockCanvasState>
+  > = {},
 ): OrchestrationFlowGraph {
   const stages = model.stages ?? [];
   const graphs: WorkflowGraphMap = {};
@@ -486,7 +497,10 @@ export function orchestrationFlowGraph(
         workflowModels[job.editorId] ??
           orchestrationWorkflowPreviewFormState(preview.workflow).formModel ??
           txWorkflowFormModelFromJson({}),
-        { canAddBlock: preview.sourceKind === "manual" },
+        {
+          canAddBlock: preview.sourceKind === "manual",
+          blockStates: workflowBlockStates[job.editorId],
+        },
       );
     }),
   );
@@ -550,6 +564,10 @@ export function orchestrationNormalizeFlowSelection(
   selection: unknown,
   workflowPreviews: WorkflowPreviewMap = {},
   workflowModels: WorkflowModelMap = {},
+  workflowBlockStates: Record<
+    string,
+    Record<string, TransactionBlockCanvasState>
+  > = {},
 ): OrchestrationFlowSelection | null {
   const selectionValue = objectValue(selection);
   if (!Object.keys(selectionValue).length) return null;
@@ -584,6 +602,7 @@ export function orchestrationNormalizeFlowSelection(
       ? txWorkflowFindBlock(workflowModels[jobs[jobIndex].editorId], editorId)
       : null;
   if (editorId && !location) return null;
+  const selectedBlock = location?.block;
   while (location?.parentId)
     location = txWorkflowFindBlock(
       workflowModels[jobs[jobIndex].editorId],
@@ -601,9 +620,30 @@ export function orchestrationNormalizeFlowSelection(
     workflowModels[job.editorId]?.blocks.length ??
     (Array.isArray(workflow?.blocks) ? workflow.blocks.length : 0);
   if (blockIndex >= blockCount) return null;
+  const blockModel =
+    (editorId
+      ? workflowBlockStates[job.editorId]?.[editorId]?.formModel
+      : null) ??
+    selectedBlock?.inlineBlock ??
+    workflowModels[job.editorId]?.blocks[blockIndex]?.inlineBlock;
+  const commandSelection = txWorkflowNormalizeCommandSelection(blockModel, {
+    stepIndex:
+      typeof selectionValue.stepIndex === "number"
+        ? selectionValue.stepIndex
+        : undefined,
+    operation:
+      selectionValue.operation === "run" ||
+      selectionValue.operation === "rollback" ||
+      selectionValue.operation === "whole_resource_rollback"
+        ? selectionValue.operation
+        : undefined,
+  });
+  const { stepIndex, operation } = commandSelection;
   return selectionValue.stageIndex === stageIndex &&
     selectionValue.jobIndex === jobIndex &&
-    selectionValue.blockIndex === blockIndex
+    selectionValue.blockIndex === blockIndex &&
+    selectionValue.stepIndex === stepIndex &&
+    selectionValue.operation === operation
     ? (selectionValue as OrchestrationFlowSelection)
     : {
         kind: "workflow-block",
@@ -611,5 +651,6 @@ export function orchestrationNormalizeFlowSelection(
         jobIndex,
         blockIndex,
         ...(editorId ? { editorId } : {}),
+        ...commandSelection,
       };
 }

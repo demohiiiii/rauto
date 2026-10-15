@@ -10,9 +10,12 @@ import type {
 import { t } from "../../../lib/i18n.js";
 import type {
   TxWorkflowFormModel,
+  TxBlockFormModel,
+  TxBlockCommandTarget,
   TxWorkflowBlockFormModel,
 } from "../model/types.js";
 import { txBlockTimelineDisplay } from "./transactionBlockDisplayState.js";
+import type { TransactionBlockCanvasState } from "../application/transactionBlockTemplateAuthoring.js";
 
 export type TxWorkflowCanvasGroupData = FlowWorkflowGroupNodeData & {
   kind: "workflow";
@@ -24,6 +27,38 @@ export type TxWorkflowCanvasBlockData = FlowWorkflowBlockNodeData & {
 
 export const TX_WORKFLOW_GROUP_ID = "workflow-root";
 export const TX_WORKFLOW_CANVAS_DESKTOP_ZOOM = 0.9;
+
+export function txWorkflowNormalizeCommandSelection(
+  model: TxBlockFormModel | null | undefined,
+  selection: { stepIndex?: number; operation?: TxBlockCommandTarget },
+): { stepIndex?: number; operation?: TxBlockCommandTarget } {
+  if (!model) return {};
+  if (selection.operation === "whole_resource_rollback")
+    return model.rollbackPolicy.kind === "whole_resource" &&
+      model.rollbackPolicy.wholeResource
+      ? { operation: "whole_resource_rollback" }
+      : {};
+  const index = selection.stepIndex;
+  if (
+    index === undefined ||
+    !Number.isInteger(index) ||
+    index < 0 ||
+    index >= model.steps.length
+  )
+    return {};
+  return {
+    stepIndex: index,
+    ...(selection.operation
+      ? {
+          operation:
+            selection.operation === "rollback" &&
+            model.rollbackPolicy.kind !== "per_step"
+              ? "run"
+              : selection.operation,
+        }
+      : {}),
+  };
+}
 
 export function txWorkflowNodeTitle(block: TxWorkflowBlockFormModel): string {
   if (block.control)
@@ -46,16 +81,24 @@ export function txWorkflowInspectorWidth(
 function workflowBlockData(
   block: TxWorkflowBlockFormModel,
   blockIndex: number,
+  blockStates: Record<string, TransactionBlockCanvasState>,
+  canAddCommands: boolean,
 ): FlowWorkflowBlockNodeData {
   const control = block.control;
   const isTemplate = block.sourceKind === "template_ref";
-  const timeline = txBlockTimelineDisplay(isTemplate ? {} : block.inlineBlock);
+  const state = blockStates[block.editorId];
+  const blockModel =
+    state?.formModel ?? (isTemplate ? null : block.inlineBlock);
+  const timeline = txBlockTimelineDisplay(blockModel ?? {});
   return {
     id: block.editorId,
     title: txWorkflowNodeTitle(block),
     sourceKind: isTemplate ? "template" : "manual",
     sequenceText: String(blockIndex + 1),
     commandRows: timeline.stepRows,
+    perStepRollbackEnabled: blockModel?.rollbackPolicy.kind === "per_step",
+    canAddCommand:
+      canAddCommands && !control && (state?.editable ?? !isTemplate),
     wholeResourceRollback: timeline.wholeResourceRollback,
     metaText: control
       ? control.kind === "loop"
@@ -71,7 +114,7 @@ function workflowBlockData(
           ]
             .filter(Boolean)
             .join(" · ")
-        : `${timeline.stepRows.length} ${t("txBlockSummarySteps")} · ${block.inlineBlock.rollbackPolicy.kind}`,
+        : `${t("txWorkflowNodeCommandCount").replace("{count}", String(timeline.stepRows.length))} · ${blockModel?.rollbackPolicy.kind ?? "none"}`,
     emptyCommandText: t(
       isTemplate
         ? "txWorkflowNodeTemplateCommands"
@@ -116,7 +159,9 @@ function workflowBlockData(
               title: branch.title,
               conditionText: branch.conditionText,
               conditionLabel: t("txWorkflowChoiceCondition"),
-              entries: branch.blocks.map(workflowBlockData),
+              entries: branch.blocks.map((entry, index) =>
+                workflowBlockData(entry, index, blockStates, canAddCommands),
+              ),
               emptyText: t("txWorkflowControlEmpty"),
               canAddBlock: true,
               addBlockLabel: t("txWorkflowFormAddBlock"),
@@ -129,11 +174,17 @@ function workflowBlockData(
 
 export function txWorkflowFlowGraph(
   model: TxWorkflowFormModel,
-  { canAddBlock = true } = {},
+  {
+    canAddBlock = true,
+    blockStates = {},
+  }: {
+    canAddBlock?: boolean;
+    blockStates?: Record<string, TransactionBlockCanvasState>;
+  } = {},
 ) {
   const blocks = model.blocks.map((block, blockIndex) => {
     const data: TxWorkflowCanvasBlockData = {
-      ...workflowBlockData(block, blockIndex),
+      ...workflowBlockData(block, blockIndex, blockStates, canAddBlock),
       kind: "block",
       blockIndex,
       hasTarget: blockIndex > 0,

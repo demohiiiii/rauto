@@ -1,3 +1,5 @@
+import type { RenderedWorkflow } from "$domains/transactions/index.js";
+
 export type JsonObject = Record<string, unknown>;
 
 export type OrchestrationJsonPrimitive = boolean | number | string | null;
@@ -107,9 +109,20 @@ export interface OrchestrationExecutionResult extends OrchestrationJsonObject {
 }
 
 export interface ExecuteOrchestrationResponse {
+  rendered_workflows?: RenderedOrchestrationWorkflow[];
   orchestration_result: OrchestrationExecutionResult | null;
   plan: OrchestrationPlan;
   result_summary: JsonObject;
+}
+
+export interface RenderedOrchestrationWorkflow {
+  stage_index: number;
+  stage_name: string;
+  job_index: number;
+  job_name: string;
+  connection_name: string | null;
+  host: string;
+  workflow: RenderedWorkflow;
 }
 
 export interface OrchestrationStageExecutionDetail {

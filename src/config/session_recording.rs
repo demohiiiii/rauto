@@ -37,6 +37,16 @@ fn authentication_secrets(auth: &SshAuthMethod) -> Vec<String> {
     }
 }
 
+pub(crate) fn redact_authentication_json(
+    value: &mut serde_json::Value,
+    auth: &SshAuthMethod,
+    enable_password: Option<&str>,
+) {
+    let mut secrets = authentication_secrets(auth);
+    secrets.extend(enable_password.map(str::to_string));
+    crate::domain::template::redaction::redact_preview_json_with_secrets(value, &secrets, "***");
+}
+
 fn redact_event(event: SessionEvent, secrets: &[String]) -> SessionEvent {
     if secrets.is_empty() {
         return event;

@@ -46,6 +46,7 @@ pub async fn execute_claimed_run(
             } => execute_scheduled_orchestration(
                 execution_state,
                 ExecuteOrchestrationRequest {
+                    preview_commands: false,
                     plan_template_name: Some(template_name),
                     plan_template_content: None,
                     plan_vars: vars,
@@ -100,6 +101,7 @@ pub async fn execute_claimed_run(
             } => execute_scheduled_tx_workflow(
                 execution_state,
                 ExecuteTxWorkflowRequest {
+                    preview_commands: false,
                     workflow_template_name: Some(template_name),
                     workflow_template_content: None,
                     workflow_vars: vars,

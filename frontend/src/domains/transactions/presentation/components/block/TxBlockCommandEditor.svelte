@@ -28,6 +28,7 @@
 
   interface Props {
     command: TxCommandModel;
+    initializeDefaultMode?: boolean;
     interactive?: boolean;
     jsonValueTypeRows: readonly string[];
     metadataFieldDefs?: readonly TxMetadataFieldDefinition[];
@@ -38,6 +39,7 @@
 
   let {
     command,
+    initializeDefaultMode = true,
     interactive = false,
     onChange,
     jsonValueTypeRows,
@@ -64,6 +66,7 @@
   $effect(() => {
     setCommandEditorContext({
       command,
+      initializeDefaultMode,
       metadataFieldDefs,
       onChange,
       validationErrors,
@@ -135,66 +138,73 @@
 {/snippet}
 
 <div class="grid min-w-0 gap-3">
-  <ReadonlyFields class="grid min-w-0 gap-4">
-    <TemplateSourceField
-      manualValue={MANUAL_COMMAND_SOURCE}
-      value={commandTemplateSource.selection}
-      optionValues={commandTemplateSource.optionValues}
-      disabled={commandTemplateSource.loading}
-      onValueChange={selectCommandTemplate}
-    />
-
-    {#if commandTemplateSource.statusMessage}
-      <StatusCard
-        message={commandTemplateSource.statusMessage}
-        tone={commandTemplateSource.statusTone}
+  <ReadonlyFields>
+    <!-- Grid on the fieldset can collapse replaced size containers in Chromium. -->
+    <div class="grid min-w-0 gap-4">
+      <TemplateSourceField
+        manualValue={MANUAL_COMMAND_SOURCE}
+        value={commandTemplateSource.selection}
+        optionValues={commandTemplateSource.optionValues}
+        disabled={commandTemplateSource.loading}
+        onValueChange={selectCommandTemplate}
       />
-    {/if}
-    {#if interactive}
-      <InteractiveCommandEditor
-        {modeField}
-        {settings}
-        compact={true}
-        step={sharedModel}
-        createPrompt={createTransactionEditorPrompt}
-        onChange={(editor) =>
-          onChange?.(transactionCommandFromEditor(command, editor))}
-      >
-        {#snippet promptDetails(prompt, index, updatePrompt)}
-          {@const error = txBlockValidationErrorText(
-            validationErrors,
-            `${pathPrefix}.interaction.prompts[${index}].patterns`,
-          )}
-          {#if error}<p class="px-3 pb-3 text-xs text-destructive" role="alert">
-              {error}
-            </p>{/if}
-          {#if Object.keys(prompt.extra).length > 0}
-            <div class="px-3 pb-3">
-              <JsonObjectFieldsEditor
-                title={t("txBlockFormPromptExtra")}
-                source={prompt.extra}
-                typeRows={[...jsonValueTypeRows]}
-                onChange={(extra) => updatePrompt({ ...prompt, extra })}
-              />
-            </div>
-          {/if}
-        {/snippet}
-      </InteractiveCommandEditor>
-    {:else}
-      <CommandEditor
-        command={command.command}
-        multilineMode={command.multilineMode}
-        commandLabel={t("fieldCommand")}
-        {modeField}
-        onCommandChange={(command) => onChange?.({ command })}
-        onMultilineModeChange={(multilineMode) => onChange?.({ multilineMode })}
-      >
-        {@render settings()}
-      </CommandEditor>
-    {/if}
-    {#if commandError}<p class="text-xs text-destructive" role="alert">
-        {commandError}
-      </p>{/if}
+
+      {#if commandTemplateSource.statusMessage}
+        <StatusCard
+          message={commandTemplateSource.statusMessage}
+          tone={commandTemplateSource.statusTone}
+        />
+      {/if}
+      {#if interactive}
+        <InteractiveCommandEditor
+          {modeField}
+          {settings}
+          compact={true}
+          step={sharedModel}
+          createPrompt={createTransactionEditorPrompt}
+          onChange={(editor) =>
+            onChange?.(transactionCommandFromEditor(command, editor))}
+        >
+          {#snippet promptDetails(prompt, index, updatePrompt)}
+            {@const error = txBlockValidationErrorText(
+              validationErrors,
+              `${pathPrefix}.interaction.prompts[${index}].patterns`,
+            )}
+            {#if error}<p
+                class="px-3 pb-3 text-xs text-destructive"
+                role="alert"
+              >
+                {error}
+              </p>{/if}
+            {#if Object.keys(prompt.extra).length > 0}
+              <div class="px-3 pb-3">
+                <JsonObjectFieldsEditor
+                  title={t("txBlockFormPromptExtra")}
+                  source={prompt.extra}
+                  typeRows={[...jsonValueTypeRows]}
+                  onChange={(extra) => updatePrompt({ ...prompt, extra })}
+                />
+              </div>
+            {/if}
+          {/snippet}
+        </InteractiveCommandEditor>
+      {:else}
+        <CommandEditor
+          command={command.command}
+          multilineMode={command.multilineMode}
+          commandLabel={t("fieldCommand")}
+          {modeField}
+          onCommandChange={(command) => onChange?.({ command })}
+          onMultilineModeChange={(multilineMode) =>
+            onChange?.({ multilineMode })}
+        >
+          {@render settings()}
+        </CommandEditor>
+      {/if}
+      {#if commandError}<p class="text-xs text-destructive" role="alert">
+          {commandError}
+        </p>{/if}
+    </div>
   </ReadonlyFields>
   <CollapsibleGroup
     variant="section"

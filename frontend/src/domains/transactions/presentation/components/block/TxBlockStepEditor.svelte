@@ -5,6 +5,7 @@
   import PlainCheckboxField from "$components/fragments/PlainCheckboxField.svelte";
   import { t } from "$lib/i18n.js";
   import TxBlockOperationEditor from "$domains/transactions/presentation/components/block/TxBlockOperationEditor.svelte";
+  import { txBlockOperationDraft } from "$domains/transactions/index.js";
   import type {
     txBlockVisualEditorDisplay,
     TxBlockStepChangeHandler,
@@ -22,6 +23,7 @@
     onStepChange?: TxBlockStepChangeHandler;
     pathPrefix?: string;
     perStepRollbackEnabled?: boolean;
+    selectedOperation?: "both" | "run" | "rollback";
     rollbackCommandMetadataFieldDefs?: readonly TxMetadataFieldDefinition[];
     runCommandMetadataFieldDefs?: readonly TxMetadataFieldDefinition[];
     step: TxStepFormModel;
@@ -34,6 +36,7 @@
     runCommandMetadataFieldDefs = [],
     rollbackCommandMetadataFieldDefs = [],
     perStepRollbackEnabled = false,
+    selectedOperation = "both",
     onRunChange,
     onRollbackChange,
     onRollbackEnabledChange,
@@ -43,6 +46,9 @@
   }: Props = $props();
 
   let rollbackEnabled = $derived(!!step.rollback);
+  let rollbackOperation = $derived(
+    step.rollback ?? txBlockOperationDraft("command"),
+  );
 </script>
 
 {#snippet operationHeader(rollback: boolean)}
@@ -80,29 +86,34 @@
   <div
     class="step-operations grid min-w-0 overflow-hidden rounded-lg border border-border/80 bg-background"
     data-per-step-rollback={perStepRollbackEnabled}
+    data-selected-operation={selectedOperation}
   >
-    <section class="min-w-0 p-4" aria-label={t("txBlockStepRunCommand")}>
-      {@render operationHeader(false)}
-      <TxBlockOperationEditor
-        operation={step.run}
-        title={t("txBlockStepRunCommand")}
-        showTitle={false}
-        {editorDisplay}
-        commandMetadataFieldDefs={runCommandMetadataFieldDefs}
-        onChange={onRunChange}
-        {validationErrors}
-        pathPrefix={`${pathPrefix}.run`}
-      />
-    </section>
-    {#if perStepRollbackEnabled}
+    {#if selectedOperation !== "rollback"}
+      <section class="min-w-0 p-4" aria-label={t("txBlockStepRunCommand")}>
+        {@render operationHeader(false)}
+        <TxBlockOperationEditor
+          operation={step.run}
+          title={t("txBlockStepRunCommand")}
+          showTitle={false}
+          {editorDisplay}
+          commandMetadataFieldDefs={runCommandMetadataFieldDefs}
+          onChange={onRunChange}
+          {validationErrors}
+          pathPrefix={`${pathPrefix}.run`}
+        />
+      </section>
+    {/if}
+    {#if perStepRollbackEnabled && selectedOperation !== "run"}
       <section
-        class="rollback-pane flex min-w-0 flex-col border-t border-border/80 bg-muted/15 p-4"
+        class="rollback-pane flex min-w-0 flex-col border-border/80 bg-muted/15 p-4"
+        class:border-t={selectedOperation === "both"}
         aria-label={t("txBlockStepRollbackCommand")}
       >
         {@render operationHeader(true)}
-        {#if rollbackEnabled && step.rollback}
+        {#if rollbackEnabled || selectedOperation === "rollback"}
           <TxBlockOperationEditor
-            operation={step.rollback}
+            operation={rollbackOperation}
+            initializeDefaultMode={rollbackEnabled}
             title={t("txBlockStepRollbackCommand")}
             showTitle={false}
             {editorDisplay}
@@ -111,20 +122,22 @@
             {validationErrors}
             pathPrefix={`${pathPrefix}.rollback`}
           />
-          <ReadonlyFields class="mt-4 border-t border-border/70 pt-3">
-            <PlainCheckboxField
-              class="w-full flex-row-reverse justify-between gap-3"
-              controlKind="switch"
-              checked={step.rollbackOnFailure}
-              labelText={t("txBlockFormRollbackOnFailure")}
-              textClass="min-w-0 text-xs text-muted-foreground"
-              onCheckedChange={(rollbackOnFailure) =>
-                onStepChange?.({
-                  rollbackOnFailure,
-                  hasRollbackOnFailure: true,
-                })}
-            />
-          </ReadonlyFields>
+          {#if rollbackEnabled}
+            <ReadonlyFields class="mt-4 border-t border-border/70 pt-3">
+              <PlainCheckboxField
+                class="w-full flex-row-reverse justify-between gap-3"
+                controlKind="switch"
+                checked={step.rollbackOnFailure}
+                labelText={t("txBlockFormRollbackOnFailure")}
+                textClass="min-w-0 text-xs text-muted-foreground"
+                onCheckedChange={(rollbackOnFailure) =>
+                  onStepChange?.({
+                    rollbackOnFailure,
+                    hasRollbackOnFailure: true,
+                  })}
+              />
+            </ReadonlyFields>
+          {/if}
         {:else}
           <div
             class="flex min-h-64 flex-1 flex-col items-center justify-center gap-3 text-muted-foreground"
@@ -144,15 +157,15 @@
 
 <style>
   .tx-step-editor {
-    container-type: inline-size;
+    container: transaction-step / inline-size;
   }
 
-  @container (min-width: 42rem) {
-    .step-operations[data-per-step-rollback="true"] {
+  @container transaction-step (min-width: 32rem) {
+    .step-operations[data-per-step-rollback="true"][data-selected-operation="both"] {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .rollback-pane {
+    .step-operations[data-selected-operation="both"] > .rollback-pane {
       border-top: 0;
       border-left: 1px solid var(--border);
     }

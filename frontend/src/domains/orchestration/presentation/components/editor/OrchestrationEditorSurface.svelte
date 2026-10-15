@@ -14,6 +14,7 @@
   import { orchestrationPlanFormModelToJsonText } from "$domains/orchestration/index.js";
   import { TX_EDITOR } from "$domains/transactions/index.js";
   import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
+  import ExecutionCommandPreview from "../preview/ExecutionCommandPreview.svelte";
   import OrchestrationPlanFormEditor from "$domains/orchestration/presentation/components/editor/OrchestrationPlanFormEditor.svelte";
   import OrchestrationPreviewPanel from "$domains/orchestration/presentation/components/preview/OrchestrationPreviewPanel.svelte";
   import TxJsonFormSurface from "$domains/transactions/presentation/components/shared/TxJsonFormSurface.svelte";
@@ -274,4 +275,11 @@
   loading={runButtonDisplay.executeLoading}
   showAutoDownloadOutput={false}
   onRun={executeCurrentPlan}
-/>
+>
+  {#snippet actions()}<ExecutionCommandPreview
+      {active}
+      sourceText={editorValue}
+      feature="orchestrate"
+      disabled={runButtonDisplay.executeLoading}
+    />{/snippet}
+</ExecutionRunBar>

@@ -2,6 +2,7 @@
   import TxWorkflowInputPanel from "$domains/transactions/presentation/components/workflow/TxWorkflowInputPanel.svelte";
   import ExecutionDock from "$components/fragments/ExecutionDock.svelte";
   import ExecutionRunBar from "$components/fragments/ExecutionRunBar.svelte";
+  import ExecutionCommandPreview from "$domains/orchestration/presentation/components/preview/ExecutionCommandPreview.svelte";
   import { createTxWorkflowStageWorkspace } from "$domains/transactions/index.js";
 
   interface Props {
@@ -30,13 +31,23 @@
 
 <ExecutionDock {active} feature="tx-workflow">
   <div class="grid gap-2">
-    <TxWorkflowInputPanel {active} {onEditorInput} />
-    <ExecutionRunBar
-      {active}
-      buttonLabel={workflowOutputPanelDisplay.executeButtonLabel}
-      loading={workflowOutputPanelDisplay.loadingDisplay.execute}
-      showAutoDownloadOutput={false}
-      onRun={executeWorkflow}
-    />
+    <TxWorkflowInputPanel {active} {onEditorInput}>
+      {#snippet runBar(sourceText)}
+        <ExecutionRunBar
+          {active}
+          buttonLabel={workflowOutputPanelDisplay.executeButtonLabel}
+          loading={workflowOutputPanelDisplay.loadingDisplay.execute}
+          showAutoDownloadOutput={false}
+          onRun={executeWorkflow}
+        >
+          {#snippet actions()}<ExecutionCommandPreview
+              {active}
+              {sourceText}
+              feature="tx-workflow"
+              disabled={workflowOutputPanelDisplay.loadingDisplay.execute}
+            />{/snippet}
+        </ExecutionRunBar>
+      {/snippet}
+    </TxWorkflowInputPanel>
   </div>
 </ExecutionDock>

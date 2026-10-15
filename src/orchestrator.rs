@@ -14,10 +14,12 @@ use std::sync::Arc;
 
 mod execution;
 mod execution_actions;
+mod preview;
 mod render;
 mod targets;
 mod template_resolver;
 mod validation;
+pub(crate) use self::preview::preview_plan_commands;
 pub(crate) use self::validation::validate_plan;
 pub use crate::domain::orchestration::{
     CompensationExecutionResult, JobExecutionResult, OrchestrationAction,

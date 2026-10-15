@@ -1,8 +1,17 @@
-export type FlowWorkflowCommandRow = {
+export type FlowWorkflowCommandRow = FlowWorkflowNodeActions & {
+  selected?: boolean;
+  onSelect?: () => void;
+  rollbackSelected?: boolean;
+  onSelectRollback?: () => void;
   summaryText: string;
   kindText?: string;
   rollbackSummaryText?: string;
   rollbackKindText?: string;
+  canSplit?: boolean;
+  splitDisabled?: boolean;
+  splitLabel?: string;
+  splitHint?: string;
+  onSplit?: () => void;
 };
 
 export type FlowWorkflowNodeActions = {
@@ -36,6 +45,10 @@ export type FlowWorkflowBlockNodeData = FlowWorkflowNodeActions & {
   sequenceText: string;
   sourceKind: "manual" | "template";
   commandRows: FlowWorkflowCommandRow[];
+  perStepRollbackEnabled?: boolean;
+  canAddCommand?: boolean;
+  addCommandLabel?: string;
+  onAddCommand?: () => void;
   metaText?: string;
   emptyCommandText?: string;
   hasSource: boolean;
@@ -60,6 +73,8 @@ export type FlowWorkflowBlockNodeData = FlowWorkflowNodeActions & {
   wholeResourceRollback?: {
     kindText: string;
     summaryText: string;
+    selected?: boolean;
+    onSelect?: () => void;
   } | null;
 };
 

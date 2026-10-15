@@ -131,3 +131,56 @@ test("blank transaction command mode initializes from the profile default", asyn
     globalThis.fetch = originalFetch;
   }
 });
+
+test("viewing an empty rollback draft loads profile modes without saving the draft", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        default_mode: "Root",
+        modes: ["Root", "User"],
+        name: "test-empty-rollback",
+      }),
+      { headers: { "content-type": "application/json" } },
+    );
+  setCurrentConnectionTarget(
+    { kind: "saved", profile: "test-empty-rollback" },
+    null,
+  );
+  const changes: Array<Partial<TxCommandModel>> = [];
+  const draft = txBlockOperationDraft("command").command;
+  const source = structuredClone(draft);
+  const workspace = createTxBlockCommandEditorWorkspace();
+  const onChange = (next: Partial<TxCommandModel>) => changes.push(next);
+  workspace.setCommandEditorContext({
+    command: draft,
+    initializeDefaultMode: false,
+    onChange,
+  });
+  try {
+    await waitFor(() => commandModeValues(workspace).includes("User"));
+    assert.equal(changes.length, 0);
+    assert.deepEqual(draft, source);
+
+    workspace.setCommandEditorContext({
+      command: { ...draft, command: "undo verify" },
+      onChange,
+    });
+    await waitFor(() => changes.at(-1)?.mode === "Root");
+    assert.equal(changes.at(-1)?.command, "undo verify");
+
+    changes.length = 0;
+    workspace.setCommandEditorContext({
+      command: draft,
+      initializeDefaultMode: false,
+      onChange,
+    });
+    await waitFor(() => commandModeValues(workspace).includes("User"));
+    assert.equal(changes.length, 0);
+    assert.deepEqual(draft, source);
+  } finally {
+    workspace.destroy();
+    setCurrentConnectionTarget(null);
+    globalThis.fetch = originalFetch;
+  }
+});

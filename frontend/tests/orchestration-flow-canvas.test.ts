@@ -189,15 +189,16 @@ test("orchestration flow graph derives stage groups and child job nodes", () => 
   assert.equal(stageNodes[0].data.sequence, 1);
   assert.equal(stageNodes[0].data.empty, false);
   assert.equal(stageNodes[0].width, 420);
-  assert.equal(stageNodes[0].height, 750);
+  assert.equal(stageNodes[0].height, 794);
   assert.equal(stageNodes[0].position.y, 96);
-  assert.equal(stageNodes[1].position.y, 262);
+  assert.equal(stageNodes[1].position.y, 284);
   assert.equal(jobNodes[0].width, 380);
-  assert.equal(jobNodes[0].height, 304);
+  assert.equal(jobNodes[0].height, 348);
   assert.equal(workflowBlockNodes[0].parentId, jobNodes[0].id);
   assert.equal(workflowBlockNodes[0].extent, "parent");
   assert.equal(workflowBlockNodes[0].width, 348);
-  assert.equal(workflowBlockNodes[0].height, 106);
+  assert.equal(workflowBlockNodes[0].height, 150);
+  assert.equal(workflowBlockNodes[0].data.canAddCommand, true);
   assert.equal(workflowBlockNodes[0].position.y, 136);
   assert.equal(workflowBlockNodes[0].data.title, t("txWorkflowFormBlock"));
   assert.deepEqual(
@@ -238,7 +239,7 @@ test("orchestration flow graph derives stage groups and child job nodes", () => 
       (edge) => edge.source === "stage-0" && edge.target === "stage-insert-1",
     ),
   );
-  assert.equal(stageInsertNodes[0].position.y, 449);
+  assert.equal(stageInsertNodes[0].position.y, 471);
   assert.ok(
     stageNodes.every(
       (node) =>
@@ -345,8 +346,9 @@ test("workflow block nodes display every command and expand without overlap", ()
     blockNodes[0].data.commandRows.map((row) => row.summaryText),
     ["show version", "show inventory", "show clock"],
   );
-  assert.equal(blockNodes[0].height, 162);
-  assert.equal(blockNodes[1].position.y, 310);
+  assert.equal(blockNodes[0].height, 206);
+  assert.equal(blockNodes[0].data.canAddCommand, true);
+  assert.equal(blockNodes[1].position.y, 354);
   assert.ok(
     blockNodes[1].position.y >=
       blockNodes[0].position.y + blockNodes[0].height + 12,

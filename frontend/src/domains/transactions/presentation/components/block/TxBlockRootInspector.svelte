@@ -20,6 +20,7 @@
     rollbackPanel: ReturnType<typeof txBlockRollbackPolicyPanelDisplay>;
     rootPanel: ReturnType<typeof txBlockRootPanelDisplay>;
     validationErrors?: readonly TxValidationError[];
+    showWholeResourceCommand?: boolean;
   }
 
   let {
@@ -29,6 +30,7 @@
     rollbackPanel,
     validationErrors = [],
     pathPrefix = "",
+    showWholeResourceCommand = true,
   }: Props = $props();
   let stepsErrorText = $derived(
     txBlockValidationErrorText(
@@ -81,6 +83,7 @@
       onWholeResourceRollbackChange={editorActionHandlers.setWholeResourceRollback}
       {validationErrors}
       pathPrefix={`${pathPrefix ? `${pathPrefix}.` : ""}rollbackPolicy.wholeResource`}
+      showCommandEditor={showWholeResourceCommand}
     />
   {/if}
 </section>

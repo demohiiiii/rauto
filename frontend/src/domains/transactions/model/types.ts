@@ -23,6 +23,8 @@ export type TxMultilineMode = "split_lines" | "whole";
 export type TxOperationKind = "command" | "flow";
 export type TransactionOperationEditorKind = "command" | "interactive";
 export type TxRollbackKind = "none" | "per_step" | "whole_resource";
+export type TxBlockCommandTarget =
+  "run" | "rollback" | "whole_resource_rollback";
 
 export interface TxRuntimePromptModel extends JsonObject {
   extra: JsonObject;

@@ -2006,6 +2006,127 @@ fn http_workflow_resolves_saved_block_templates_and_previews_without_execution()
 }
 
 #[test]
+fn http_workflow_preview_masks_saved_block_variables_and_keeps_dry_run_unchanged() {
+    run_route_test(|context| async move {
+        for name in ["short-token", "long-token"] {
+            context.post_json("/api/tx-block-templates", json!({
+                "name":name,
+                "content":json!({
+                    "name":name, "fail_fast":true, "rollback_policy":"per_step",
+                    "steps":[{
+                        "run":{"kind":"command", "mode":"User", "command":"send {{ vars.api_token }}",
+                            "interaction":{"prompts":[{"patterns":["Confirm:"], "response":"{{ vars.api_token }}"}]}},
+                        "rollback":{"kind":"command", "mode":"User", "command":"undo {{ vars.api_token }}"}
+                    }]
+                }).to_string()
+            })).await.assert_ok();
+        }
+        let mut request = json!({
+            "connection":{"host":"192.0.2.10", "credential_id":context.credential_id, "device_profile":"linux"},
+            "dry_run":true,
+            "workflow":{"name":"preview", "fail_fast":true, "blocks":[
+                {"tx_block_template_name":"short-token", "tx_block_template_vars":{"api_token":"private-value"}},
+                {"tx_block_template_name":"long-token", "tx_block_template_vars":{"api_token":"private-value-long"}}
+            ]}
+        });
+        let ordinary = context.post_json("/api/tx/workflow", request.clone()).await;
+        assert_eq!(
+            ordinary.assert_ok()["workflow"]["blocks"][0]["steps"][0]["run"]["command"],
+            "send private-value"
+        );
+        request["preview_commands"] = json!(true);
+        let preview = context.post_json("/api/tx/workflow", request).await;
+        let body = preview.assert_ok();
+        for block in body["workflow"]["blocks"].as_array().unwrap() {
+            assert_eq!(block["steps"][0]["run"]["command"], "send ******");
+            assert_eq!(
+                block["steps"][0]["run"]["interaction"]["prompts"][0]["response"],
+                "******"
+            );
+            assert_eq!(block["steps"][0]["rollback"]["command"], "undo ******");
+        }
+        assert!(!body.to_string().contains("private-value"));
+        assert!(
+            context
+                .get_json("/api/session-history?limit=10")
+                .await
+                .assert_ok()
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+    });
+}
+
+#[test]
+fn http_orchestration_preview_preserves_types_when_tokens_and_passwords_match_them() {
+    run_route_test(|context| async move {
+        for password in ["preview-login", "command", "User"] {
+            let credential = create_credential(&DeviceCredentialInput {
+                name: format!("preview-{password}"),
+                username: "admin".into(),
+                password: Some(password.into()),
+                ..Default::default()
+            })
+            .unwrap();
+            save_connection(
+                "preview-target",
+                &SavedConnection {
+                    host: Some("192.0.2.10".into()),
+                    credential_id: Some(credential.id),
+                    device_profile: Some("linux".into()),
+                    enabled: true,
+                    port: Some(22),
+                    connect_timeout_secs: None,
+                    device_model: None,
+                    software_version: None,
+                    ssh_security: None,
+                    linux_shell_flavor: None,
+                    output_encoding: Default::default(),
+                    template_dir: None,
+                    labels: Vec::new(),
+                    groups: Vec::new(),
+                    vars: json!({}),
+                },
+            )
+            .unwrap();
+            let response = context.post_json("/api/orchestrate", json!({
+                "dry_run":true, "preview_commands":true, "plan_vars":{"api_token":"command"},
+                "plan":{"name":"preview", "stages":[{"name":"stage", "strategy":"serial", "jobs":[{
+                    "name":"job", "strategy":"parallel", "targets":["preview-target"],
+                    "action":{"kind":"tx_workflow", "workflow":{"name":"workflow", "fail_fast":true, "blocks":[{
+                        "name":"block", "fail_fast":true, "rollback_policy":"none", "steps":[{
+                            "run":{"kind":"command", "mode":"User", "multiline_mode":"whole",
+                                "command":"echo {{ vars.api_token }}", "interaction":{"prompts":[{
+                                    "patterns":["Password:"], "response":password
+                                }]}}
+                        }]
+                    }]}}
+                }]}]}
+            })).await;
+            let body = response.assert_ok();
+            let run = &body["rendered_workflows"][0]["workflow"]["blocks"][0]["steps"][0]["run"];
+            assert_eq!(run["kind"], "command");
+            assert_eq!(run["mode"], "User");
+            assert_eq!(run["multiline_mode"], "whole");
+            assert_eq!(
+                run["command"],
+                if password == "command" {
+                    "echo ***"
+                } else {
+                    "echo ******"
+                }
+            );
+            assert_eq!(run["interaction"]["prompts"][0]["response"], "***");
+            assert_eq!(
+                body["plan"]["stages"][0]["jobs"][0]["action"]["kind"],
+                "tx_workflow"
+            );
+        }
+    });
+}
+
+#[test]
 fn http_workflow_dry_run_rejects_empty_workflows_and_invalid_blocks() {
     run_route_test(|context| async move {
         for blocks in [

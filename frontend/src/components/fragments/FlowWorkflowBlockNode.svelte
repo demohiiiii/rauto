@@ -3,6 +3,7 @@
   import ArrowUpIcon from "@lucide/svelte/icons/arrow-up";
   import BoxesIcon from "@lucide/svelte/icons/boxes";
   import CopyIcon from "@lucide/svelte/icons/copy";
+  import ScissorsIcon from "@lucide/svelte/icons/scissors";
   import TerminalIcon from "@lucide/svelte/icons/terminal";
   import RepeatIcon from "@lucide/svelte/icons/repeat";
   import PlusIcon from "@lucide/svelte/icons/plus";
@@ -36,6 +37,8 @@
     data: FlowWorkflowBlockNodeData;
     selected?: boolean;
   } = $props();
+
+  const componentId = $props.id();
 
   let hasRollback = $derived(flowWorkflowHasRollback(data));
   let isLoop = $derived(data.structure?.kind === "loop");
@@ -78,6 +81,152 @@
 {#snippet emptyCommand()}
   <div class="h-6 text-xs text-muted-foreground">
     {data.emptyCommandText}
+  </div>
+{/snippet}
+
+{#snippet commandCard(
+  row: FlowWorkflowCommandRow,
+  commandIndex: number,
+  height: number,
+)}
+  <div
+    data-flow-command-index={commandIndex}
+    data-testid="flow-workflow-command"
+    class={classNames(
+      "flow-command-card nodrag nopan pointer-events-auto relative min-w-0 rounded transition-[box-shadow] motion-reduce:transition-none",
+      row.selected && "ring-2 ring-primary/45 shadow-sm",
+    )}
+  >
+    {#if row.onSelect}
+      <button
+        type="button"
+        class="absolute inset-0 z-10 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={`${row.kindText || t("txBlockFormCommand")} ${commandIndex + 1}: ${row.summaryText}`}
+        aria-pressed={!!row.selected}
+        onclick={(event) => {
+          event.stopPropagation();
+          row.onSelect?.();
+        }}
+      ></button>
+    {/if}
+    <div class="pointer-events-none min-w-0">
+      {@render runCommand(row, commandIndex, height)}
+    </div>
+    {#if row.editable}
+      <div
+        role="group"
+        aria-label={row.kindText || t("txBlockFormCommand")}
+        class={classNames(
+          "flow-command-actions pointer-events-auto absolute -top-3 right-1 z-20 flex items-center gap-0.5 rounded-md border border-border bg-background p-0.5 shadow-sm transition-opacity motion-reduce:transition-none",
+          row.selected ? "opacity-100" : "opacity-0 pointer-events-none",
+        )}
+      >
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          type="button"
+          title={row.movePreviousLabel}
+          aria-label={row.movePreviousLabel}
+          disabled={data.readonly || !row.canMovePrevious}
+          onclick={(event) => runAction(event, row.onMovePrevious)}
+          ><ArrowUpIcon /></Button
+        >
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          type="button"
+          title={row.moveNextLabel}
+          aria-label={row.moveNextLabel}
+          disabled={data.readonly || !row.canMoveNext}
+          onclick={(event) => runAction(event, row.onMoveNext)}
+          ><ArrowDownIcon /></Button
+        >
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          type="button"
+          title={row.duplicateLabel}
+          aria-label={row.duplicateLabel}
+          disabled={data.readonly}
+          onclick={(event) => runAction(event, row.onDuplicate)}
+          ><CopyIcon /></Button
+        >
+        {#if row.canSplit}
+          <span class="inline-flex" title={row.splitHint}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              type="button"
+              aria-label={row.splitLabel}
+              aria-describedby={`${componentId}-split-hint-${commandIndex}`}
+              disabled={data.readonly || row.splitDisabled}
+              onclick={(event) => runAction(event, row.onSplit)}
+              ><ScissorsIcon /></Button
+            >
+            <span
+              id={`${componentId}-split-hint-${commandIndex}`}
+              class="sr-only">{row.splitHint}</span
+            >
+          </span>
+        {/if}
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          type="button"
+          title={row.deleteLabel}
+          aria-label={row.deleteLabel}
+          disabled={data.readonly}
+          class="text-destructive hover:text-destructive"
+          onclick={(event) => runAction(event, row.onDelete)}
+          ><Trash2Icon /></Button
+        >
+      </div>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet rollbackCard(
+  command: string,
+  kindText: string | undefined,
+  onSelect: (() => void) | undefined,
+  selected: boolean | undefined,
+  height: number,
+  commandIndex: number,
+  whole = false,
+)}
+  <div
+    data-testid="flow-workflow-rollback-command"
+    data-flow-rollback-index={commandIndex}
+    data-flow-whole-rollback={whole}
+    class={classNames(
+      "nodrag nopan pointer-events-auto relative min-w-0 rounded transition-[box-shadow] motion-reduce:transition-none",
+      selected && "ring-2 ring-amber-500/50 shadow-sm",
+    )}
+  >
+    {#if onSelect}
+      <button
+        type="button"
+        class="absolute inset-0 z-10 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
+        aria-label={`${t(whole ? "txBlockFormWholeRollback" : "txBlockStepRollbackCommand")} ${commandIndex + 1}: ${command || t("txWorkflowRollbackCommandEmpty")}`}
+        aria-pressed={!!selected}
+        onclick={(event) => {
+          event.stopPropagation();
+          onSelect();
+        }}
+      ></button>
+    {/if}
+    <div class="pointer-events-none min-w-0">
+      <FlowCommandRow
+        command={command || t("txWorkflowRollbackCommandEmpty")}
+        {commandIndex}
+        {height}
+        {kindText}
+        label={t(
+          whole ? "txBlockFormWholeRollback" : "txBlockStepRollbackCommand",
+        )}
+        rollback
+      />
+    </div>
   </div>
 {/snippet}
 
@@ -360,55 +509,64 @@
         <div class="grid min-w-0 grid-cols-2 items-start gap-2">
           <div class="grid min-w-0 gap-1">
             {#each data.commandRows as row, commandIndex}
-              {@render runCommand(row, commandIndex)}
+              {@render commandCard(
+                row,
+                commandIndex,
+                flowWorkflowCommandPairHeight(row),
+              )}
             {:else}
               {@render emptyCommand()}
             {/each}
           </div>
-          <FlowCommandRow
-            command={data.wholeResourceRollback.summaryText}
-            commandIndex={0}
-            height={flowWorkflowCommandBodyHeight(data)}
-            kindText={data.wholeResourceRollback.kindText}
-            label={t("txBlockStepRollbackCommand")}
-            rollback
-          />
+          {@render rollbackCard(
+            data.wholeResourceRollback.summaryText,
+            data.wholeResourceRollback.kindText,
+            data.wholeResourceRollback.onSelect,
+            data.wholeResourceRollback.selected,
+            flowWorkflowCommandBodyHeight(data),
+            0,
+            true,
+          )}
         </div>
       {:else}
         <div class="grid min-w-0 gap-1">
           {#each data.commandRows as row, commandIndex}
             {@const height = flowWorkflowCommandPairHeight(row)}
             <div
-              class={hasRollback ? "grid min-w-0 grid-cols-2 gap-2" : "min-w-0"}
+              class={classNames(
+                "min-w-0",
+                hasRollback && "grid grid-cols-2 gap-2",
+              )}
             >
-              {@render runCommand(row, commandIndex, height)}
+              {@render commandCard(row, commandIndex, height)}
               {#if hasRollback}
-                {#if row.rollbackSummaryText}
-                  <FlowCommandRow
-                    command={row.rollbackSummaryText}
-                    {commandIndex}
-                    {height}
-                    kindText={row.rollbackKindText}
-                    label={t("txBlockStepRollbackCommand")}
-                    rollback
-                  />
-                {:else}
-                  <div
-                    class="flex min-w-0 items-center justify-center rounded border border-dashed border-border bg-muted/20 px-2 text-[0.625rem] text-muted-foreground"
-                    style:height={`${height}px`}
-                    title={t("txWorkflowVisualNoRollback")}
-                  >
-                    <span class="truncate"
-                      >{t("txWorkflowVisualNoRollback")}</span
-                    >
-                  </div>
-                {/if}
+                {@render rollbackCard(
+                  row.rollbackSummaryText || "",
+                  row.rollbackKindText,
+                  row.onSelectRollback,
+                  row.rollbackSelected,
+                  height,
+                  commandIndex,
+                )}
               {/if}
             </div>
           {:else}
             {@render emptyCommand()}
           {/each}
         </div>
+      {/if}
+      {#if data.canAddCommand}
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          class="nodrag nopan pointer-events-auto mt-3 h-8 w-full border-dashed border-primary/25 bg-primary/[0.025] text-primary hover:border-primary/50 hover:bg-primary/10"
+          title={data.addCommandLabel}
+          aria-label={data.addCommandLabel}
+          disabled={data.readonly}
+          onclick={(event) => runAction(event, data.onAddCommand)}
+          ><PlusIcon data-icon="inline-start" />{data.addCommandLabel}</Button
+        >
       {/if}
     {/if}
   </div>
@@ -428,5 +586,11 @@
   .flow-block-card:hover > .flow-block-actions,
   .flow-block-card:focus-within > .flow-block-actions {
     opacity: 1;
+  }
+
+  .flow-command-card:hover .flow-command-actions,
+  .flow-command-card:focus-within .flow-command-actions {
+    opacity: 1;
+    pointer-events: auto;
   }
 </style>

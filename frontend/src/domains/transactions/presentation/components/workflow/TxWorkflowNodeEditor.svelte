@@ -11,6 +11,8 @@
   import type {
     TxWorkflowFormModel,
     TransactionWorkflowCanvasWorkspace,
+    TransactionBlockTemplateAuthoring,
+    TxBlockCommandTarget,
   } from "../../../index.js";
   import TxWorkflowBlockEditor from "./TxWorkflowBlockEditor.svelte";
   import TxWorkflowControlEditor from "./TxWorkflowControlEditor.svelte";
@@ -20,6 +22,8 @@
     editorId,
     workspace,
     canvasBody = true,
+    selectedStepIndex = null,
+    selectedOperation = "run",
     readonly = false,
     onChange,
   }: {
@@ -27,6 +31,8 @@
     editorId: string;
     workspace: TransactionWorkflowCanvasWorkspace;
     canvasBody?: boolean;
+    selectedStepIndex?: number | null;
+    selectedOperation?: TxBlockCommandTarget;
     readonly?: boolean;
     onChange: (model: TxWorkflowFormModel) => void;
   } = $props();
@@ -58,6 +64,15 @@
         }).blockBindings(location.blockIndex)
       : null,
   );
+  let templateWorkspace = $state.raw<TransactionBlockTemplateAuthoring | null>(
+    null,
+  );
+  $effect(() => {
+    templateWorkspace =
+      row && !row.block.control
+        ? workspace.templates.getWorkspace(row.block)
+        : null;
+  });
 </script>
 
 <ReadonlyFields scopeOnly disabled={readonly}>
@@ -69,13 +84,16 @@
         {readonly}
         onChange={bindings.updateControl}
       />
-    {:else}
+    {:else if templateWorkspace}
       <TxWorkflowBlockEditor
         blockRow={row}
         editorDisplay={display}
         blockActionHandlers={bindings}
-        templateWorkspace={workspace.templates.getWorkspace(row.block)}
+        {templateWorkspace}
         showRemoveAction={false}
+        {canvasBody}
+        {selectedStepIndex}
+        {selectedOperation}
       />
     {/if}
   {/if}

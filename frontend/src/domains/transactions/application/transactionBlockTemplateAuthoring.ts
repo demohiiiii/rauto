@@ -1,4 +1,5 @@
-import { get, writable } from "svelte/store";
+import { derived, get, readonly, writable } from "svelte/store";
+import type { Unsubscriber } from "svelte/store";
 import { createExecutionTemplateWorkspace } from "$domains/templates/index.js";
 import {
   txWorkflowFindBlock,
@@ -46,9 +47,15 @@ export function createTransactionBlockTemplateAuthoring({
           txBlockFormModelToJsonText(block.inlineBlock)
       : txBlockFormModelToJsonText(block.inlineBlock),
   );
-  const formStateStore = writable(
-    txBlockEditorFormStateFromJsonText(get(jsonTextStateStore)),
+  const initialForm = txBlockEditorFormStateFromJsonText(
+    get(jsonTextStateStore),
   );
+  const formStateStore = writable({
+    ...initialForm,
+    formModel: contentSource
+      ? initialForm.formModel
+      : structuredClone(block.inlineBlock),
+  });
 
   function replaceJson(content: string): void {
     contentReadyStateStore.set(true);
@@ -232,6 +239,11 @@ export type TransactionBlockTemplateAuthoring = ReturnType<
   typeof createTransactionBlockTemplateAuthoring
 >;
 
+export interface TransactionBlockCanvasState {
+  formModel: TxBlockFormModel | null;
+  editable: boolean;
+}
+
 export function createTransactionBlockTemplateRegistry({
   getModel,
   onChange,
@@ -244,6 +256,8 @@ export function createTransactionBlockTemplateRegistry({
   templateOptions?: TemplateOptions;
 }) {
   const workspaces = new Map<string, TransactionBlockTemplateAuthoring>();
+  const subscriptions = new Map<string, Unsubscriber>();
+  const canvasState = writable<Record<string, TransactionBlockCanvasState>>({});
   function getWorkspace(
     block: TxWorkflowBlockFormModel,
   ): TransactionBlockTemplateAuthoring {
@@ -261,24 +275,51 @@ export function createTransactionBlockTemplateRegistry({
         },
       });
       workspaces.set(id, workspace);
+      subscriptions.set(
+        id,
+        derived(
+          [
+            workspace.formStateStore,
+            workspace.displayStateStore,
+            workspace.contentReadyStateStore,
+          ],
+          ([form, display, ready]) => ({
+            formModel: ready ? form.formModel : null,
+            editable: ready && !display.readonly && !display.loadingAction,
+          }),
+        ).subscribe((state) =>
+          canvasState.update((states) => ({ ...states, [id]: state })),
+        ),
+      );
     }
     return workspace;
   }
   return {
     getWorkspace,
+    canvasStateStore: readonly(canvasState),
     sync: (model: TxWorkflowFormModel) => {
       for (const [id, workspace] of workspaces) {
         const block = txWorkflowFindBlock(model, id)?.block;
         if (block) workspace.setBlockContext(block);
         else {
+          subscriptions.get(id)?.();
+          subscriptions.delete(id);
           workspace.destroy();
           workspaces.delete(id);
+          canvasState.update((states) => {
+            const next = { ...states };
+            delete next[id];
+            return next;
+          });
         }
       }
     },
     destroy: () => {
+      for (const unsubscribe of subscriptions.values()) unsubscribe();
+      subscriptions.clear();
       for (const workspace of workspaces.values()) workspace.destroy();
       workspaces.clear();
+      canvasState.set({});
     },
   };
 }

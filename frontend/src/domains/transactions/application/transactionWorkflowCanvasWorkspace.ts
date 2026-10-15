@@ -1,4 +1,5 @@
 import { t } from "../../../lib/i18n.js";
+import { get } from "svelte/store";
 import type {
   FlowWorkflowBlockNodeData,
   FlowWorkflowAddActions,
@@ -17,7 +18,17 @@ import type { TxWorkflowBranch } from "../model/transactionWorkflowTree.js";
 import type {
   TxWorkflowChoiceModel,
   TxWorkflowFormModel,
+  TxBlockFormModel,
+  TxBlockCommandTarget,
 } from "../model/types.js";
+import {
+  txBlockAddStep,
+  txBlockDuplicateStep,
+  txBlockMoveStep,
+  txBlockRemoveStep,
+  txBlockStepSplitStatus,
+  txBlockSplitStep,
+} from "../model/transactionBlockMutations.js";
 import { txWorkflowVisualEditorBindings } from "./transactionWorkflowEditorState.js";
 import { createTransactionBlockTemplateRegistry } from "./transactionBlockTemplateAuthoring.js";
 
@@ -25,14 +36,26 @@ export function createTransactionWorkflowCanvasWorkspace({
   getModel,
   onChange,
   getSelectedId,
+  getSelectedStepIndex = () => null,
+  getSelectedOperation = () => "run",
   onSelect,
+  onSelectStep,
+  onSelectWholeRollback,
   canModify,
   templateOptions,
 }: {
   getModel: () => TxWorkflowFormModel;
   onChange: (model: TxWorkflowFormModel) => void;
   getSelectedId: () => string | null;
+  getSelectedStepIndex?: () => number | null;
+  getSelectedOperation?: () => TxBlockCommandTarget;
   onSelect: (editorId: string | null) => void;
+  onSelectStep?: (
+    editorId: string,
+    stepIndex: number,
+    operation?: "run" | "rollback",
+  ) => void;
+  onSelectWholeRollback?: (editorId: string) => void;
   canModify: () => boolean;
   templateOptions?: Parameters<
     typeof createTransactionBlockTemplateRegistry
@@ -106,6 +129,87 @@ export function createTransactionWorkflowCanvasWorkspace({
         (bindings) => bindings.removeBlock(location.blockIndex),
       );
   }
+  function changeCommands(
+    editorId: string,
+    change: (model: TxBlockFormModel) => TxBlockFormModel,
+    selectIndex: number | undefined,
+    sourceIndex?: number,
+  ): void {
+    if (!canModify()) return;
+    const block = txWorkflowFindBlock(getModel(), editorId)?.block;
+    if (!block || block.control) return;
+    const template = templates.getWorkspace(block);
+    const display = get(template.displayStateStore);
+    const form = get(template.formStateStore).formModel;
+    if (
+      !get(template.contentReadyStateStore) ||
+      display.readonly ||
+      display.loadingAction ||
+      !form
+    )
+      return;
+    if (
+      sourceIndex !== undefined &&
+      (!Number.isInteger(sourceIndex) ||
+        sourceIndex < 0 ||
+        sourceIndex >= form.steps.length)
+    )
+      return;
+    const next = change(form);
+    if (next === form) return;
+    template.changeFormModel(next);
+    if (next.steps.length && onSelectStep)
+      onSelectStep(
+        editorId,
+        Math.min(selectIndex ?? next.steps.length - 1, next.steps.length - 1),
+      );
+    else onSelect(editorId);
+  }
+  function addCommand(editorId: string): void {
+    changeCommands(editorId, txBlockAddStep, undefined);
+  }
+  function moveCommand(
+    editorId: string,
+    stepIndex: number,
+    delta: -1 | 1,
+  ): void {
+    const block = txWorkflowFindBlock(getModel(), editorId)?.block;
+    if (!block) return;
+    const state = get(templates.canvasStateStore)[editorId];
+    const count = (state?.formModel ?? block.inlineBlock).steps.length;
+    const target = stepIndex + delta;
+    if (target < 0 || target >= count) return;
+    changeCommands(
+      editorId,
+      (model) => txBlockMoveStep(model, stepIndex, target),
+      target,
+      stepIndex,
+    );
+  }
+  function duplicateCommand(editorId: string, stepIndex: number): void {
+    changeCommands(
+      editorId,
+      (model) => txBlockDuplicateStep(model, stepIndex),
+      stepIndex + 1,
+      stepIndex,
+    );
+  }
+  function removeCommand(editorId: string, stepIndex: number): void {
+    changeCommands(
+      editorId,
+      (model) => txBlockRemoveStep(model, stepIndex),
+      stepIndex,
+      stepIndex,
+    );
+  }
+  function splitCommand(editorId: string, stepIndex: number): void {
+    changeCommands(
+      editorId,
+      (model) => txBlockSplitStep(model, stepIndex),
+      stepIndex,
+      stepIndex,
+    );
+  }
   function changeChoice(
     editorId: string,
     change: (choice: TxWorkflowChoiceModel) => TxWorkflowChoiceModel,
@@ -176,6 +280,11 @@ export function createTransactionWorkflowCanvasWorkspace({
     const id = data.id;
     const location = id ? txWorkflowFindBlock(getModel(), id) : null;
     if (!id || !location) return data;
+    const blockModel =
+      get(templates.canvasStateStore)[id]?.formModel ??
+      (location.block.sourceKind === "inline"
+        ? location.block.inlineBlock
+        : null);
     return {
       ...data,
       readonly: !canModify(),
@@ -192,6 +301,63 @@ export function createTransactionWorkflowCanvasWorkspace({
       onMoveNext: () => moveBlock(id, location.blockIndex + 1),
       onDuplicate: () => duplicateBlock(id),
       onDelete: () => removeBlock(id),
+      addCommandLabel: t("txWorkflowAddCommand"),
+      onAddCommand: () => addCommand(id),
+      wholeResourceRollback: data.wholeResourceRollback
+        ? {
+            ...data.wholeResourceRollback,
+            selected:
+              getSelectedId() === id &&
+              getSelectedOperation() === "whole_resource_rollback",
+            onSelect: onSelectWholeRollback
+              ? () => onSelectWholeRollback(id)
+              : undefined,
+          }
+        : null,
+      commandRows: data.commandRows.map((row, stepIndex) => {
+        const splitStatus = txBlockStepSplitStatus(
+          blockModel?.steps[stepIndex],
+        );
+        return {
+          ...row,
+          editable: canModify() && data.canAddCommand,
+          selected:
+            getSelectedId() === id &&
+            getSelectedStepIndex() === stepIndex &&
+            getSelectedOperation() === "run",
+          rollbackSelected:
+            getSelectedId() === id &&
+            getSelectedStepIndex() === stepIndex &&
+            getSelectedOperation() === "rollback",
+          onSelect: onSelectStep
+            ? () => onSelectStep(id, stepIndex)
+            : undefined,
+          onSelectRollback: onSelectStep
+            ? () => onSelectStep(id, stepIndex, "rollback")
+            : undefined,
+          canMovePrevious: stepIndex > 0,
+          canMoveNext: stepIndex < data.commandRows.length - 1,
+          movePreviousLabel: t("txWorkflowMoveCommandUp"),
+          moveNextLabel: t("txWorkflowMoveCommandDown"),
+          duplicateLabel: t("txWorkflowDuplicateCommand"),
+          deleteLabel: t("txWorkflowDeleteCommand"),
+          canSplit: splitStatus !== "unavailable",
+          splitDisabled: splitStatus !== "ready",
+          splitLabel: t("txWorkflowSplitCommand"),
+          splitHint: t(
+            splitStatus === "rollback_exceeds_run"
+              ? "txWorkflowSplitRollbackExceedsRun"
+              : splitStatus === "interactive_rollback"
+                ? "txWorkflowSplitInteractiveRollback"
+                : "txWorkflowSplitCommandHint",
+          ),
+          onMovePrevious: () => moveCommand(id, stepIndex, -1),
+          onMoveNext: () => moveCommand(id, stepIndex, 1),
+          onDuplicate: () => duplicateCommand(id, stepIndex),
+          onDelete: () => removeCommand(id, stepIndex),
+          onSplit: () => splitCommand(id, stepIndex),
+        };
+      }),
       ...(data.structure
         ? {
             structure: {
@@ -221,6 +387,11 @@ export function createTransactionWorkflowCanvasWorkspace({
     moveBlock,
     duplicateBlock,
     removeBlock,
+    addCommand,
+    moveCommand,
+    duplicateCommand,
+    removeCommand,
+    splitCommand,
     addActions,
     decorateBlock,
     templates,

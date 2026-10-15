@@ -28,6 +28,37 @@ pub(super) fn load_workflow(
     action: &TxWorkflowAction,
     conn: &EffectiveConnection,
 ) -> Result<TxWorkflow> {
+    load_workflow_with_contexts(action, conn, &mut None)
+}
+
+pub(super) fn load_workflow_preview(
+    action: &TxWorkflowAction,
+    conn: &EffectiveConnection,
+) -> Result<TxWorkflow> {
+    let mut contexts = Some(vec![build_stage_json_template_context(
+        conn.vars.clone(),
+        conn,
+    )]);
+    let workflow = load_workflow_with_contexts(action, conn, &mut contexts)?;
+    workflow.validate()?;
+    let mut value = serde_json::to_value(workflow)?;
+    crate::config::session_recording::redact_authentication_json(
+        &mut value,
+        &conn.auth,
+        conn.enable_password.as_deref(),
+    );
+    crate::domain::template::redaction::redact_preview_json(
+        &mut value,
+        &Value::Array(contexts.unwrap_or_default()),
+    );
+    serde_json::from_value(value).map_err(Into::into)
+}
+
+fn load_workflow_with_contexts(
+    action: &TxWorkflowAction,
+    conn: &EffectiveConnection,
+    contexts: &mut Option<Vec<Value>>,
+) -> Result<TxWorkflow> {
     let mut workflow_value = if let Some(name) = action
         .workflow_template_name
         .as_deref()
@@ -37,25 +68,26 @@ pub(super) fn load_workflow(
         let content = load_tx_workflow_template_content(name)?;
         let source: Value = serde_json::from_str(&content)
             .with_context(|| format!("failed to parse tx workflow template '{}'", name))?;
-        render_json_template_source(&source, action.workflow_vars.clone(), conn, None)?
+        render_json_template_source(&source, action.workflow_vars.clone(), conn, None, contexts)?
     } else if let Some(value) = &action.workflow {
         if crate::domain::execution::workflow_template::has_workflow_controls(value) {
             let context = action.inline_template_context.as_ref();
             let vars = context.map_or(Value::Null, |context| context.vars.clone());
-            render_json_template_source(value, vars, conn, context)?
+            render_json_template_source(value, vars, conn, context, contexts)?
         } else {
             value.clone()
         }
     } else {
         return Err(anyhow!("workflow or workflow_template_name is required"));
     };
-    workflow_value = resolve_tx_workflow_blocks_from_templates(workflow_value, conn)?;
+    workflow_value = resolve_tx_workflow_blocks_from_templates(workflow_value, conn, contexts)?;
     serde_json::from_value(workflow_value).map_err(Into::into)
 }
 
 fn resolve_tx_workflow_blocks_from_templates(
     workflow: Value,
     conn: &EffectiveConnection,
+    contexts: &mut Option<Vec<Value>>,
 ) -> Result<Value> {
     let mut root = match workflow {
         Value::Object(map) => map,
@@ -98,6 +130,7 @@ fn resolve_tx_workflow_blocks_from_templates(
             block_ref.tx_block_template_content.as_deref(),
             block_ref.tx_block_template_vars,
             conn,
+            contexts,
         )?;
         if let Some(name) = block_ref.name.filter(|value| !value.trim().is_empty()) {
             tx_block.name = name;
@@ -118,9 +151,10 @@ fn resolve_tx_block_from_template_source(
     template_content: Option<&str>,
     template_vars: Value,
     conn: &EffectiveConnection,
+    contexts: &mut Option<Vec<Value>>,
 ) -> Result<TxBlock> {
     let source = load_tx_block_template_source_value(template_name, template_content)?;
-    let rendered_value = render_json_template_source(&source, template_vars, conn, None)?;
+    let rendered_value = render_json_template_source(&source, template_vars, conn, None, contexts)?;
     serde_json::from_value(rendered_value).map_err(Into::into)
 }
 
@@ -178,6 +212,7 @@ fn render_json_template_source(
     vars: Value,
     conn: &EffectiveConnection,
     plan_context: Option<&crate::domain::orchestration::template::InlineWorkflowTemplateContext>,
+    contexts: &mut Option<Vec<Value>>,
 ) -> Result<Value> {
     let resolved_vars = orchestrator_targets::resolve_runtime_vars_for_connection(vars, conn)?;
     let mut context = build_stage_json_template_context(resolved_vars, conn);
@@ -191,7 +226,11 @@ fn render_json_template_source(
     }
     enrich_context_with_connection_refs_from_value(&mut context, source)?;
     let renderer = Renderer::new();
-    renderer.render_json_value(source, &context)
+    let rendered = renderer.render_json_value(source, &context)?;
+    if let Some(contexts) = contexts {
+        contexts.push(context);
+    }
+    Ok(rendered)
 }
 
 fn build_stage_json_template_context(vars: Value, conn: &EffectiveConnection) -> Value {
@@ -306,6 +345,43 @@ mod tests {
             force_autodetect: false,
             retry_policy: Default::default(),
         }
+    }
+
+    #[test]
+    fn preview_resolves_block_template_vars_and_masks_secrets_without_changing_execution() {
+        let block = json!({
+            "name":"reusable", "fail_fast":true, "rollback_policy":"per_step",
+            "steps":[{
+                "run":{"kind":"command", "mode":"Root,User", "command":"send {{ vars.api_token }} to {{ connection.host }}"},
+                "rollback":{"kind":"command", "mode":"Root,User", "command":"undo {{ vars.api_token }}"}
+            }]
+        });
+        let action = TxWorkflowAction {
+            workflow: Some(
+                json!({"name":"template-preview", "fail_fast":true, "blocks":[{
+                    "tx_block_template_content":serde_json::to_string(&block).unwrap(),
+                    "tx_block_template_vars":{"api_token":"private\ntoken"}
+                }]}),
+            ),
+            workflow_template_name: None,
+            workflow_vars: Value::Null,
+            inline_template_context: None,
+        };
+        let conn = connection("192.0.2.10", "edge");
+        let actual = serde_json::to_value(load_workflow(&action, &conn).unwrap()).unwrap();
+        let preview = serde_json::to_value(load_workflow_preview(&action, &conn).unwrap()).unwrap();
+        assert_eq!(
+            actual["blocks"][0]["steps"][0]["run"]["command"],
+            "send private\ntoken to 192.0.2.10"
+        );
+        assert_eq!(
+            preview["blocks"][0]["steps"][0]["run"]["command"],
+            "send ****** to 192.0.2.10"
+        );
+        assert_eq!(
+            preview["blocks"][0]["steps"][0]["rollback"]["command"],
+            "undo ******"
+        );
     }
 
     #[test]

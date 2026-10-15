@@ -30,6 +30,7 @@
       typeof txBlockWholeResourceFieldsDisplay
     >;
     wholeResourceRollback: TxOperationModel;
+    showCommandEditor?: boolean;
   }
 
   let {
@@ -44,6 +45,7 @@
     onWholeResourceRollbackChange,
     validationErrors = [],
     pathPrefix = "rollbackPolicy.wholeResource",
+    showCommandEditor = true,
   }: Props = $props();
 </script>
 
@@ -58,15 +60,17 @@
     />
   </ReadonlyFields>
 
-  <TxBlockOperationEditor
-    operation={wholeResourceRollback}
-    title={t("txBlockFormWholeRollback")}
-    {editorDisplay}
-    commandMetadataFieldDefs={[]}
-    onChange={onWholeResourceRollbackChange}
-    {validationErrors}
-    pathPrefix={`${pathPrefix}.rollback`}
-  />
+  {#if showCommandEditor}
+    <TxBlockOperationEditor
+      operation={wholeResourceRollback}
+      title={t("txBlockFormWholeRollback")}
+      {editorDisplay}
+      commandMetadataFieldDefs={[]}
+      onChange={onWholeResourceRollbackChange}
+      {validationErrors}
+      pathPrefix={`${pathPrefix}.rollback`}
+    />
+  {/if}
 
   <ReadonlyFields>
     <JsonObjectFieldsEditor

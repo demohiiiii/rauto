@@ -1,4 +1,5 @@
 import { tr } from "../../../lib/i18n.js";
+import type { RenderedWorkflow } from "$domains/transactions/index.js";
 import type { ConnectionRequestPayload } from "$domains/connections/index.js";
 import type { RecordLevel } from "$domains/overlays/index.js";
 import type {
@@ -31,6 +32,7 @@ export interface OrchestrationInlineExecutionInput {
 }
 
 export interface TxWorkflowExecutionRequest {
+  preview_commands?: boolean;
   connection?: ConnectionRequestPayload;
   dry_run?: boolean;
   record_level?: RecordLevel;
@@ -41,6 +43,7 @@ export interface TxWorkflowExecutionRequest {
 }
 
 export interface OrchestrationExecutionRequest {
+  preview_commands?: boolean;
   base_dir: null;
   connection?: ConnectionRequestPayload;
   dry_run?: boolean;
@@ -55,7 +58,7 @@ export interface TxWorkflowExecutionResponse {
   recording_jsonl: string | null;
   result_summary: OrchestrationJsonObject;
   tx_workflow_result: OrchestrationJsonValue | null;
-  workflow: OrchestrationJsonValue;
+  workflow: RenderedWorkflow;
 }
 
 function parseJsonObject(
