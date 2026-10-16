@@ -1,6 +1,6 @@
 [package]
 name = "rauto"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2024"
 rust-version = "1.94"
 description = "A powerful CLI tool for network device automation using minijinja templates and rneter."
@@ -60,7 +60,7 @@ rand = "0.10.3"
 ratatui = "0.30.2"
 regex = "1.13.1"
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"] }
-rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "3a5dfcf0cd86463f0108a12d502c663b024b34d8" }
+rneter = "0.5.3"
 rpassword = "7.5.4"
 rust-embed = { version = "8.12.0", features = ["compression"] }
 rust_xlsxwriter = "0.99.1"
@@ -87,5 +87,5 @@ tonic-prost-build = "0.14.6"
 
 [dev-dependencies]
 async-ssh2-tokio = "0.13.0"
-rneter = { git = "https://github.com/demohiiiii/rneter.git", rev = "3a5dfcf0cd86463f0108a12d502c663b024b34d8", features = ["testkit"] }
+rneter = { version = "0.5.3", features = ["testkit"] }
 tower = { version = "0.5.3", features = ["util"] }

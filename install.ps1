@@ -68,7 +68,7 @@ function Install-Rauto {
     }
     $Version = $Version -creplace '^v', ''
     if ($Version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
-        throw 'Invalid version. Example: -Version 0.5.2'
+        throw 'Invalid version. Example: -Version 0.5.3'
     }
 
     $asset = 'rauto-windows-amd64.exe.zip'
@@ -107,8 +107,12 @@ function Install-Rauto {
         $originalRautoHome = $env:RAUTO_HOME
         try {
             $env:RAUTO_HOME = Join-Path $temporary 'data'
-            $reported = & $binary --version
-            if ($LASTEXITCODE -ne 0 -or "$reported".Trim() -ne "rauto $Version") {
+            $versionOutput = Join-Path $temporary 'version.txt'
+            $process = Start-Process -FilePath $binary -ArgumentList '--version' -NoNewWindow -Wait -PassThru -RedirectStandardOutput $versionOutput
+            try { $exitCode = $process.ExitCode }
+            finally { $process.Dispose() }
+            $reported = Get-Content -LiteralPath $versionOutput -Raw
+            if ($exitCode -ne 0 -or "$reported".Trim() -ne "rauto $Version") {
                 throw 'The binary cannot start or its version does not match; existing installation was not changed.'
             }
         }

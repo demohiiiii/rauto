@@ -4,6 +4,38 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-10-16
+
+### New Features
+- Added nested loops and ordered choices to transaction workflows and orchestration, including controls within a transaction block and per-target variable expansion.
+- Added rendered execution previews with complete command, interactive-response, and rollback details, plus paired splitting of multiline commands and rollbacks.
+- Unified execution pages around a shared bottom sheet and floating run bar. Session history survives page changes, supports filtering across features, and retains 10 runs per feature by default, configurable up to 100.
+- Added shared template selection, editing, copying, saving, and cancellation, with protected built-in templates and inline JSON diagnostics and formatting for runtime variables.
+- Added configurable workbench SSH keepalive, automatic connection when enabled, live connection indicators, periodic validation, and manual reconnection.
+- Added cross-platform one-command installers, a macOS Homebrew formula, and static Bash, Zsh, Fish, and PowerShell completions with installer integration.
+
+### Optimizations
+- Shared workflow and orchestration canvases, command editors, rollback editors, source selectors, previews, and execution-history components, and removed redundant standalone transaction UI and result logic.
+- Improved discovery of Linux Fish shells, persisted detected shell settings, and refreshed saved connection lists immediately after discovery imports.
+- Added a private local master-key fallback for headless Linux systems without an available operating-system credential store.
+- Fixed Windows installer validation to reject unsuccessful executable exits even when the reported version matches.
+- Modernized navigation, connection selection, template controls, credential creation and deletion, and execution feedback.
+- Updated to the published `rneter 0.5.3` crate and pinned development and release tooling to Rust 1.94.0.
+- Packaged Linux binaries with static musl and Windows binaries with a static C runtime; macOS packages use system libraries only. Release archives include SHA-256 checksums, and Homebrew updates after successful binary builds.
+
+### API Changes
+- Removed standalone `rauto tx`, its HTTP execution routes, and the corresponding gRPC execution methods. Use `rauto tx-workflow`, `/api/tx/workflow`, and workflow gRPC methods; reusable transaction-block templates remain available.
+- Extended workflow JSON with scoped `loop` and `choice` structures. Expressions evaluate before execution using variables and connection context, with bounded expansion.
+- Added opt-in rendered workflow previews to workflow and orchestration HTTP requests and orchestration gRPC requests while preserving existing dry-run behavior by default.
+- Added workbench connection and disconnect endpoints and optional runtime `connection.keep_alive` settings. Ordinary connection tests use independent sessions and preserve pooled workbench connections.
+- Added migration `202609231900_add_discovery_linux_shell_flavor.sql` for detected Linux shell settings.
+
+### Upgrade Notes
+- Update scripts and integrations that execute standalone transaction blocks to submit a workflow containing those blocks, and regenerate affected gRPC bindings.
+- Existing databases using the 0.5.2 migration baseline receive the new discovery column through normal startup migrations. Installations predating that baseline still need the migration rebase described under 0.5.2.
+- Workbench keepalive defaults to enabled with a 30-second heartbeat. Disabling it retains the selected target without automatically opening a device connection.
+- On headless Linux, retain the local `keys/master.key` file together with the encrypted credential database when moving an installation.
+
 ## [0.5.2] - 2026-09-22
 
 ### New Features

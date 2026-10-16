@@ -156,6 +156,37 @@ jobs:
             ${{ matrix.asset_name }}.zip
             ${{ matrix.asset_name }}.zip.sha256
 
+  update-homebrew:
+    name: Update Homebrew formula
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Download release checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release download "$RELEASE_TAG" --pattern 'rauto-macos-*.tar.gz.sha256' --dir "$RUNNER_TEMP/rauto-checksums"
+
+      - name: Update and commit formula
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          python3 scripts/update_homebrew.py "$RELEASE_TAG" "$RUNNER_TEMP/rauto-checksums"
+          if git diff --quiet -- Formula/rauto.rb; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Formula/rauto.rb
+          git commit -m "chore: update Homebrew formula to $RELEASE_TAG"
+          git push origin "HEAD:$RELEASE_BRANCH"
+
   publish-crates:
     name: Publish to crates.io
     runs-on: ubuntu-latest

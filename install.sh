@@ -114,7 +114,7 @@ main() {
     fi
     rauto_version=${rauto_version#v}
     case "$rauto_version" in
-        ''|*[!0-9A-Za-z.+-]*) fail 'Invalid version. Example: --version 0.5.2' ;;
+        ''|*[!0-9A-Za-z.+-]*) fail 'Invalid version. Example: --version 0.5.3' ;;
     esac
     rauto_url=$rauto_releases/download/v$rauto_version/$rauto_asset.tar.gz
 

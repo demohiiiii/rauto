@@ -18,7 +18,6 @@ class Rauto < Formula
 
   def install
     bin.install "rauto"
-    # The currently published 0.5.2 binary predates the completion command.
     if Utils.safe_popen_read(bin/"rauto", "--help").include?("completion")
       generate_completions_from_executable(bin/"rauto", "completion", shells: [:bash, :zsh, :fish])
     end
