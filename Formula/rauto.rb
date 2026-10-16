@@ -1,19 +1,19 @@
 class Rauto < Formula
   desc "Network device automation with SSH, templates, and a Web UI"
   homepage "https://github.com/demohiiiii/rauto"
-  version "0.5.2"
+  version "0.5.3"
   license "Apache-2.0"
 
   depends_on :macos
 
   on_arm do
     url "https://github.com/demohiiiii/rauto/releases/download/v#{version}/rauto-macos-arm64.tar.gz"
-    sha256 "8ecc69d009af8fc1e30b8861bc2f3be5b011910aeed6473abe96dd49fbc15983"
+    sha256 "225e8e05cb21816ff05c0377ace2803e4501417b45dc97d9cbd2bb65000f3b3b"
   end
 
   on_intel do
     url "https://github.com/demohiiiii/rauto/releases/download/v#{version}/rauto-macos-amd64.tar.gz"
-    sha256 "745fce30a39412743608fac8d2689d49e265323cd92dd34b23c46ab6a4607f17"
+    sha256 "a2949e31b05c4e5fead8bd70f63a51ac08ce7cbe6da2a2b771e950f3d1faf7be"
   end
 
   def install
