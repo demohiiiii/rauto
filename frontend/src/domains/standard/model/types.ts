@@ -152,7 +152,6 @@ export interface StandardCommandExecutionPayload {
   retry?: SessionRetryPayload;
   task_id?: string;
   template_content: string;
-  template_dir?: string | null;
   textfsm_strict_errors?: boolean;
   textfsm_template?: string | null;
   textfsm_vendor?: string | null;

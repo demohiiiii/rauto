@@ -38,9 +38,9 @@ Runtime `default_mode` is an internal/API context field, not a template field.
 ## Run And Save
 
 ```sh
-rauto interactive-template create confirm-command --file ./confirm-command.toml
-rauto interactive-template show confirm-command
-rauto interactive --template confirm-command --connection core-01 \
+rauto interactive template create confirm-command --file ./confirm-command.toml
+rauto interactive template show confirm-command
+rauto interactive --template confirm-command --device core-01 \
   --vars-json '{"command":"example-command","answer":"y"}'
 rauto interactive --file ./confirm-command.toml --target core-01 --target core-02
 ```
@@ -55,12 +55,12 @@ the remote command.
 The immutable built-in copy interaction runs as:
 
 ```sh
-rauto interactive --template builtin:cisco_like_copy --connection core-01 \
+rauto interactive --template builtin:cisco_like_copy --device core-01 \
   --vars-json '{"command":"copy scp: flash:/new.bin"}'
 ```
 
 Supply the other fields needed by the actual copy prompts. Built-ins do not
-appear as saved records in `interactive-template list/show`. Web lists them
+appear as saved records in `interactive template list/show`. Web lists them
 separately with a localized badge and allows copying, not editing the built-in.
 
 ## Runtime Variables

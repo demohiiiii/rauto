@@ -37,7 +37,7 @@ Register-ArgumentCompleter -Native -CommandName rauto,rauto.exe -ScriptBlock ({
         if ($word -eq '--') { $optionsEnded = $true; continue }
         if ($word.StartsWith('-')) {
             $name = ($word -split '=', 2)[0]
-            $option = $command.options | Where-Object { $_.names -ccontains $name } | Select-Object -First 1
+            $option = (@($command.options) + @($command.prefix_options)) | Where-Object { $_.names -ccontains $name } | Select-Object -First 1
             if ($null -ne $option -and $option.takes_value -and -not $word.Contains('=')) { $pending = $option }
             continue
         }
@@ -50,7 +50,7 @@ Register-ArgumentCompleter -Native -CommandName rauto,rauto.exe -ScriptBlock ({
     $valuePrefix = ''
     if ($null -eq $pending -and -not $optionsEnded -and $current.StartsWith('-') -and $current.Contains('=')) {
         $name = ($current -split '=', 2)[0]
-        $pending = $command.options | Where-Object { $_.names -ccontains $name } | Select-Object -First 1
+        $pending = (@($command.options) + @($command.prefix_options)) | Where-Object { $_.names -ccontains $name } | Select-Object -First 1
         $valuePrefix = $name + '='
     }
     if ($null -ne $pending) {

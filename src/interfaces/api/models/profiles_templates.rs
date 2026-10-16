@@ -171,7 +171,6 @@ pub struct UpdateInteractiveTemplateRequest {
 #[derive(Debug, Deserialize)]
 pub struct ProfileDiagnoseRequest {
     pub name: String,
-    pub template_dir: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

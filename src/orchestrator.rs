@@ -40,7 +40,6 @@ pub struct OrchestrationTarget {
     pub ssh_security: Option<SshSecurityProfile>,
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub device_profile: Option<String>,
-    pub template_dir: Option<String>,
     #[serde(default)]
     pub vars: Value,
 }

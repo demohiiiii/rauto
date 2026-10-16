@@ -72,6 +72,7 @@ static DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
 static DB_PATH: OnceLock<PathBuf> = OnceLock::new();
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 const _: &str = include_str!("../../../migrations/202609220001_initial.sql");
+const _: &str = include_str!("../../../migrations/202610160001_remove_template_directory.sql");
 #[cfg(not(test))]
 static DB_MIGRATED: AtomicBool = AtomicBool::new(false);
 #[cfg(test)]
@@ -231,6 +232,71 @@ fn default_db_path() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn remove_template_directory_preserves_connections_and_inventory() -> anyhow::Result<()> {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await?;
+        let previous = Migrator {
+            migrations: MIGRATOR
+                .iter()
+                .filter(|migration| migration.version < 202610160001)
+                .cloned()
+                .collect::<Vec<_>>()
+                .into(),
+            ..Migrator::DEFAULT
+        };
+        previous.run(&pool).await?;
+        sqlx::query(
+            "INSERT INTO connections (name, host, template_dir, created_at_ms, updated_at_ms, vars_json)
+             VALUES ('edge', '192.0.2.1', '/old/templates', 1, 2, '{\"site\":\"lab\"}')",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "INSERT INTO inventory_groups (name, created_at_ms, updated_at_ms) VALUES ('lab', 1, 2)",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "INSERT INTO inventory_group_members (group_name, connection_name, created_at_ms)
+             VALUES ('lab', 'edge', 1)",
+        )
+        .execute(&pool)
+        .await?;
+
+        MIGRATOR.run(&pool).await?;
+        MIGRATOR.run(&pool).await?;
+        let removed: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM pragma_table_info('connections') WHERE name = 'template_dir'",
+        )
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(removed, 0);
+        let connection: (String, String, i64) = sqlx::query_as(
+            "SELECT host, vars_json, updated_at_ms FROM connections WHERE name = 'edge'",
+        )
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(
+            connection,
+            ("192.0.2.1".into(), "{\"site\":\"lab\"}".into(), 2)
+        );
+        let members: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM inventory_group_members WHERE group_name = 'lab' AND connection_name = 'edge'",
+        )
+        .fetch_one(&pool)
+        .await?;
+        assert_eq!(members, 1);
+        let violations = sqlx::query("PRAGMA foreign_key_check")
+            .fetch_all(&pool)
+            .await?;
+        assert!(violations.is_empty());
+        pool.close().await;
+        Ok(())
+    }
 
     #[test]
     fn test_db_path_override_is_scoped() {

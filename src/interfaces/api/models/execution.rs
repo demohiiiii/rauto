@@ -327,7 +327,6 @@ pub struct ExecuteTemplateRequest {
     pub retry: Option<SessionRetryOptions>,
     #[serde(flatten)]
     pub run: DryRunOptions,
-    pub template_dir: Option<String>,
     #[serde(flatten)]
     pub target: ExecutionTargetOptions,
     #[serde(flatten)]

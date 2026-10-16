@@ -1,61 +1,89 @@
 use super::args::{
     AgentArgs, ExecArgs, GlobalOpts, InteractiveArgs, OrchestrateArgs, RecordLevelOpt, ShowArgs,
-    TemplateArgs, TxWorkflowArgs, UploadArgs, WebArgs,
+    TxWorkflowArgs, UploadArgs, WebArgs,
 };
 use crate::config::device_credential_store::DeviceAuthType;
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{
+    ArgMatches, Args, Command, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum,
+};
 use std::path::PathBuf;
 
-#[derive(Parser, Debug)]
-#[command(name = "rauto", version, about = "Network Device Automation CLI", long_about = None)]
+#[derive(Debug)]
 pub struct Cli {
-    #[command(subcommand)]
     pub command: Commands,
-
-    #[command(flatten)]
     pub global_opts: GlobalOpts,
+}
+
+impl Parser for Cli {}
+
+impl CommandFactory for Cli {
+    fn command() -> Command {
+        super::option_scope::configure(Self::definition(false), true)
+    }
+
+    fn command_for_update() -> Command {
+        super::option_scope::configure(Self::definition(true), true)
+    }
+}
+
+impl Cli {
+    fn definition(update: bool) -> Command {
+        let command = Command::new("rauto")
+            .version(env!("CARGO_PKG_VERSION"))
+            .about("Network Device Automation CLI");
+        if update {
+            Commands::augment_subcommands_for_update(GlobalOpts::augment_args_for_update(command))
+        } else {
+            Commands::augment_subcommands(GlobalOpts::augment_args(command))
+                .subcommand_required(true)
+                .arg_required_else_help(true)
+        }
+    }
+
+    pub(super) fn completion_command() -> Command {
+        super::option_scope::configure(Self::definition(false), false)
+    }
+}
+
+impl FromArgMatches for Cli {
+    fn from_arg_matches(matches: &ArgMatches) -> Result<Self, clap::Error> {
+        super::option_scope::validate(matches)?;
+        Ok(Self {
+            command: Commands::from_arg_matches(matches)?,
+            global_opts: GlobalOpts::from_arg_matches(matches)?,
+        })
+    }
+
+    fn update_from_arg_matches(&mut self, matches: &ArgMatches) -> Result<(), clap::Error> {
+        super::option_scope::validate(matches)?;
+        self.command.update_from_arg_matches(matches)?;
+        self.global_opts.update_from_arg_matches(matches)
+    }
 }
 
 #[derive(Subcommand, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum Commands {
-    /// Generate static shell completions for commands and options
-    Completion(super::completion::CompletionArgs),
+    /// Execute show objects and manage custom objects for device profiles
+    Show(ShowCommand),
 
-    /// Render and execute a command template
-    Template(TemplateArgs),
+    /// Execute raw commands or saved templates and manage command templates
+    Exec(ExecCommand),
 
-    /// Execute a raw command directly
-    Exec(ExecArgs),
+    /// Execute interactive commands and manage their templates
+    #[command(name = "interactive")]
+    Interactive(InteractiveCommand),
 
-    /// Execute an NTC-supported show object for the selected device profile
-    Show(ShowArgs),
+    /// Execute transaction workflows and manage workflow templates
+    #[command(name = "tx-workflow")]
+    TxWorkflow(TxWorkflowCommand),
 
-    /// Manage custom show objects for device profiles
-    #[command(name = "show-object")]
-    #[command(subcommand)]
-    ShowObject(ShowObjectCommands),
-
-    /// Execute a reusable interactive command template
-    #[command(name = "interactive", alias = "flow")]
-    Interactive(InteractiveArgs),
-
-    /// Manage saved interactive command templates
-    #[command(name = "interactive-template", alias = "flow-template")]
-    #[command(subcommand)]
-    InteractiveTemplate(InteractiveTemplateCommands),
+    /// Execute orchestration plans and manage orchestration templates
+    #[command(name = "orchestrate")]
+    Orchestrate(OrchestrateCommand),
 
     /// Upload a local file to the remote host over SFTP
     Upload(UploadArgs),
-
-    /// Fetch device configurations and manage config fetch commands
-    Config(ConfigCmd),
-
-    /// Start web service with visual UI
-    Web(WebArgs),
-
-    /// Start managed agent service for rauto-manager
-    Agent(AgentArgs),
 
     /// Manage saved device connections and connectivity checks
     #[command(visible_alias = "connection")]
@@ -67,44 +95,98 @@ pub enum Commands {
     #[command(subcommand)]
     Credential(CredentialCommands),
 
-    /// Manage device profiles
-    #[command(subcommand)]
-    Profile(ProfileCommands),
-
     /// Manage inventory groups and variable resolution over saved connections
     #[command(subcommand)]
     Inventory(InventoryCommands),
 
-    /// Inspect, manage, and replay session records; defaults to the most recent record
-    Session(SessionArgs),
-
-    /// Manage blocked command patterns
+    /// Manage device profiles
     #[command(subcommand)]
-    Blacklist(BlacklistCommands),
+    Profile(ProfileCommands),
 
-    /// Manage stored command templates
-    #[command(subcommand)]
-    Templates(TemplateCommands),
+    /// Fetch device configurations and manage config fetch commands
+    Config(ConfigCmd),
 
     /// Manage custom TextFSM templates and profile command mappings
     #[command(subcommand)]
     Textfsm(TextfsmCommands),
 
-    /// Execute transaction workflows and manage workflow templates
-    #[command(name = "tx-workflow")]
-    TxWorkflow(TxWorkflowCommand),
-
-    /// Execute orchestration plans and manage orchestration templates
-    #[command(name = "orchestrate")]
-    Orchestrate(OrchestrateCommand),
+    /// Manage blocked command patterns
+    #[command(subcommand)]
+    Blacklist(BlacklistCommands),
 
     /// Manage persisted cron schedules
     #[command(subcommand)]
     Schedule(ScheduleCommands),
 
+    /// Start web service with visual UI
+    Web(WebArgs),
+
+    /// Start managed agent service for rauto-manager
+    Agent(AgentArgs),
+
+    /// Inspect, manage, and replay session records; defaults to the most recent record
+    Session(SessionArgs),
+
     /// Backup and restore rauto runtime data
     #[command(subcommand)]
     Backup(BackupCommands),
+
+    /// Generate static shell completions for commands and options
+    Completion(super::completion::CompletionArgs),
+}
+
+#[derive(Args, Debug)]
+#[command(subcommand_negates_reqs = true, args_conflicts_with_subcommands = true)]
+pub struct ExecCommand {
+    #[command(flatten)]
+    pub run: ExecArgs,
+    #[command(subcommand)]
+    pub command: Option<ExecSubcommand>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ExecSubcommand {
+    /// Manage saved command templates
+    Template {
+        #[command(subcommand)]
+        command: TemplateCommands,
+    },
+}
+
+#[derive(Args, Debug)]
+#[command(subcommand_negates_reqs = true, args_conflicts_with_subcommands = true)]
+pub struct ShowCommand {
+    #[command(flatten)]
+    pub run: ShowArgs,
+    #[command(subcommand)]
+    pub command: Option<ShowSubcommand>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ShowSubcommand {
+    /// Manage custom show objects for device profiles
+    Object {
+        #[command(subcommand)]
+        command: ShowObjectCommands,
+    },
+}
+
+#[derive(Args, Debug)]
+#[command(subcommand_negates_reqs = true, args_conflicts_with_subcommands = true)]
+pub struct InteractiveCommand {
+    #[command(flatten)]
+    pub run: InteractiveArgs,
+    #[command(subcommand)]
+    pub command: Option<InteractiveSubcommand>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum InteractiveSubcommand {
+    /// Manage saved interactive command templates
+    Template {
+        #[command(subcommand)]
+        command: InteractiveTemplateCommands,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -155,7 +237,7 @@ pub enum InteractiveTemplateCommands {
         /// Interactive command template name
         name: String,
         /// Path to TOML content file
-        #[arg(long)]
+        #[arg(short = 'f', long)]
         file: Option<PathBuf>,
         /// Inline TOML content
         #[arg(long)]
@@ -166,7 +248,7 @@ pub enum InteractiveTemplateCommands {
         /// Interactive command template name
         name: String,
         /// Path to TOML content file
-        #[arg(long)]
+        #[arg(short = 'f', long)]
         file: Option<PathBuf>,
         /// Inline TOML content
         #[arg(long)]
@@ -207,7 +289,7 @@ pub enum TextfsmTemplateCommands {
         /// TextFSM template name
         name: String,
         /// Path to TextFSM template content file
-        #[arg(long)]
+        #[arg(short = 'f', long)]
         file: Option<PathBuf>,
         /// Inline TextFSM template content
         #[arg(long)]
@@ -218,7 +300,7 @@ pub enum TextfsmTemplateCommands {
         /// TextFSM template name
         name: String,
         /// Path to TextFSM template content file
-        #[arg(long)]
+        #[arg(short = 'f', long)]
         file: Option<PathBuf>,
         /// Inline TextFSM template content
         #[arg(long)]
@@ -285,7 +367,7 @@ pub enum ShowObjectCommands {
         #[arg(long, short = 'm')]
         mode: Option<String>,
         /// Optional custom TextFSM template name used to parse this show object
-        #[arg(long)]
+        #[arg(short = 'F', visible_alias = "tfsm", long)]
         textfsm_template: Option<String>,
         /// Optional strong reference to a Profile TextFSM command mapping
         #[arg(long)]
@@ -319,7 +401,7 @@ pub enum JsonTemplateCommands {
         /// Template name
         name: String,
         /// Path to JSON content file
-        #[arg(long)]
+        #[arg(short = 'f', long)]
         file: Option<PathBuf>,
         /// Inline JSON content
         #[arg(long)]
@@ -330,7 +412,7 @@ pub enum JsonTemplateCommands {
         /// Template name
         name: String,
         /// Path to JSON content file
-        #[arg(long)]
+        #[arg(short = 'f', long)]
         file: Option<PathBuf>,
         /// Inline JSON content
         #[arg(long)]
@@ -377,7 +459,7 @@ pub enum ProfileCommands {
         /// Profile name (builtin or custom)
         name: String,
         /// Output diagnostics as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
 }
@@ -389,7 +471,7 @@ pub enum DeviceCommands {
     /// List saved devices
     List {
         /// Output saved devices as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Show a saved device connection
@@ -397,7 +479,7 @@ pub enum DeviceCommands {
         /// Saved device name
         name: String,
         /// Output saved device metadata as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Delete a saved device connection
@@ -415,14 +497,11 @@ pub enum DeviceCommands {
         /// Path to .csv, .xlsx, .xls, .xlsm, or .xlsb file
         file: PathBuf,
         /// Output import summary as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Discover SSH devices or inspect the latest discovery run
-    Discover(DeviceDiscoverArgs),
-    /// Inspect or save devices from the latest discovery run
-    #[command(subcommand)]
-    Discovery(DeviceDiscoveryCommands),
+    Discover(Box<DeviceDiscoverArgs>),
 }
 
 #[derive(Args, Debug)]
@@ -442,23 +521,28 @@ pub struct DeviceDiscoveryArgs {
     pub targets: Vec<String>,
 
     /// SSH ports to scan
-    #[arg(long = "port", value_delimiter = ',', default_value = "22")]
+    #[arg(
+        short = 'p',
+        long = "port",
+        value_delimiter = ',',
+        default_value = "22"
+    )]
     pub ports: Vec<u16>,
 
     /// Credential name or id to try; repeat up to three times (overrides --credential)
-    #[arg(long = "probe-credential")]
+    #[arg(visible_alias = "probe-cred", long = "probe-credential")]
     pub probe_credentials: Vec<String>,
 
     /// Maximum concurrent TCP probes
-    #[arg(long, default_value_t = 32)]
+    #[arg(short = 'N', visible_alias = "parallel", long, default_value_t = 32)]
     pub concurrency: usize,
 
     /// TCP and SSH identification timeout in milliseconds
-    #[arg(long, default_value_t = 1_000)]
+    #[arg(visible_alias = "tcp-timeout", long, default_value_t = 1_000)]
     pub tcp_timeout_ms: u64,
 
     /// Per-credential device identification timeout in seconds
-    #[arg(long, default_value_t = 15)]
+    #[arg(visible_alias = "probe-timeout", long, default_value_t = 15)]
     pub probe_timeout_secs: u64,
 
     /// Results to print
@@ -466,7 +550,7 @@ pub struct DeviceDiscoveryArgs {
     pub status: DiscoveryStatusFilter,
 
     /// Output the persisted run and filtered results as JSON
-    #[arg(long)]
+    #[arg(short = 'j', long)]
     pub json: bool,
 
     /// Print results without opening the interactive terminal interface
@@ -492,7 +576,7 @@ pub struct DeviceDiscoveryListArgs {
     pub filters: DeviceDiscoveryFilterArgs,
 
     /// Output the latest run and filtered results as JSON
-    #[arg(long)]
+    #[arg(short = 'j', long)]
     pub json: bool,
 }
 
@@ -506,23 +590,23 @@ pub struct DeviceDiscoverySaveArgs {
     pub profiles: Vec<String>,
 
     /// Filter SSH ports; accepts comma-separated values
-    #[arg(long = "port", value_delimiter = ',')]
+    #[arg(short = 'p', long = "port", value_delimiter = ',')]
     pub ports: Vec<u16>,
 
-    /// Search host, port, profile, model, version, connection name, or error
+    /// Search host, port, profile, model, version, device name, or error
     #[arg(long)]
     pub search: Option<String>,
 
-    /// Connection name override; requires exactly one matched device
-    #[arg(long = "connection-name")]
+    /// Saved device name override; requires exactly one matched device
+    #[arg(long = "device-name", value_name = "NAME")]
     pub connection_name: Option<String>,
 
-    /// Replace an existing connection with the selected connection name
+    /// Replace an existing saved device with the selected device name
     #[arg(long)]
     pub overwrite: bool,
 
     /// Output the save report as JSON
-    #[arg(long)]
+    #[arg(short = 'j', long)]
     pub json: bool,
 }
 
@@ -537,10 +621,10 @@ pub struct DeviceDiscoveryFilterArgs {
     pub profiles: Vec<String>,
 
     /// Filter SSH ports; accepts comma-separated values
-    #[arg(long = "port", value_delimiter = ',')]
+    #[arg(short = 'p', long = "port", value_delimiter = ',')]
     pub ports: Vec<u16>,
 
-    /// Search host, port, profile, model, version, connection name, or error
+    /// Search host, port, profile, model, version, device name, or error
     #[arg(long)]
     pub search: Option<String>,
 }
@@ -565,7 +649,7 @@ pub enum CredentialCommands {
     /// List device credentials without exposing secret values
     List {
         /// Output credentials as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Show one device credential by name or id
@@ -574,7 +658,7 @@ pub enum CredentialCommands {
         /// Credential name or stable id
         selector: String,
         /// Output credential metadata as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Add a device credential
@@ -583,7 +667,7 @@ pub enum CredentialCommands {
         /// Unique credential name
         name: String,
         /// SSH login username; prompted when omitted
-        #[arg(long)]
+        #[arg(long, short = 'u', visible_alias = "user")]
         login_username: Option<String>,
         /// SSH authentication method
         #[arg(long, default_value = "password")]
@@ -607,7 +691,7 @@ pub enum CredentialCommands {
         #[arg(long)]
         enable: bool,
         /// Output the created credential metadata as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Update a device credential by name or id
@@ -618,7 +702,7 @@ pub enum CredentialCommands {
         #[arg(long)]
         name: Option<String>,
         /// New SSH login username
-        #[arg(long)]
+        #[arg(long, short = 'u', visible_alias = "user")]
         login_username: Option<String>,
         /// Change the SSH authentication method
         #[arg(long)]
@@ -645,7 +729,7 @@ pub enum CredentialCommands {
         #[arg(long = "disable-enable", conflicts_with = "enable")]
         disable_enable: bool,
         /// Output the updated credential metadata as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Import device credentials from CSV or Excel using name-based upsert
@@ -653,7 +737,7 @@ pub enum CredentialCommands {
         /// Path to .csv, .xlsx, .xls, .xlsm, or .xlsb file
         file: PathBuf,
         /// Output import summary as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Delete a device credential by name or id
@@ -676,7 +760,7 @@ pub enum InventoryGroupCommands {
     /// List inventory groups
     List {
         /// Output as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Show an inventory group
@@ -684,7 +768,7 @@ pub enum InventoryGroupCommands {
         /// Inventory group name
         name: String,
         /// Output as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Create or update an inventory group from JSON
@@ -692,7 +776,7 @@ pub enum InventoryGroupCommands {
         /// Inventory group name
         name: String,
         /// Path to JSON content file
-        #[arg(long)]
+        #[arg(short = 'f', long)]
         file: Option<PathBuf>,
         /// Inline JSON content
         #[arg(long)]
@@ -715,13 +799,14 @@ pub struct SessionArgs {
 pub enum SessionCommands {
     /// List session records, newest first
     List {
-        /// Optional saved connection name to filter by
+        /// Optional saved device name to filter by
+        #[arg(value_name = "DEVICE")]
         connection: Option<String>,
         /// Maximum number of records
         #[arg(long, default_value_t = 20)]
         limit: usize,
         /// Output records as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Show a session record; defaults to the most recent record
@@ -729,7 +814,7 @@ pub enum SessionCommands {
         /// Session record ID
         id: Option<String>,
         /// Output metadata and events as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
         /// Output the original JSONL recording
         #[arg(long, conflicts_with = "json")]
@@ -805,7 +890,7 @@ pub enum TemplateCommands {
         /// Template name
         name: String,
         /// Path to template content file
-        #[arg(long)]
+        #[arg(short = 'f', long)]
         file: Option<PathBuf>,
         /// Inline template content
         #[arg(long)]
@@ -816,7 +901,7 @@ pub enum TemplateCommands {
         /// Template name
         name: String,
         /// Path to template content file
-        #[arg(long)]
+        #[arg(short = 'f', long)]
         file: Option<PathBuf>,
         /// Inline template content
         #[arg(long)]
@@ -834,7 +919,7 @@ pub enum BackupCommands {
     /// Create a full backup archive of ~/.rauto data
     Create {
         /// Output archive path (.tar.gz). Defaults to ~/.rauto/backups/rauto-backup-<ts>.tar.gz
-        #[arg(long)]
+        #[arg(short = 'o', long)]
         output: Option<PathBuf>,
     },
     /// Restore data from backup archive (.tar.gz)
@@ -885,16 +970,16 @@ pub enum ConfigHistoryCommands {
     /// List devices that have collected configuration history
     Devices {
         /// Print machine-readable JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// List configuration collection records
     List {
-        /// Filter by saved or historical connection name
-        #[arg(long, short = 'c')]
+        /// Filter by saved or historical device name
+        #[arg(long = "device", short = 'd', value_name = "DEVICE")]
         connection: Option<String>,
         /// Filter by configuration kind
-        #[arg(long)]
+        #[arg(short = 'k', long)]
         kind: Option<String>,
         /// Include records fetched at or after this RFC 3339 timestamp
         #[arg(long)]
@@ -909,7 +994,7 @@ pub enum ConfigHistoryCommands {
         #[arg(long, default_value_t = 100)]
         limit: usize,
         /// Print machine-readable JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Show one collected configuration
@@ -917,10 +1002,10 @@ pub enum ConfigHistoryCommands {
         /// Configuration snapshot ID
         id: String,
         /// Write raw configuration content to a file
-        #[arg(long, value_name = "FILE", conflicts_with = "json")]
+        #[arg(short = 'o', long, value_name = "FILE", conflicts_with = "json")]
         output: Option<PathBuf>,
         /// Print machine-readable JSON including raw content
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Delete one configuration collection record
@@ -935,14 +1020,14 @@ pub enum ScheduleCommands {
     /// List persisted schedules
     List {
         /// Print machine-readable JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Show one schedule by ID or exact name
     Show {
         selector: String,
         /// Print machine-readable JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Create a schedule from a JSON definition
@@ -959,21 +1044,21 @@ pub enum ScheduleCommands {
     Enable {
         selector: String,
         /// Print the updated schedule as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Disable a schedule by ID or exact name
     Disable {
         selector: String,
         /// Print the updated schedule as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Queue a schedule for immediate execution by a running Web scheduler
     Run {
         selector: String,
         /// Print the queued run as JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// List recent runs for a schedule
@@ -983,7 +1068,7 @@ pub enum ScheduleCommands {
         #[arg(long, default_value_t = 50)]
         limit: usize,
         /// Print machine-readable JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
     /// Preview upcoming cron occurrences
@@ -997,7 +1082,7 @@ pub enum ScheduleCommands {
         #[arg(long, default_value_t = 5)]
         count: usize,
         /// Print machine-readable JSON
-        #[arg(long)]
+        #[arg(short = 'j', long)]
         json: bool,
     },
 }
@@ -1006,6 +1091,7 @@ pub enum ScheduleCommands {
 pub struct ScheduleDefinitionArgs {
     /// Read the schedule definition from a JSON file
     #[arg(
+        short = 'f',
         long,
         value_name = "FILE",
         required_unless_present = "content",
@@ -1021,39 +1107,45 @@ pub struct ScheduleDefinitionArgs {
     )]
     pub content: Option<String>,
     /// Print the created or updated schedule as JSON
-    #[arg(long)]
+    #[arg(short = 'j', long)]
     pub json: bool,
 }
 
 #[derive(Args, Debug)]
 pub struct ConfigFetchArgs {
     /// Config kind to fetch (for example running, startup)
-    #[arg(long, default_value = "running")]
+    #[arg(short = 'k', long, default_value = "running")]
     pub kind: String,
 
-    /// Saved connection name to fetch from. Repeat to target multiple devices.
-    #[arg(long = "target", value_name = "CONNECTION")]
+    /// Saved device name to fetch from. Repeat to target multiple devices.
+    #[arg(short = 'T', long = "target", value_name = "DEVICE")]
     pub targets: Vec<String>,
 
     /// Inventory group name. Repeat to include devices from multiple groups.
-    #[arg(long = "group", value_name = "GROUP")]
+    #[arg(short = 'g', long = "group", value_name = "GROUP")]
     pub groups: Vec<String>,
 
-    /// Saved connection label/tag. Repeat to include devices matching any label.
-    #[arg(long = "label", visible_alias = "tag", value_name = "LABEL")]
+    /// Saved device label/tag. Repeat to include devices matching any label.
+    #[arg(
+        short = 'L',
+        long = "label",
+        visible_alias = "tag",
+        value_name = "LABEL"
+    )]
     pub labels: Vec<String>,
 
     /// Maximum concurrent device connections for multi-target fetch (default 4)
-    #[arg(long, value_name = "N")]
+    #[arg(short = 'N', visible_alias = "parallel", long, value_name = "N")]
     pub max_parallel: Option<usize>,
 
     /// Write each fetched config to this directory instead of stdout
-    #[arg(long, value_name = "DIR")]
+    #[arg(short = 'O', visible_alias = "out-dir", long, value_name = "DIR")]
     pub output_dir: Option<PathBuf>,
 
     /// Write a single fetched config to this exact file instead of stdout
     #[arg(
         long,
+        short = 'o',
         value_name = "FILE",
         conflicts_with_all = ["output_dir", "targets", "groups", "labels"]
     )]
@@ -1131,16 +1223,320 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
+    fn show_owns_object_management_and_preserves_query_options() {
+        for args in [
+            vec!["rauto", "show", "object", "list"],
+            vec!["rauto", "show", "object", "list", "--profile", "linux"],
+            vec![
+                "rauto",
+                "show",
+                "object",
+                "set",
+                "--profile",
+                "linux",
+                "--object",
+                "inspect",
+                "--command",
+                "id",
+                "--mode",
+                "Root,User",
+                "--disabled",
+            ],
+            vec![
+                "rauto",
+                "show",
+                "object",
+                "delete",
+                "--profile",
+                "linux",
+                "--object",
+                "inspect",
+            ],
+        ] {
+            let cli = Cli::try_parse_from(&args).expect("show object management should parse");
+            let Commands::Show(show) = cli.command else {
+                panic!("expected show");
+            };
+            assert!(
+                matches!(show.command, Some(super::ShowSubcommand::Object { .. })),
+                "{args:?}"
+            );
+            assert!(show.run.object.is_none());
+        }
+
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "show",
+            "interfaces",
+            "--device",
+            "edge",
+            "--no-parse",
+            "--print-command",
+        ])
+        .expect("show execution should still parse");
+        let Commands::Show(show) = cli.command else {
+            panic!("expected show");
+        };
+        assert!(show.command.is_none());
+        assert_eq!(show.run.object.as_deref(), Some("interfaces"));
+        assert!(show.run.no_parse);
+        assert!(show.run.print_command);
+        assert_eq!(cli.global_opts.connection.as_deref(), Some("edge"));
+
+        let cli = Cli::try_parse_from(["rauto", "show", "--list", "--device-profile", "linux"])
+            .expect("show catalog listing should still parse");
+        let Commands::Show(show) = cli.command else {
+            panic!("expected show");
+        };
+        assert!(show.command.is_none());
+        assert!(show.run.list);
+        assert_eq!(cli.global_opts.device_profile.as_deref(), Some("linux"));
+
+        let cli = Cli::try_parse_from(["rauto", "show", "--", "object"])
+            .expect("a show object matching the subcommand name can be escaped");
+        let Commands::Show(show) = cli.command else {
+            panic!("expected show");
+        };
+        assert!(show.command.is_none());
+        assert_eq!(show.run.object.as_deref(), Some("object"));
+    }
+
+    #[test]
+    fn interactive_owns_template_management_and_preserves_execution_sources() {
+        for args in [
+            vec!["rauto", "interactive", "template", "list"],
+            vec!["rauto", "interactive", "template", "show", "inspect"],
+            vec![
+                "rauto",
+                "interactive",
+                "template",
+                "create",
+                "inspect",
+                "--content",
+                "command = \"id\"",
+            ],
+            vec![
+                "rauto",
+                "interactive",
+                "template",
+                "update",
+                "inspect",
+                "--file",
+                "inspect.toml",
+            ],
+            vec!["rauto", "interactive", "template", "delete", "inspect"],
+        ] {
+            let cli =
+                Cli::try_parse_from(&args).expect("interactive template management should parse");
+            let Commands::Interactive(interactive) = cli.command else {
+                panic!("expected interactive");
+            };
+            assert!(
+                matches!(
+                    interactive.command,
+                    Some(super::InteractiveSubcommand::Template { .. })
+                ),
+                "{args:?}"
+            );
+            assert!(interactive.run.template.is_none());
+            assert!(interactive.run.file.is_none());
+        }
+
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "-d",
+            "edge",
+            "interactive",
+            "--template",
+            "builtin:cisco_like_copy",
+            "--vars-json",
+            "{}",
+            "--parse-textfsm",
+        ])
+        .expect("saved and built-in template execution should parse");
+        let Commands::Interactive(interactive) = cli.command else {
+            panic!("expected interactive");
+        };
+        assert!(interactive.command.is_none());
+        assert_eq!(
+            interactive.run.template.as_deref(),
+            Some("builtin:cisco_like_copy")
+        );
+        assert_eq!(interactive.run.vars_json.as_deref(), Some("{}"));
+        assert!(interactive.run.parse_textfsm);
+        assert_eq!(cli.global_opts.connection.as_deref(), Some("edge"));
+
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "interactive",
+            "--file",
+            "inspect.toml",
+            "--vars",
+            "vars.json",
+            "--target",
+            "edge",
+            "--record-level",
+            "full",
+        ])
+        .expect("ad-hoc template execution should parse");
+        let Commands::Interactive(interactive) = cli.command else {
+            panic!("expected interactive");
+        };
+        assert!(interactive.command.is_none());
+        assert_eq!(interactive.run.file, Some(PathBuf::from("inspect.toml")));
+        assert_eq!(interactive.run.vars, Some(PathBuf::from("vars.json")));
+        assert_eq!(interactive.run.targets, vec!["edge".to_owned()]);
+        assert!(matches!(
+            interactive.run.record_level,
+            super::RecordLevelOpt::Full
+        ));
+    }
+
+    #[test]
+    fn exec_executes_saved_templates_and_owns_template_management() {
+        let cli = Cli::try_parse_from([
+            "rauto",
+            "exec",
+            "-t",
+            "inspect",
+            "--vars",
+            "vars.json",
+            "--dry-run",
+            "--textfsm-template",
+            "first.textfsm",
+            "--textfsm-template",
+            "second.textfsm",
+        ])
+        .expect("template execution should parse under exec");
+        let Commands::Exec(exec) = cli.command else {
+            panic!("expected exec");
+        };
+        assert!(exec.command.is_none());
+        assert!(exec.run.command.is_none());
+        assert_eq!(exec.run.template.as_deref(), Some("inspect"));
+        assert_eq!(exec.run.vars, Some(PathBuf::from("vars.json")));
+        assert!(exec.run.dry_run);
+        assert_eq!(
+            exec.run.textfsm_template,
+            vec![
+                PathBuf::from("first.textfsm"),
+                PathBuf::from("second.textfsm")
+            ]
+        );
+
+        for args in [
+            vec!["rauto", "exec", "template", "list"],
+            vec!["rauto", "exec", "template", "show", "inspect"],
+            vec![
+                "rauto",
+                "exec",
+                "template",
+                "create",
+                "inspect",
+                "--content",
+                "show version",
+            ],
+            vec![
+                "rauto",
+                "exec",
+                "template",
+                "update",
+                "inspect",
+                "--file",
+                "inspect.j2",
+            ],
+            vec!["rauto", "exec", "template", "delete", "inspect"],
+        ] {
+            let cli = Cli::try_parse_from(&args)
+                .expect("management should not require an execution command");
+            let Commands::Exec(exec) = cli.command else {
+                panic!("expected exec");
+            };
+            assert!(
+                matches!(exec.command, Some(super::ExecSubcommand::Template { .. })),
+                "{args:?}"
+            );
+        }
+
+        let cli = Cli::try_parse_from(["rauto", "exec", "--", "template"])
+            .expect("a raw command matching the subcommand name can be escaped");
+        let Commands::Exec(exec) = cli.command else {
+            panic!("expected exec");
+        };
+        assert_eq!(exec.run.command.as_deref(), Some("template"));
+        assert!(exec.command.is_none());
+    }
+
+    #[test]
+    fn exec_rejects_mixed_execution_sources_and_unused_template_options() {
+        for args in [
+            vec!["rauto", "exec"],
+            vec!["rauto", "exec", "id", "--template", "inspect"],
+            vec!["rauto", "exec", "id", "--vars", "vars.json"],
+            vec!["rauto", "exec", "id", "--dry-run"],
+            vec!["rauto", "exec", "--vars", "vars.json"],
+            vec!["rauto", "exec", "--dry-run"],
+            vec!["rauto", "exec", "--template", "inspect", "--mode", "User"],
+            vec!["rauto", "exec", "--template", "inspect", "--target", "edge"],
+            vec![
+                "rauto",
+                "exec",
+                "--template",
+                "inspect",
+                "--group",
+                "access",
+            ],
+            vec![
+                "rauto",
+                "exec",
+                "--template",
+                "inspect",
+                "--label",
+                "access",
+            ],
+            vec![
+                "rauto",
+                "exec",
+                "--template",
+                "inspect",
+                "--max-parallel",
+                "2",
+            ],
+            vec![
+                "rauto",
+                "exec",
+                "id",
+                "--textfsm-template",
+                "one",
+                "--textfsm-template",
+                "two",
+            ],
+            vec!["rauto", "exec", "--parse-textfsm", "template", "list"],
+            vec!["rauto", "template", "inspect"],
+            vec!["rauto", "templates", "list"],
+        ] {
+            let result = Cli::try_parse_from(&args);
+            assert!(
+                result.is_err(),
+                "invalid invocation must fail: {args:?}: {result:?}"
+            );
+        }
+    }
+
+    #[test]
     fn textfsm_commands_infer_platform_and_reject_removed_override() {
-        for command in ["show", "exec", "template", "interactive"] {
-            let mut args = vec!["rauto", command];
-            if command == "interactive" {
-                args.push("--template");
-            }
-            args.push("version");
-            if command != "show" {
-                args.push("--parse-textfsm");
-            }
+        for mut args in [
+            vec!["rauto", "show", "version"],
+            vec!["rauto", "exec", "version", "--parse-textfsm"],
+            vec!["rauto", "exec", "--template", "version", "--parse-textfsm"],
+            vec![
+                "rauto",
+                "interactive",
+                "--template",
+                "version",
+                "--parse-textfsm",
+            ],
+        ] {
             Cli::try_parse_from(&args).expect("automatic platform selection should parse");
             args.extend(["--textfsm-platform", "cisco_ios"]);
             let error = Cli::try_parse_from(&args).expect_err("platform override was removed");
@@ -1299,7 +1695,7 @@ mod tests {
             "192.168.60.98:22",
             "--profile",
             "fortinet",
-            "--connection-name",
+            "--device-name",
             "branch-fw",
             "--overwrite",
             "--json",
@@ -1464,7 +1860,7 @@ mod tests {
             vec!["rauto", "session", "delete", "record-id"],
             vec!["rauto", "session", "replay", "record.jsonl", "--list"],
             vec!["rauto", "session", "replay", "--id", "record-id", "--list"],
-            vec!["rauto", "session", "replay", "--connection", "edge92"],
+            vec!["rauto", "session", "replay", "--device", "edge92"],
         ] {
             Cli::try_parse_from(args).expect("unified session command should parse");
         }
@@ -1475,7 +1871,7 @@ mod tests {
                 "session",
                 "replay",
                 "record.jsonl",
-                "--connection",
+                "--device",
                 "edge92",
             ],
             vec!["rauto", "session", "replay", "--mode", "Enable"],
@@ -1631,7 +2027,7 @@ mod tests {
             "config",
             "history",
             "list",
-            "--connection",
+            "--device",
             "edge-1",
             "--kind",
             "running",
@@ -1744,9 +2140,9 @@ mod tests {
         let Commands::Exec(args) = cli.command else {
             panic!("expected exec command");
         };
-        assert_eq!(args.targets, vec!["edge-1".to_string()]);
-        assert_eq!(args.groups, vec!["access".to_string()]);
-        assert_eq!(args.max_parallel, Some(6));
+        assert_eq!(args.run.targets, vec!["edge-1".to_string()]);
+        assert_eq!(args.run.groups, vec!["access".to_string()]);
+        assert_eq!(args.run.max_parallel, Some(6));
 
         let cli = Cli::try_parse_from([
             "rauto",
@@ -1762,8 +2158,8 @@ mod tests {
         let Commands::Interactive(args) = cli.command else {
             panic!("expected interactive command");
         };
-        assert_eq!(args.labels, vec!["campus".to_string()]);
-        assert_eq!(args.max_parallel, Some(2));
+        assert_eq!(args.run.labels, vec!["campus".to_string()]);
+        assert_eq!(args.run.max_parallel, Some(2));
     }
 
     #[test]
@@ -1783,13 +2179,13 @@ mod tests {
         let Commands::Show(args) = cli.command else {
             panic!("expected show command");
         };
-        assert_eq!(args.max_parallel, Some(8));
+        assert_eq!(args.run.max_parallel, Some(8));
 
         let cli = Cli::try_parse_from(["rauto", "show", "version", "--target", "edge-1"])
             .expect("show without --max-parallel should parse");
         let Commands::Show(args) = cli.command else {
             panic!("expected show command");
         };
-        assert_eq!(args.max_parallel, None);
+        assert_eq!(args.run.max_parallel, None);
     }
 }

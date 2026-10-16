@@ -80,7 +80,6 @@ mod tests {
             output_encoding: Default::default(),
             device_profile: "linux".into(),
             vars: json!({}),
-            template_dir: None,
             force_autodetect: false,
             retry_policy: Default::default(),
         }

@@ -42,13 +42,11 @@ workflows, whose commands already support interaction rules.
 ## CLI and transport names
 
 Use `rauto interactive` to execute templates and
-`rauto interactive-template` to manage them. Transaction workflow operations
+`rauto interactive template` to manage them. Transaction workflow operations
 support interaction rules for both forward and rollback commands.
-The old CLI names remain hidden aliases; they accept only the new template format.
 
 The Web uses `/api/interactive/execute`,
 `/api/interactive/batch-execute`, and
 `/api/interactive-templates`. The gRPC API uses `ExecuteInteractive`, `ExecuteInteractiveBatch`, and
-`*InteractiveTemplate*` message and method names. Existing HTTP aliases use the
-same template parser. The storage table is `interactive_templates` and the task/history operation tag
+`*InteractiveTemplate*` message and method names. The storage table is `interactive_templates` and the task/history operation tag
 is `interactive`; application types and modules use `Interactive`.

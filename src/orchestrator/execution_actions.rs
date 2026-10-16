@@ -302,7 +302,6 @@ mod tests {
             output_encoding: Default::default(),
             device_profile: "linux".to_string(),
             vars: json!({}),
-            template_dir: None,
             force_autodetect: false,
             retry_policy: Default::default(),
         }

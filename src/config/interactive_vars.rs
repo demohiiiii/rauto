@@ -456,7 +456,6 @@ mod tests {
             linux_shell_flavor: None,
             output_encoding: Default::default(),
             device_profile: Some("linux".to_string()),
-            template_dir: None,
             enabled: true,
             labels: vec![],
             vars,

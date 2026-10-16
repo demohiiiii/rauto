@@ -1,5 +1,6 @@
 mod args;
 mod commands;
+mod option_scope;
 
 pub(crate) mod completion;
 pub(crate) mod config_fetch;

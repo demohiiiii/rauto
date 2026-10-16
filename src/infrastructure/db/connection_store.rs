@@ -134,7 +134,7 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
         let row = sqlx::query(
             r#"
             SELECT host, credential_id, port, connect_timeout_secs, device_model, software_version,
-                   ssh_security, linux_shell_flavor, output_encoding, device_profile, template_dir,
+                   ssh_security, linux_shell_flavor, output_encoding, device_profile,
                    enabled, labels_json, vars_json
             FROM connections
             WHERE name = ?
@@ -173,7 +173,6 @@ pub fn load_connection_raw(name: &str) -> Result<SavedConnection> {
                 .transpose()?,
             output_encoding: parse_device_encoding(&row.try_get::<String, _>("output_encoding")?)?,
             device_profile: row.try_get("device_profile")?,
-            template_dir: row.try_get("template_dir")?,
             enabled: row.try_get::<i64, _>("enabled").unwrap_or(1) != 0,
             labels: parse_labels_json(
                 row.try_get::<Option<String>, _>("labels_json")?
@@ -253,10 +252,10 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
             r#"
             INSERT INTO connections (
                 name, host, credential_id, port, connect_timeout_secs, device_model, software_version,
-                ssh_security, linux_shell_flavor, output_encoding, device_profile, template_dir, enabled, labels_json,
+                ssh_security, linux_shell_flavor, output_encoding, device_profile, enabled, labels_json,
                 vars_json, created_at_ms, updated_at_ms
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(name) DO UPDATE SET
                 host = excluded.host,
                 credential_id = excluded.credential_id,
@@ -268,7 +267,6 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
                 linux_shell_flavor = excluded.linux_shell_flavor,
                 output_encoding = excluded.output_encoding,
                 device_profile = excluded.device_profile,
-                template_dir = excluded.template_dir,
                 enabled = excluded.enabled,
                 labels_json = excluded.labels_json,
                 vars_json = excluded.vars_json,
@@ -286,7 +284,6 @@ fn persist_connection(connection_name: &str, data: &SavedConnection) -> Result<(
         .bind(stored.linux_shell_flavor.map(|value| value.to_string()))
         .bind(stored.output_encoding.to_string())
         .bind(&stored.device_profile)
-        .bind(&stored.template_dir)
         .bind(if stored.enabled { 1_i64 } else { 0_i64 })
         .bind(labels_json)
         .bind(vars_json)
@@ -436,7 +433,6 @@ mod tests {
                 linux_shell_flavor: None,
                 output_encoding: DeviceEncoding::Gbk,
                 device_profile: Some("linux".to_string()),
-                template_dir: None,
                 enabled: true,
                 labels: vec!["edge".to_string(), "prod".to_string()],
                 vars: serde_json::json!({}),
@@ -456,7 +452,6 @@ mod tests {
                 linux_shell_flavor: None,
                 output_encoding: Default::default(),
                 device_profile: Some("linux".to_string()),
-                template_dir: None,
                 enabled: true,
                 labels: vec!["core".to_string()],
                 vars: serde_json::json!({}),
@@ -495,7 +490,6 @@ mod tests {
                 linux_shell_flavor: None,
                 output_encoding: Default::default(),
                 device_profile: Some("linux".to_string()),
-                template_dir: None,
                 enabled: true,
                 labels: vec![],
                 vars: serde_json::json!({}),
@@ -515,7 +509,6 @@ mod tests {
                 linux_shell_flavor: None,
                 output_encoding: Default::default(),
                 device_profile: Some("linux".to_string()),
-                template_dir: None,
                 enabled: true,
                 labels: vec![],
                 vars: serde_json::json!({}),

@@ -24,6 +24,21 @@ rauto web --bind 127.0.0.1 --port 3000
 Web requires no device at startup. Read [Web](web-runbook.md) or
 [Agent](agent-runbook.md) for service operation.
 
+Use `--device <name>` (`-d`) to select a saved device; `--save-device <name>`
+(`-S`, `--save`) saves the effective settings after a successful connection.
+Use `--device-profile <profile>` (`-D`) to override the device profile.
+Help groups options by function and priority, with recording, retries, and help
+after the main inputs and output options. Service and discovery settings come
+first in their respective commands.
+
+Common shortcuts retain the full option names: `-C`/`--cred` for credentials;
+`-T`, `-g`, `-L` for targets, groups, and labels; `-N`/`--parallel` for concurrency;
+`-J` for inline variables, `-n` for dry-run, and `-j` for JSON output.
+TextFSM uses `-p`/`--parse`, `-F`/`--tfsm`, `-x`/`--excel`, and `--strict`.
+`--shell`, `--security`, and `--retries` abbreviate connection settings.
+These options retain their command scopes. In service/discovery commands,
+`-p` selects a port instead; `-P` selects the SSH connection port.
+
 ## Credentials, Devices, And Profiles
 
 ```sh
@@ -33,7 +48,7 @@ rauto credential show network-admin
 rauto device list --json
 rauto device show core-01 --json
 rauto device add core-01 --host 192.0.2.10 --credential network-admin
-rauto device test --connection core-01
+rauto device test --device core-01
 rauto profile list
 rauto profile show linux
 rauto profile diagnose linux --json
@@ -55,17 +70,17 @@ Imported discovery results retain the detected shell flavor.
 
 ```sh
 rauto show --list --device-profile linux
-rauto show version --connection core-01
-rauto show interfaces --connection core-01 --print-command
+rauto show version --device core-01
+rauto show interfaces --device core-01 --print-command
 rauto show route --group core --label prod --max-parallel 4 --textfsm-excel ./routes.xlsx
-rauto show services-failed --connection linux-01 --no-parse
-rauto exec 'id' --connection linux-01 --mode 'Root,User'
+rauto show services-failed --device linux-01 --no-parse
+rauto exec 'id' --device linux-01 --mode 'Root,User'
 
-rauto config fetch --connection core-01 --kind running
-rauto config fetch --connection core-01 --output ./core-01.cfg
+rauto config fetch --device core-01 --kind running
+rauto config fetch --device core-01 --output ./core-01.cfg
 rauto config fetch --group access --kind startup --output-dir ./configs
 rauto config history devices --json
-rauto config history list --connection core-01 --limit 20 --json
+rauto config history list --device core-01 --limit 20 --json
 rauto config history show <snapshot-id> --output ./snapshot.cfg
 ```
 
@@ -82,33 +97,35 @@ single-device path; `--output-dir` writes timestamped per-device files.
 ```sh
 rauto textfsm template create my_version --file ./my_version.textfsm
 rauto textfsm mapping set --profile cisco_ios --command 'show version' --template my_version
-rauto show-object set --profile cisco_ios --object acl --command 'show access-lists' --mode Enable
+rauto show object set --profile cisco_ios --object acl --command 'show access-lists' --mode Enable
 rauto config command list --profile linux
 rauto config command set linux running 'cat /etc/device.conf' --mode 'Root,User'
 rauto config volatile add linux '^# Generated at .*$'
 ```
 
-Custom mappings override the bundled catalog. TextFSM has no platform override
-flag; fix the profile or bind an explicit template. CLI can accept local
+`show object` manages custom query objects; its `list` includes disabled entries.
+`show --list` lists available queries for a profile, including enabled custom
+objects. Custom mappings override the bundled catalog. TextFSM has no platform
+override flag; fix the profile or bind an explicit template. CLI can accept local
 `--textfsm-template` files; Web uses stored template names.
 
 ## Templates And Changes
 
 ```sh
-rauto templates list
-rauto templates create inspect --file ./inspect.j2
-rauto template inspect --vars ./vars.json --dry-run
-rauto template inspect --connection core-01 --vars ./vars.json
-rauto interactive-template list
-rauto interactive --file ./interactive.toml --connection core-01 --vars-json '{"value":"example"}'
+rauto exec template list
+rauto exec template create inspect --file ./inspect.j2
+rauto exec --template inspect --vars ./vars.json --dry-run
+rauto exec --template inspect --device core-01 --vars ./vars.json
+rauto interactive template list
+rauto interactive --file ./interactive.toml --device core-01 --vars-json '{"value":"example"}'
 rauto interactive --template saved-interaction --group access --max-parallel 4
 rauto tx-workflow ./workflow.json --dry-run --json
-rauto tx-workflow ./workflow.json --connection core-01 --json
+rauto tx-workflow ./workflow.json --device core-01 --json
 rauto orchestrate ./plan.json --dry-run --json
 ```
 
-`templates` manages command text; `template` renders/executes a stored command
-template. Command templates support Jinja syntax. `interactive-template`
+`exec template` manages command text; `exec --template <name>` renders/executes
+a stored command template. Command templates support Jinja syntax. `interactive template`
 manages single-command TOML with inline substitutions. `interactive` has no
 dry-run flag. Read [Interactive](interactive-templates.md) before authoring it.
 
@@ -123,9 +140,9 @@ rauto inventory group list --json
 rauto inventory group upsert access --content '{"description":"Access devices","hosts":["edge-01"]}'
 rauto session
 rauto session list core-01 --limit 20 --json
-rauto session replay --connection core-01 --list
+rauto session replay --device core-01 --list
 rauto session replay ./record.jsonl --list
-rauto upload --connection core-01 --local-path ./pkg.tar --remote-path /tmp/pkg.tar
+rauto upload --device core-01 --local-path ./pkg.tar --remote-path /tmp/pkg.tar
 rauto blacklist check 'show version'
 rauto backup create
 rauto backup list

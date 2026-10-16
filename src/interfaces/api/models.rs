@@ -35,7 +35,6 @@ pub struct RenderRequest {
     pub vars: Value,
     #[serde(default)]
     pub connection: Option<ConnectionRequest>,
-    pub template_dir: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -62,7 +61,6 @@ pub struct ConnectionRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output_encoding: Option<DeviceEncoding>,
     pub device_profile: Option<String>,
-    pub template_dir: Option<String>,
     #[serde(default = "default_enabled")]
     pub enabled: bool,
     #[serde(default)]

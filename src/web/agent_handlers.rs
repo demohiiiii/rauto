@@ -20,11 +20,10 @@ pub async fn agent_info(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<AgentInfoResponse>, ApiError> {
     let name = state.agent_name().unwrap_or_else(default_agent_name);
-    let capabilities =
-        list_agent_capabilities(state.defaults.template_dir.as_ref()).map_err(ApiError::from)?;
+    let capabilities = list_agent_capabilities().map_err(ApiError::from)?;
     let connections_count = count_connections().map_err(ApiError::from)?;
-    let templates_count = count_templates(state.defaults.template_dir.as_ref())?;
-    let custom_profiles_count = count_custom_profiles(state.defaults.template_dir.as_ref())?;
+    let templates_count = count_templates()?;
+    let custom_profiles_count = count_custom_profiles()?;
 
     Ok(Json(AgentInfoResponse {
         name,

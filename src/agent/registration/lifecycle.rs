@@ -24,7 +24,7 @@ impl AgentRegistrar {
         }
     }
 
-    pub async fn register(&self, state: &Arc<AppState>, bind: &str, port: u16) -> Result<()> {
+    pub async fn register(&self, bind: &str, port: u16) -> Result<()> {
         {
             let mut runtime = self.runtime.lock().await;
             runtime.bind = Some(bind.to_string());
@@ -35,7 +35,7 @@ impl AgentRegistrar {
         let mut attempts = 0u64;
         loop {
             attempts += 1;
-            match self.try_register_once(state, bind, port).await {
+            match self.try_register_once(bind, port).await {
                 Ok(()) => {
                     if let Err(err) = self.sync_device_inventory().await {
                         warn!("initial device inventory sync failed: {}", err);
@@ -83,7 +83,7 @@ impl AgentRegistrar {
                             (runtime.bind.clone(), runtime.port)
                         };
                         if let (Some(bind), Some(port)) = (bind, port) {
-                            if let Err(register_err) = self.register(&state, &bind, port).await {
+                            if let Err(register_err) = self.register(&bind, port).await {
                                 error!("agent re-registration failed: {}", register_err);
                             } else {
                                 consecutive_failures = 0;
@@ -130,14 +130,13 @@ impl AgentRegistrar {
         }
     }
 
-    async fn try_register_once(&self, state: &Arc<AppState>, bind: &str, port: u16) -> Result<()> {
+    async fn try_register_once(&self, bind: &str, port: u16) -> Result<()> {
         let advertise_host = resolve_advertise_host(bind, &self.config.manager.url)
             .with_context(|| format!("failed to resolve advertise host from bind '{}'", bind))?;
         let version = env!("CARGO_PKG_VERSION").to_string();
-        let capabilities = list_agent_capabilities(state.defaults.template_dir.as_ref())?;
+        let capabilities = list_agent_capabilities()?;
         let connections_count = count_connections()?;
-        let templates_count = count_templates(state.defaults.template_dir.as_ref())
-            .map_err(|e| anyhow!(e.message))?;
+        let templates_count = count_templates().map_err(|e| anyhow!(e.message))?;
 
         match self.config.manager.report_mode {
             ManagerReportMode::Grpc => {
@@ -186,8 +185,7 @@ impl AgentRegistrar {
         let running_tasks = state.running_task_count();
         let status = "online".to_string();
         let connections_count = count_connections()?;
-        let templates_count = count_templates(state.defaults.template_dir.as_ref())
-            .map_err(|e| anyhow!(e.message))?;
+        let templates_count = count_templates().map_err(|e| anyhow!(e.message))?;
         let uptime_seconds = state.uptime_seconds();
 
         match self.config.manager.report_mode {

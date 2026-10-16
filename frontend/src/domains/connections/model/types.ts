@@ -216,7 +216,6 @@ export interface ConnectionRequestPayload {
   port?: number | null;
   software_version?: string | null;
   ssh_security?: string | null;
-  template_dir?: string | null;
   vars?: Record<string, unknown>;
 }
 

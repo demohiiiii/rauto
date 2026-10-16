@@ -288,15 +288,6 @@ pub fn merge_connection_options(
     defaults: &GlobalOpts,
     incoming: Option<ConnectionRequest>,
 ) -> Result<ResolvedConnection, ApiError> {
-    if incoming
-        .as_ref()
-        .and_then(|connection| connection.template_dir.as_deref())
-        .is_some_and(|value| !value.trim().is_empty())
-    {
-        return Err(ApiError::bad_request(
-            "custom server template directories are not supported by the Web API",
-        ));
-    }
     let incoming = incoming.unwrap_or(ConnectionRequest {
         keep_alive: None,
         connection_name: None,
@@ -310,7 +301,6 @@ pub fn merge_connection_options(
         linux_shell_flavor: None,
         output_encoding: None,
         device_profile: None,
-        template_dir: None,
         enabled: true,
         labels: vec![],
         groups: vec![],
@@ -655,7 +645,6 @@ mod tests {
             ssh_security: Some(SshSecurityProfile::Balanced),
             linux_shell_flavor: None,
             device_profile: Some("default-profile".to_string()),
-            template_dir: None,
             force_autodetect: false,
             session_retries: 0,
             retry_initial_backoff_ms: 200,
@@ -679,7 +668,6 @@ mod tests {
                 linux_shell_flavor: None,
                 output_encoding: DeviceEncoding::Gbk,
                 device_profile: Some("saved-profile".to_string()),
-                template_dir: Some("/tmp/saved-templates".to_string()),
                 enabled: true,
                 labels: vec!["core".to_string()],
                 groups: vec!["access".to_string()],
@@ -707,7 +695,6 @@ mod tests {
             linux_shell_flavor: None,
             output_encoding: None,
             device_profile: None,
-            template_dir: None,
             enabled: true,
             labels: vec![],
             groups: vec![],
@@ -759,7 +746,6 @@ mod tests {
                 ssh_security: None,
                 linux_shell_flavor: None,
                 device_profile: None,
-                template_dir: None,
                 force_autodetect: false,
                 session_retries: 0,
                 retry_initial_backoff_ms: 200,

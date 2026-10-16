@@ -55,7 +55,6 @@ fn saved_connection_detail_response_redacts_secrets() {
             linux_shell_flavor: None,
             output_encoding: Default::default(),
             device_profile: Some("cisco_ios".to_string()),
-            template_dir: Some("/tmp/templates".to_string()),
             enabled: true,
             labels: vec!["edge".to_string()],
             vars: serde_json::json!({"site":"lab"}),
@@ -85,10 +84,6 @@ fn saved_connection_detail_response_redacts_secrets() {
     assert_eq!(
         detail.connection.device_profile.as_deref(),
         Some("cisco_ios")
-    );
-    assert_eq!(
-        detail.connection.template_dir.as_deref(),
-        Some("/tmp/templates")
     );
 }
 

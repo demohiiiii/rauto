@@ -3,8 +3,8 @@ use crate::cli::multi_target::{
     resolve_multi_target_names, run_buffered_multi_target,
 };
 use crate::cli::{
-    ExecArgs, RecordLevelOpt, ShowArgs, ShowObjectCommands, TemplateArgs, TemplateCommands,
-    TextfsmCommands, TextfsmMappingCommands, TextfsmTemplateCommands,
+    ExecArgs, RecordLevelOpt, ShowArgs, ShowObjectCommands, TemplateCommands, TextfsmCommands,
+    TextfsmMappingCommands, TextfsmTemplateCommands,
 };
 use crate::config::{
     command_blacklist, connection_store, content_store, custom_show_object_store,
@@ -12,7 +12,7 @@ use crate::config::{
 };
 use crate::device::DeviceClient;
 use crate::template::renderer::Renderer;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -63,7 +63,11 @@ fn command_output_failure(command: &str, output: &rneter::session::Output) -> an
     )
 }
 
-async fn run_multi_exec(args: &ExecArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
+async fn run_multi_exec(
+    args: &ExecArgs,
+    command: &str,
+    opts: &crate::cli::GlobalOpts,
+) -> Result<()> {
     if args.record_file.is_some() {
         return Err(anyhow::anyhow!(
             "--record-file is not supported with multi-target exec; session history is still saved automatically"
@@ -116,10 +120,10 @@ async fn run_multi_exec(args: &ExecArgs, opts: &crate::cli::GlobalOpts) -> Resul
         );
     }
     let options = MultiExecOptions {
-        command: args.command.clone(),
-        textfsm_template: args.textfsm_template.clone(),
+        command: command.to_owned(),
+        textfsm_template: args.textfsm_template.first().cloned(),
         parse_enabled: args.parse_textfsm
-            || args.textfsm_template.is_some()
+            || !args.textfsm_template.is_empty()
             || args.textfsm_excel.is_some(),
         textfsm_strict_errors: args.textfsm_strict_errors,
         record_level: args.record_level,
@@ -279,18 +283,22 @@ async fn execute_resolved_exec_target_buffered(
     }))
 }
 
-pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
+async fn run_template(
+    args: &ExecArgs,
+    template: &str,
+    opts: &crate::cli::GlobalOpts,
+) -> Result<()> {
     info!("Running template mode");
 
     let renderer = Renderer::new();
-    let vars = if let Some(vars_path) = args.vars {
-        let content = fs::read_to_string(&vars_path)?;
+    let vars = if let Some(vars_path) = &args.vars {
+        let content = fs::read_to_string(vars_path)?;
         serde_json::from_str(&content)?
     } else {
         Value::Null
     };
 
-    let rendered_commands = renderer.render_file(&args.template, vars)?;
+    let rendered_commands = renderer.render_file(template, vars)?;
     println!("--- Rendered Commands ---\n{}", rendered_commands);
     println!("-------------------------");
 
@@ -396,7 +404,7 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
         &client,
         &conn,
         "template_execute",
-        &format!("template: {}", args.template),
+        &format!("template: {template}"),
         Some(default_mode.as_str()),
         args.record_level,
     )?;
@@ -411,9 +419,16 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
 }
 
 pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> Result<()> {
-    command_blacklist::ensure_command_allowed(&args.command, "direct execution")?;
+    if let Some(template) = args.template.as_deref() {
+        return run_template(&args, template, opts).await;
+    }
+    let command = args
+        .command
+        .as_deref()
+        .context("exec requires a command or --template")?;
+    command_blacklist::ensure_command_allowed(command, "direct execution")?;
     if has_multi_target_selectors(&args.targets, &args.groups, &args.labels) {
-        return run_multi_exec(&args, opts).await;
+        return run_multi_exec(&args, command, opts).await;
     }
     let conn =
         crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
@@ -448,30 +463,30 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
 
     crate::maybe_save_connection_profile(opts, &conn)?;
 
-    info!("Executing command: {}", args.command);
+    info!("Executing command: {}", command);
     let output = client
-        .execute_output(&args.command, Some(&effective_mode))
+        .execute_output(command, Some(&effective_mode))
         .await?;
     crate::write_recording_if_requested(args.record_file.as_ref(), &client, args.record_level)?;
     crate::persist_auto_recording_history(
         &client,
         &conn,
         "exec",
-        &args.command,
+        command,
         Some(effective_mode.as_str()),
         args.record_level,
     )?;
     println!("{}", output.content);
     if !command_output_succeeded(&output) {
-        return Err(command_output_failure(&args.command, &output));
+        return Err(command_output_failure(command, &output));
     }
     let (parsed_output, parse_error) = textfsm::parse_command_output_optional(
         &output.content,
-        &args.command,
+        command,
         &textfsm::ParseOptions {
-            template_file: args.textfsm_template.clone(),
+            template_file: args.textfsm_template.first().cloned(),
             enabled: args.parse_textfsm
-                || args.textfsm_template.is_some()
+                || !args.textfsm_template.is_empty()
                 || args.textfsm_excel.is_some(),
             device_profile: Some(conn.device_profile.clone()),
             filter_error_rules: !args.textfsm_strict_errors,
@@ -485,7 +500,7 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
             textfsm_export::write_parsed_output_xlsx(
                 path,
                 textfsm_export::ParsedOutputSheet {
-                    name: args.command.clone(),
+                    name: command.to_owned(),
                     parsed_output,
                 },
             )?;
@@ -1042,7 +1057,7 @@ pub(crate) fn textfsm_template_for_index(templates: &[PathBuf], index: usize) ->
     templates.get(index).or_else(|| templates.last()).cloned()
 }
 
-pub(crate) fn run_templates_command(cmd: TemplateCommands) -> Result<()> {
+pub(crate) fn run_template_command(cmd: TemplateCommands) -> Result<()> {
     match cmd {
         TemplateCommands::List => {
             let names = content_store::list_command_template_names()?;

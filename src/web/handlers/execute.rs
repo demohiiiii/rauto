@@ -218,7 +218,6 @@ mod tests {
                 ssh_security: None,
                 linux_shell_flavor: None,
                 device_profile: None,
-                template_dir: None,
                 force_autodetect: false,
                 session_retries: 0,
                 retry_initial_backoff_ms: 200,

@@ -92,7 +92,6 @@ pub struct SavedConnection<SshSecurity, LinuxShell, Encoding> {
     #[serde(default)]
     pub output_encoding: Encoding,
     pub device_profile: Option<String>,
-    pub template_dir: Option<String>,
     #[serde(default = "default_enabled")]
     pub enabled: bool,
     #[serde(default)]

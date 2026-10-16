@@ -137,7 +137,6 @@ pub async fn diagnose_profile(
     }
 
     let _ = state;
-    let _ = req.template_dir.as_ref();
     let handler = template_loader::load_device_profile(name)?;
 
     let diagnostics = handler.diagnose_state_machine();

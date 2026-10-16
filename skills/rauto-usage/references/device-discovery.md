@@ -37,7 +37,7 @@ rauto device discover list
 rauto device discover list --status existing --json
 rauto device discover list --profile linux,cisco_ios --port 22,2222 --search branch
 rauto device discover save --profile linux
-rauto device discover save 192.0.2.10:22 --connection-name branch-linux
+rauto device discover save 192.0.2.10:22 --device-name branch-linux
 rauto device discover 192.0.2.10 --credential network-admin --auto-save
 ```
 
@@ -48,7 +48,7 @@ Existing/imported states are derived from connection associations and exclude
 the row from new imports. JSON/TUI filtering uses these effective states.
 
 Without endpoint arguments, `save` imports all matching newly identified rows.
-An endpoint selector can be a host or host:port. `--connection-name` requires
+An endpoint selector can be a host or host:port. `--device-name` requires
 exactly one matching row; `--overwrite` permits replacing a name, but does not
 bypass the rule against importing an already saved endpoint.
 

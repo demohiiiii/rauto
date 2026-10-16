@@ -1031,7 +1031,6 @@ export const i18nEn = {
   orchestrationFormGroupName: "Group Name",
   orchestrationFormDetailedGroup: "Use Detailed Group Shape",
   orchestrationFormSavedConnections: "Saved Connections",
-  orchestrationFormTemplateDir: "Template Directory",
   orchestrationFormInventoryFile: "Inventory File",
   orchestrationFormRollbackOnStageFailure: "Rollback On Stage Failure",
   orchestrationFormRollbackCompletedStages:

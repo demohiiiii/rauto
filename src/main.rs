@@ -15,7 +15,10 @@ mod web;
 use anyhow::Result;
 use chrono::Local;
 use clap::Parser;
-use cli::{BackupCommands, Cli, Commands, OrchestrateSubcommand, TxWorkflowSubcommand};
+use cli::{
+    BackupCommands, Cli, Commands, ExecSubcommand, InteractiveSubcommand, OrchestrateSubcommand,
+    ShowSubcommand, TxWorkflowSubcommand,
+};
 use config::backup;
 use config::paths::ensure_default_layout;
 use std::process;
@@ -100,24 +103,30 @@ impl FormatTime for LocalTimer {
 async fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Completion(_) => unreachable!("completion is handled before initialization"),
-        Commands::Template(args) => {
-            cli::exec::run_template(args, &cli.global_opts).await?;
-        }
-        Commands::Exec(args) => {
-            cli::exec::run_exec(args, &cli.global_opts).await?;
-        }
-        Commands::Show(args) => {
-            cli::exec::run_show(args, &cli.global_opts).await?;
-        }
-        Commands::ShowObject(cmd) => {
-            cli::exec::run_show_object_command(cmd)?;
-        }
-        Commands::Interactive(args) => {
-            cli::interactive::run_interactive(args, &cli.global_opts).await?;
-        }
-        Commands::InteractiveTemplate(cmd) => {
-            cli::interactive::run_interactive_template_command(cmd)?;
-        }
+        Commands::Exec(cmd) => match cmd.command {
+            Some(ExecSubcommand::Template { command }) => {
+                cli::exec::run_template_command(command)?;
+            }
+            None => {
+                cli::exec::run_exec(cmd.run, &cli.global_opts).await?;
+            }
+        },
+        Commands::Show(cmd) => match cmd.command {
+            Some(ShowSubcommand::Object { command }) => {
+                cli::exec::run_show_object_command(command)?;
+            }
+            None => {
+                cli::exec::run_show(cmd.run, &cli.global_opts).await?;
+            }
+        },
+        Commands::Interactive(cmd) => match cmd.command {
+            Some(InteractiveSubcommand::Template { command }) => {
+                cli::interactive::run_interactive_template_command(command)?;
+            }
+            None => {
+                cli::interactive::run_interactive(cmd.run, &cli.global_opts).await?;
+            }
+        },
         Commands::Upload(args) => {
             cli::interactive::run_upload(args, &cli.global_opts).await?;
         }
@@ -185,9 +194,6 @@ async fn run(cli: Cli) -> Result<()> {
                     cli::discovery::run_device_discovery(args.scan, &cli.global_opts).await?;
                 }
             },
-            cli::DeviceCommands::Discovery(command) => {
-                cli::discovery::run_device_discovery_command(command, &cli.global_opts).await?;
-            }
             command => {
                 cli::ops::run_device_command(command, &cli.global_opts).await?;
             }
@@ -206,9 +212,6 @@ async fn run(cli: Cli) -> Result<()> {
         }
         Commands::Blacklist(cmd) => {
             cli::ops::run_blacklist_command(cmd)?;
-        }
-        Commands::Templates(cmd) => {
-            cli::exec::run_templates_command(cmd)?;
         }
         Commands::Textfsm(cmd) => {
             cli::exec::run_textfsm_command(cmd)?;

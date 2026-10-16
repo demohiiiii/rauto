@@ -64,7 +64,6 @@ fn saved_connection(host: &str, groups: Vec<&str>, labels: Vec<&str>) -> SavedCo
         linux_shell_flavor: None,
         output_encoding: Default::default(),
         device_profile: Some("linux".to_string()),
-        template_dir: None,
         enabled: true,
         labels: labels.into_iter().map(str::to_string).collect(),
         vars: json!({}),

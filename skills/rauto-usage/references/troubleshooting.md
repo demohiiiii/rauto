@@ -19,8 +19,8 @@ data as a diagnostic shortcut. Tests need isolated temporary runtime paths.
 rauto device show core-01 --json
 rauto profile show linux
 rauto profile diagnose linux --json
-rauto device test --connection core-01
-rauto profile autodetect --connection core-01 --force-autodetect
+rauto device test --device core-01
+rauto profile autodetect --device core-01
 ```
 
 Confirm the selected credential, saved endpoint, profile, SSH port, and security
@@ -44,13 +44,13 @@ rather than assuming the returned prompt must exactly equal the initial text.
 
 ```sh
 rauto show --list --device-profile linux
-rauto show interfaces --connection core-01 --print-command
+rauto show interfaces --device core-01 --print-command
 rauto textfsm mapping list --profile cisco_ios
 ```
 
 Show availability is platform-specific, and batch queries require a supported
-object on every selected target. For missing objects, use a custom show-object
-mapping or a raw read command. Inspect the real mapped command before blaming
+object on every selected target. For missing objects, add a custom mapping with
+`show object set` or use a raw read command. Inspect the real mapped command before blaming
 the parser. TextFSM platform comes from the device profile, with custom
 profile/command mappings or explicit templates for exceptions.
 `--textfsm-strict-errors` retains fallback Error rules normally filtered out.

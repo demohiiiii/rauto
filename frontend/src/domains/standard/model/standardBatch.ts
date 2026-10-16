@@ -21,12 +21,7 @@ export function buildBatchCommandDeliveryPayload(
   payload: StandardCommandExecutionPayload,
   targets: StandardBatchTargetPayload,
 ): StandardBatchExecPayload {
-  const {
-    connection: _connection,
-    dry_run: _dryRun,
-    template_dir: _templateDir,
-    ...command
-  } = payload;
+  const { connection: _connection, dry_run: _dryRun, ...command } = payload;
   return { ...command, ...targets };
 }
 

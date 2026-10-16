@@ -135,7 +135,6 @@ pub(super) fn parse_row(
     let mut linux_shell_flavor = None;
     let mut output_encoding = None;
     let mut device_profile = None;
-    let mut template_dir = None;
 
     for (index, key) in mapping {
         let raw = values
@@ -184,7 +183,6 @@ pub(super) fn parse_row(
                 })?
             }
             ColumnKey::DeviceProfile => device_profile = normalize_text(raw),
-            ColumnKey::TemplateDir => template_dir = normalize_text(raw),
         }
     }
 
@@ -222,7 +220,6 @@ pub(super) fn parse_row(
             linux_shell_flavor,
             output_encoding: Default::default(),
             device_profile,
-            template_dir,
             enabled: true,
             labels: vec![],
             vars: serde_json::json!({}),
@@ -297,9 +294,6 @@ fn map_header(header: &str) -> Option<ColumnKey> {
         }
         "deviceprofile" | "profile" | "templateprofile" | "设备模板" | "设备类型" => {
             Some(ColumnKey::DeviceProfile)
-        }
-        "templatedir" | "templatepath" | "模板目录" | "模板路径" => {
-            Some(ColumnKey::TemplateDir)
         }
         _ => None,
     }

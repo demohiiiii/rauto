@@ -20,9 +20,7 @@ pub fn default_agent_name() -> String {
         .unwrap_or_else(|| "rauto-agent".to_string())
 }
 
-pub fn list_agent_capabilities(
-    _template_dir: Option<&std::path::PathBuf>,
-) -> Result<Vec<String>, anyhow::Error> {
+pub fn list_agent_capabilities() -> Result<Vec<String>, anyhow::Error> {
     template_loader::list_available_profiles()
 }
 
@@ -30,13 +28,13 @@ pub fn count_connections() -> Result<u32, anyhow::Error> {
     Ok(connection_store::list_connections()?.len() as u32)
 }
 
-pub fn count_templates(_template_dir: Option<&std::path::PathBuf>) -> Result<u32, ApiError> {
+pub fn count_templates() -> Result<u32, ApiError> {
     Ok(content_store::list_command_template_names()
         .map_err(ApiError::from)?
         .len() as u32)
 }
 
-pub fn count_custom_profiles(_template_dir: Option<&std::path::PathBuf>) -> Result<u32, ApiError> {
+pub fn count_custom_profiles() -> Result<u32, ApiError> {
     Ok(content_store::list_custom_profile_names()
         .map_err(ApiError::from)?
         .len() as u32)

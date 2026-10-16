@@ -16,9 +16,11 @@ binary explicitly when validating new contracts; Rust is pinned to 1.94.0.
 | Task | Current entry point | Reference |
 | --- | --- | --- |
 | Inspect device state | `show --list`, then `show <object>`; `exec` for uncatalogued reads | [CLI](references/cli-runbook.md) |
+| Manage profile-specific query objects | `show object list\|set\|delete` | [CLI](references/cli-runbook.md) |
+| Execute or manage reusable command templates | `exec --template <name>`, `exec template` | [CLI](references/cli-runbook.md) |
 | Collect configuration and drift hashes | `config fetch`, `config history` | [CLI](references/cli-runbook.md) |
 | Discover and import SSH devices | `device discover`, `device discover list\|save` | [Discovery](references/device-discovery.md) |
-| Handle prompts for one command | `interactive`, `interactive-template` | [Interactive templates](references/interactive-templates.md) |
+| Handle prompts for one command | `interactive`, `interactive template` | [Interactive templates](references/interactive-templates.md) |
 | Execute changes with rollback | `tx-workflow`; `orchestrate` for multiple devices | [JSON plans](references/json-templates.md) |
 | Check JSON plans without executing | Bundled helper and native previews, with different validation scopes | [Validation](references/json-validation.md) |
 | Run the browser workbench | `web` | [Web](references/web-runbook.md) |
@@ -28,7 +30,7 @@ binary explicitly when validating new contracts; Rust is pinned to 1.94.0.
 
 ## Operational Invariants
 
-- Resolve a target from `--connection <saved-name>` or `--host` plus a reusable
+- Resolve a target from `--device <saved-name>` or `--host` plus a reusable
   `--credential <name-or-id>`. Connection flags override saved values.
   Credentials and saved connections are separate records.
 - Let the selected profile supply default modes when the entry point supports
@@ -53,8 +55,8 @@ binary explicitly when validating new contracts; Rust is pinned to 1.94.0.
   is no standalone `tx` execution command or transaction-block execution page.
   Interactive TOML defines one command with prompts, not a list of steps.
 - Templates, profiles, inventory, and execution records live in SQLite under
-  `RAUTO_HOME` (default `~/.rauto`). Do not use deprecated template-directory
-  options. Use isolated temporary `RAUTO_HOME` for tests and sample validation;
+  `RAUTO_HOME` (default `~/.rauto`). Use isolated temporary `RAUTO_HOME` for tests
+  and sample validation;
   inspect real persisted state only within the user's requested scope.
 
 ## Authoring And Results

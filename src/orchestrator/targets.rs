@@ -10,7 +10,6 @@ use crate::config::template_loader::DEFAULT_DEVICE_PROFILE;
 use anyhow::{Context, Result, anyhow};
 use serde_json::Value;
 use std::collections::HashSet;
-use std::path::PathBuf;
 
 pub(crate) fn resolve_job_targets(
     stage_name: &str,
@@ -174,17 +173,6 @@ pub(crate) fn resolve_target_connection(
         .as_ref()
         .map(|connection| connection.output_encoding)
         .unwrap_or_default();
-    let template_dir = target
-        .template_dir
-        .as_ref()
-        .map(PathBuf::from)
-        .or_else(|| {
-            saved
-                .as_ref()
-                .and_then(|s| s.template_dir.clone().map(PathBuf::from))
-        })
-        .or_else(|| opts.template_dir.clone());
-
     let vars = saved
         .as_ref()
         .map(|s| s.vars.clone())
@@ -211,7 +199,6 @@ pub(crate) fn resolve_target_connection(
         output_encoding,
         device_profile,
         vars,
-        template_dir,
         force_autodetect: opts.force_autodetect,
         retry_policy: crate::manager_retry_policy(opts),
     })

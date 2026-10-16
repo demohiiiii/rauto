@@ -806,9 +806,6 @@ async fn import_discovery_result(
             .map(|connection| connection.output_encoding)
             .unwrap_or_default(),
         device_profile: result.device_profile.clone(),
-        template_dir: existing
-            .as_ref()
-            .and_then(|connection| connection.template_dir.clone()),
         enabled: true,
         labels: item
             .labels

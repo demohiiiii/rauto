@@ -80,7 +80,6 @@ pub async fn render_template(
             fallback
         }
     };
-    let _ = req.template_dir.as_ref();
     let (_, masked_rendered) = render_commands_with_runtime_context(
         req.template.as_deref(),
         req.template_content.as_deref(),
@@ -1476,7 +1475,6 @@ pub async fn execute_template(
                     .await?,
                 )
             };
-            let _ = req.template_dir.as_ref();
             let (rendered_commands, masked_rendered_commands) =
                 render_commands_with_runtime_context(
                     req.template.as_deref(),

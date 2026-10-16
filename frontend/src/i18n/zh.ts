@@ -972,7 +972,6 @@ export const i18nZh = {
   orchestrationFormGroupName: "分组名称",
   orchestrationFormDetailedGroup: "使用详细分组结构",
   orchestrationFormSavedConnections: "已保存连接",
-  orchestrationFormTemplateDir: "模板目录",
   orchestrationFormInventoryFile: "Inventory 文件",
   orchestrationFormRollbackOnStageFailure: "阶段失败时回滚",
   orchestrationFormRollbackCompletedStages: "失败时回滚已完成阶段",

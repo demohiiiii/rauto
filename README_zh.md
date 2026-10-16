@@ -196,26 +196,67 @@ npx skills add demohiiiii/rauto --skill rauto-usage
 
 ### 命令选型指南
 
+顶层命令按功能类型排列，常用查询与执行命令优先：
+
+| 功能类型 | 命令顺序 |
+| --- | --- |
+| 查询、执行与传输 | `show`、`exec`、`interactive`、`tx-workflow`、`orchestrate`、`upload` |
+| 设备与资源 | `device`、`credential`、`inventory`、`profile` |
+| 配置与规则 | `config`、`textfsm`、`blacklist` |
+| 自动化与服务 | `schedule`、`web`、`agent` |
+| 记录与维护 | `session`、`backup`、`completion` |
+
+常见场景可按下表选择：
+
 | 如果你想要...                        | 推荐命令                | 说明                                                            |
 | ------------------------------------ | ----------------------- | --------------------------------------------------------------- |
-| 立即执行一条命令                     | `rauto exec`            | 适合临时直连执行；可配合 `--mode` 限定目标模式。                |
 | 按 profile 执行 NTC 支持的 show 对象 | `rauto show`            | 将 `interfaces`、`route` 等对象映射为设备实际命令。             |
-| 用变量渲染一个可复用命令模板         | `rauto template`        | 适合命令文本来自已保存 Jinja 模板的场景。                       |
+| 立即执行一条命令                     | `rauto exec`            | 适合临时直连执行；可配合 `--mode` 限定目标模式。                |
+| 用变量渲染一个可复用命令模板         | `rauto exec --template` | 适合命令文本来自已保存 Jinja 模板的场景。                       |
 | 驱动交互式问答/确认流程              | `rauto interactive`     | 适合复制向导、安装向导和多轮 prompt/response 场景。             |
-| 通过远端 SFTP 直接上传本地文件       | `rauto upload`          | 要求目标 SSH 服务暴露 `sftp` 子系统。                           |
-| 自动发现网段内的 SSH 设备            | `rauto device discover` | 验证 SSH identification、探测设备 profile，并保存最新扫描结果。 |
 | 从 JSON 执行多步骤事务工作流         | `rauto tx-workflow`     | 适合把事务拆成命名 block/stage 并保存在 workflow 文件中。       |
 | 执行多设备分阶段计划                 | `rauto orchestrate`     | 适合面向多台已保存连接做串行/并发编排发布。                     |
+| 通过远端 SFTP 直接上传本地文件       | `rauto upload`          | 要求目标 SSH 服务暴露 `sftp` 子系统。                           |
+| 自动发现网段内的 SSH 设备            | `rauto device discover` | 验证 SSH identification、探测设备 profile，并保存最新扫描结果。 |
+
+常用参数也提供缩写，完整参数名仍然可用：
+
+| 完整参数 | 缩写 |
+| --- | --- |
+| `--credential` | `-C`、`--cred` |
+| `--target`、`--group`、`--label` | 分别为 `-T`、`-g`、`-L` |
+| `--max-parallel`（自动发现中为 `--concurrency`） | `-N`、`--parallel` |
+| `--parse-textfsm` | `-p`、`--parse` |
+| `--textfsm-template` | `-F`、`--tfsm` |
+| `--textfsm-excel` | `-x`、`--excel` |
+| `--textfsm-strict-errors` | `--strict` |
+| `--vars-json` | `-J` |
+| `--dry-run`、`--json` | 分别为 `-n`、`-j` |
+| `--file`、`--output`、`--output-dir` | 分别为 `-f`、`-o`、`-O`（`--out-dir`） |
+| `--linux-shell-flavor`、`--ssh-security` | 分别为 `--shell`、`--security` |
+| `--session-retries` | `--retries` |
+| Web/agent 服务的 `--bind`、`--port` | 分别为 `-b`、`-p` |
+
+缩写仅在原参数适用的命令中生效。`-p` 在 `exec`、`interactive` 中开启 TextFSM
+解析，在 `web`、`agent`、`device discover` 中选择端口；`-P` 始终表示 SSH
+连接端口。上传和 agent 等参数的完整缩写列表可通过对应命令的 `--help` 查看。
+
+```bash
+rauto show route -g core -L prod -N 8 -x ./routes.xlsx
+rauto exec 'uname -a' -H 192.0.2.10 -C linux-admin --shell fish
+rauto tx-workflow ./workflow.json -J '{"site":"core"}' -n -j
+rauto upload -d core-01 -f ./pkg.tar -o /tmp/pkg.tar --progress
+```
 
 ### 模板模式
 
 从模板渲染命令并在设备上执行。
-模板内容保存在 SQLite 中，可通过 `rauto templates` 或 Web UI 管理。
+模板内容保存在 SQLite 中，可通过 `rauto exec template` 或 Web UI 管理。
 
 **基本用法：**
 
 ```bash
-rauto template show_version.j2 \
+rauto exec --template show_version.j2 \
     --host 192.168.1.1 \
     --credential network-admin \
     --ssh-port 22
@@ -225,7 +266,7 @@ rauto template show_version.j2 \
 假设已经保存了一个模板 `configure_vlan.j2`，并有变量文件 `templates/example_vars.json`：
 
 ```bash
-rauto template configure_vlan.j2 \
+rauto exec --template configure_vlan.j2 \
     --vars templates/example_vars.json \
     --host 192.168.1.1 \
     --credential network-admin \
@@ -235,7 +276,7 @@ rauto template configure_vlan.j2 \
 **Dry Run（预览）：**
 
 ```bash
-rauto template configure_vlan.j2 \
+rauto exec --template configure_vlan.j2 \
     --vars templates/example_vars.json \
     --dry-run
 ```
@@ -312,9 +353,9 @@ Linux profile 还在 CLI 和 Web 中提供以下常用巡检对象：
 
 ```bash
 rauto show --list --device-profile linux
-rauto show memory --connection linux-server --no-parse
-rauto show disk --connection linux-server --no-parse
-rauto show services-failed --connection linux-server --no-parse
+rauto show memory --device linux-server --no-parse
+rauto show disk --device linux-server --no-parse
+rauto show services-failed --device linux-server --no-parse
 ```
 
 也可以对多个已保存连接批量执行同一个 show 对象。目标可以直接通过连接名指定，也可以通过 inventory 分组或标签选择。真正执行命令前，`rauto` 会先解析所有目标的 profile，并检查每个设备是否都有该对象对应的 show 命令；只要有任一目标缺少映射，整次执行会在下发命令前报错退出。
@@ -335,28 +376,28 @@ rauto show route --group core --tag prod --textfsm-excel ./routes.xlsx
 你也可以把某个 profile 的自定义 show object 保存到 SQLite。同一个 `(device_profile, object)` 下，自定义 show object 会覆盖内置命令表，可以绑定执行 mode，也可以绑定自定义 TextFSM 模板；绑定模板的优先级高于命令映射和内置 NTC 模板。
 
 ```bash
-rauto show-object set \
+rauto show object set \
     --profile my_custom_profile \
     --object access-list \
     --command "show access-lists" \
     --mode enable \
     --textfsm-template my_access_list
 
-rauto show-object list --profile my_custom_profile
-rauto show-object delete --profile my_custom_profile --object access-list
+rauto show object list --profile my_custom_profile
+rauto show object delete --profile my_custom_profile --object access-list
 ```
 
 ### TextFSM 解析
 
-`show`、`exec`、`template` 和 `interactive` 可以在命令执行后用 TextFSM 解析输出。
+`show`、`exec` 和 `interactive` 可以在命令执行后用 TextFSM 解析输出。
 
 - `show` 默认启用 TextFSM 解析。只想看原始输出时传 `--no-parse`。
 - 默认不会解析。需要解析时传 `--parse-textfsm`。
 - 手动解析：传 `--textfsm-template <path>`，使用指定 TextFSM 模板文件，优先级最高。
-- 多命令解析：`template` 和 `interactive` 可以重复传多个 `--textfsm-template <path>`，按命令顺序匹配模板文件；如果模板文件数量少于命令数量，最后一个模板会用于后续所有命令。
+- 多命令解析：`exec --template` 和 `interactive` 可以重复传多个 `--textfsm-template <path>`，按命令顺序匹配模板文件；如果模板文件数量少于命令数量，最后一个模板会用于后续所有命令。
 - 平台推断：启用解析时，`rauto` 会从当前连接的 device profile 推断 [ntc-templates](https://github.com/networktocode/ntc-templates) platform，例如 `cisco_ios`、`huawei -> huawei_vrp`、`cisco_xe -> cisco_ios`。
 - 宽松解析：默认会在解析前过滤 TextFSM 模板里的 `^. -> Error` 这类兜底 Error 规则，避免某些非关键行未匹配时导致整次解析失败。需要严格保留 Error 规则时，传 `--textfsm-strict-errors`。
-- Excel 导出：传 `--textfsm-excel <file.xlsx>` 可以把解析成功的表格行导出为 Excel 工作簿。对 `exec`、`template` 和 `interactive` 来说，这个参数也会启用 TextFSM 解析。
+- Excel 导出：传 `--textfsm-excel <file.xlsx>` 可以把解析成功的表格行导出为 Excel 工作簿。对 `exec` 和 `interactive` 来说，这个参数也会启用 TextFSM 解析。
 - 如果没有启用解析，也没有指定模板，则只展示原始输出。
 - 解析失败不会阻断命令执行；原始输出仍会返回，解析错误会单独展示。
 
@@ -379,7 +420,7 @@ rauto exec "show bgp neighbor" \
 
 ```bash
 rauto exec "show version" \
-    --connection core-01 \
+    --device core-01 \
     --parse-textfsm
 ```
 
@@ -387,7 +428,7 @@ rauto exec "show version" \
 
 ```bash
 rauto exec "show version" \
-    --connection core-01 \
+    --device core-01 \
     --parse-textfsm \
     --textfsm-excel ./show-version.xlsx
 ```
@@ -395,16 +436,16 @@ rauto exec "show version" \
 **使用指定 TextFSM 模板文件解析输出：**
 
 ```bash
-rauto template show_version.j2 \
-    --connection core-01 \
+rauto exec --template show_version.j2 \
+    --device core-01 \
     --textfsm-template ./templates/cisco_ios_show_version.textfsm
 ```
 
 **按命令顺序为多命令模板指定多个解析模板：**
 
 ```bash
-rauto template check_basic.j2 \
-    --connection core-01 \
+rauto exec --template check_basic.j2 \
+    --device core-01 \
     --textfsm-template ./templates/cisco_ios_show_version.textfsm \
     --textfsm-template ./templates/cisco_ios_show_interfaces.textfsm
 ```
@@ -428,12 +469,12 @@ rauto textfsm mapping set \
 管理已保存模板：
 
 ```bash
-rauto interactive-template list
-rauto interactive-template show cisco_like_copy
-rauto interactive-template create cisco_like_copy --file ./templates/examples/cisco-like-interactive.toml
-rauto interactive-template create linux_scp_with_current_and_peer --file ./templates/examples/linux-scp-with-current-and-peer-interactive.toml
-rauto interactive-template update cisco_like_copy --file ./my-interactive-template.toml
-rauto interactive-template delete cisco_like_copy
+rauto interactive template list
+rauto interactive template show cisco_like_copy
+rauto interactive template create cisco_like_copy --file ./templates/examples/cisco-like-interactive.toml
+rauto interactive template create linux_scp_with_current_and_peer --file ./templates/examples/linux-scp-with-current-and-peer-interactive.toml
+rauto interactive template update cisco_like_copy --file ./my-interactive-template.toml
+rauto interactive template delete cisco_like_copy
 ```
 
 执行已保存模板，并传入运行时变量：
@@ -442,7 +483,7 @@ rauto interactive-template delete cisco_like_copy
 rauto interactive \
     --template cisco_like_copy \
     --vars-json '{"command":"copy scp: flash:/new.bin","server_addr":"192.168.1.50","remote_path":"/images/new.bin","transfer_username":"backup","transfer_password":"secret","overwrite_answer":"y"}' \
-    --connection core-01
+    --device core-01
 ```
 
 交互式命令同样支持与 `show` / `exec` 一致的多目标扇出。交互式命令模板会按每台设备各自的连接上下文渲染（`{{host}}` 与跨连接引用逐台解析），渲染后的实际命令逐台通过黑名单校验，然后并发执行：
@@ -519,7 +560,7 @@ record_input = false
 ```bash
 rauto interactive \
     --template linux_scp_with_current_and_peer \
-    --connection edge92 \
+    --device edge92 \
     --vars-json '{"peer":"edge94","local_path":"/tmp/app.tar","remote_path":"/tmp/app.tar"}'
 ```
 
@@ -561,16 +602,16 @@ rauto upload \
 
 ```bash
 # 打印单台设备的 running 配置与双哈希
-rauto config fetch -c core-01
+rauto config fetch -d core-01
 
 # 把单台设备的 running 配置保存到指定文件
-rauto config fetch -c core-01 --output ./core-01-running.cfg
+rauto config fetch -d core-01 --output ./core-01-running.cfg
 
 # 把整个分组的 startup 配置归档为带时间戳的文件
 rauto config fetch --kind startup --group core --output-dir ./backups --max-parallel 8
 
 # 打印用于漂移比对的规范化文本
-rauto config fetch -c core-01 --normalized
+rauto config fetch -d core-01 --normalized
 ```
 
 `--output <文件>` 会把单设备抓取结果写入指定路径，并自动创建缺失的父目录。`--output-dir <目录>` 会把每台设备写入 `<名称>_<kind>_<时间戳>.cfg`，配合 cron + git 即可实现轻量级配置归档。两个参数互斥，且 `--output` 不能与多目标选择器一起使用。多目标选择器（`--target`、`--group`、`--label`）与 `--max-parallel` 的行为与 `show` / `exec` 完全一致。
@@ -579,7 +620,7 @@ rauto config fetch -c core-01 --normalized
 
 ```bash
 rauto config history devices
-rauto config history list --connection core-01 --kind running --limit 20
+rauto config history list --device core-01 --kind running --limit 20
 rauto config history list --from 2026-08-01T00:00:00Z --sort asc --json
 
 rauto config history show config-0123456789abcdef
@@ -700,7 +741,7 @@ rauto profile autodetect -vv --host 192.168.1.1 --credential network-admin
 需要绕过自动探测时，可以使用 `--device-profile` 显式指定设备 profile。例如指定 Huawei profile：
 
 ```bash
-rauto template show_ver.j2 \
+rauto exec --template show_ver.j2 \
     --host 192.168.1.1 \
     --credential network-admin \
     --ssh-port 22 \
@@ -740,7 +781,7 @@ rauto profile show cisco_ios
 rauto profile show linux
 rauto profile copy-builtin cisco_ios my_cisco
 rauto profile delete-custom my_cisco
-rauto connection test \
+rauto device test \
     --host 192.168.1.1 \
     --credential network-admin
 ```
@@ -845,9 +886,9 @@ Agent 模式提供：
 ### Template 存储管理命令
 
 ```bash
-rauto templates list
-rauto templates show show_version.j2
-rauto templates delete show_version.j2
+rauto exec template list
+rauto exec template show show_version.j2
+rauto exec template delete show_version.j2
 ```
 
 ### 设备凭证
@@ -907,7 +948,7 @@ linux-key-file,root,private_key_file,,,/run/secrets/id_ed25519,,,否
 CLI 直接连接时，通过凭证名称或稳定 ID 引用：
 
 ```bash
-rauto connection test \
+rauto device test \
     --host 192.168.1.1 \
     --credential network-admin
 
@@ -922,7 +963,7 @@ rauto exec "show version" \
 
 ```bash
 # 直接通过命令参数新增/更新连接配置
-rauto connection add lab1 \
+rauto device add lab1 \
     --host 192.168.1.1 \
     --credential network-admin \
     --ssh-port 22 \
@@ -930,27 +971,27 @@ rauto connection add lab1 \
     --device-profile cisco_ios
 
 # 复用已保存配置执行命令
-rauto exec "show version" --connection lab1
+rauto exec "show version" --device lab1
 
 # 在成功连接后保存当前有效配置
-rauto connection test \
-    --connection lab1 \
-    --save-connection lab1_backup
+rauto device test \
+    --device lab1 \
+    --save-device lab1_backup
 
 # 管理已保存配置
-rauto connection list
-rauto connection list --json
-rauto connection show lab1
-rauto connection show lab1 --json
-rauto connection delete lab1
+rauto device list
+rauto device list --json
+rauto device show lab1
+rauto device show lab1 --json
+rauto device delete lab1
 rauto session list lab1 --limit 20
 ```
 
 凭证引用规则：
 
 - 已保存连接只保存 `credential_id` 引用，不再复制用户名、登录密码或 Enable 密码。
-- 在 `exec`、`template` 或 `connection test` 中使用 `--save-connection` 时，会保存当前生效的凭证引用和连接配置。
-- 直接执行目标传入 `--credential <名称或 ID>` 时使用指定凭证；通过 `--connection` 加载的连接会自动解析其已保存的凭证。
+- 在 `exec` 或 `device test` 中使用 `--save-device` 时，会保存当前生效的凭证引用和连接配置。
+- 直接执行目标传入 `--credential <名称或 ID>` 时使用指定凭证；通过 `--device` 加载的连接会自动解析其已保存的凭证。
 - 连接必须引用有效凭证后，才能进行测试、自动探测或执行。
 - `--ssh-security <secure|balanced|legacy-compatible>` 用于控制 SSH 算法兼容档位，并会一起保存到连接配置中。未指定时默认使用兼容性最广的 `legacy-compatible`。
 - `--linux-shell-flavor <posix|fish>` 用于控制 Linux shell 的退出码解析策略（`posix` 同时接受 `bash` 别名）。
@@ -959,10 +1000,10 @@ rauto session list lab1 --limit 20
 
 ```bash
 # 从 CSV 导入已保存连接
-rauto connection import ./devices.csv
+rauto device import ./devices.csv
 
 # 从 Excel 导入已保存连接
-rauto connection import ./devices.xlsx
+rauto device import ./devices.xlsx
 ```
 
 支持的文件类型：
@@ -976,9 +1017,9 @@ rauto connection import ./devices.xlsx
 推荐表头：
 
 ```csv
-name,host,credential,port,connect_timeout_secs,device_model,software_version,ssh_security,linux_shell_flavor,device_profile,template_dir
-core-sw-01,192.168.1.1,network-admin,22,30,C9300,17.9.4,balanced,,cisco_ios,
-linux-jump-01,192.168.1.10,linux-admin,22,30,,,secure,posix,linux,
+name,host,credential,port,connect_timeout_secs,device_model,software_version,ssh_security,linux_shell_flavor,device_profile
+core-sw-01,192.168.1.1,network-admin,22,30,C9300,17.9.4,balanced,,cisco_ios
+linux-jump-01,192.168.1.10,linux-admin,22,30,,,secure,posix,linux
 ```
 
 说明：
@@ -1028,7 +1069,7 @@ rauto device discover list \
 # 保存全部匹配的已识别设备，或指定一个或多个端点
 rauto device discover save --profile fortinet
 rauto device discover save 192.168.60.98:22 \
-    --connection-name branch-fw
+    --device-name branch-fw
 ```
 
 目标支持单个 IP、CIDR，以及 `192.168.2.10-30` 形式的末段地址范围；一次运行可以传入多个目标参数。单次运行最多接受 4,096 个去重地址、16 个端口和 3 套探测凭证。可通过 `--concurrency`、`--tcp-timeout-ms` 和 `--probe-timeout-secs` 调整较大或较慢网络的扫描参数。
@@ -1052,7 +1093,7 @@ rauto device discover save 192.168.60.98:22 \
 
 使用 `--no-tui` 可保留进度条，但在完成后直接打印经过筛选的表格结果。`--json` 会同时关闭进度条和 TUI，确保标准输出保持机器可读，可安全用于重定向或管道。JSON 结果的 `status` 与筛选和 TUI 使用相同的派生状态，因此已导入和已有连接会分别显示为 `imported` 和 `existing`；stdin/stdout 不是交互终端时也会自动回退到普通文本输出。
 
-使用 `rauto device discover list` 可以直接读取最新持久化结果，不会发起新扫描。该命令支持 `--status`、可重复或逗号分隔的 `--profile` 和 `--port`、`--search` 以及 `--json`。使用 `rauto device discover save` 可保存全部匹配的新识别设备，也可传入一个或多个主机或 `host:port` 来限定端点。默认连接名由识别到的平台名和 IP 组成，例如 `cisco_ios-192_168_60_98`；非标准 SSH 端口会追加到名称后避免端点冲突。仅匹配一个设备时可通过 `--connection-name` 指定连接名，`--overwrite` 允许替换同名连接。原有的 `rauto device discovery list|save` 写法仍保留用于兼容。
+使用 `rauto device discover list` 可以直接读取最新持久化结果，不会发起新扫描。该命令支持 `--status`、可重复或逗号分隔的 `--profile` 和 `--port`、`--search` 以及 `--json`。使用 `rauto device discover save` 可保存全部匹配的新识别设备，也可传入一个或多个主机或 `host:port` 来限定端点。默认连接名由识别到的平台名和 IP 组成，例如 `cisco_ios-192_168_60_98`；非标准 SSH 端口会追加到名称后避免端点冲突。仅匹配一个设备时可通过 `--device-name` 指定连接名，`--overwrite` 允许替换同名连接。
 
 SQLite 和 Web 控制台只保留最新一次扫描及其结果。开始新扫描时会替换上一次发现 run、发现结果及其任务中心记录，但不会删除已经保存的设备连接；当前扫描仍在运行时不能启动第二次扫描。TUI 保存、`device discover save` 和 `device discover --auto-save` 都使用与 Web 控制台相同的重复端点、凭证和连接名校验。扫描过程中按 `Ctrl+C` 可请求取消当前任务。
 
@@ -1454,29 +1495,31 @@ Rust 后端是单一 Cargo package。`src/domain/` 负责领域模型和规则�
 
 ## 配置选项
 
+顶层帮助只列出命令、帮助和版本选项。连接和执行选项在对应子命令的 `--help` 和静态补全中展示；显式传入不属于该功能的选项会报错。选项按设备、批量目标、输入与执行、解析与输出、录制、重试、帮助分组排序；服务、发现和管理命令优先展示各自的配置。共享设备选项可以放在子命令前后。模板和设备 Profile 统一从 SQLite 加载。
+
 | 参数                            | 环境变量                            | 描述                                                                                     |
 | ------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------- |
+| `--device`                     | -                                   | 按名称选择已保存设备（`-d`）                                                              |
 | `--host`                        | -                                   | 设备主机名或 IP（`-H`）                                                                  |
-| `--credential`                  | -                                   | 可复用设备凭证的名称或 ID                                                                |
 | `--ssh-port`                    | -                                   | SSH 端口 (默认: 22)                                                                      |
-| `--ssh-security`                | -                                   | SSH 安全档位（默认：`legacy-compatible`）：`secure`、`balanced`、`legacy-compatible`     |
+| `--credential`                  | -                                   | 可复用设备凭证的名称或 ID                                                                |
+| `--device-profile`              | -                                   | 设备类型/profile（`-D`；默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`、`cisco_ios`） |
 | `--linux-shell-flavor`          | -                                   | Linux shell 退出码解析档位：`posix`（兼容 `bash`）或 `fish`                              |
-| `--device-profile`              | -                                   | 设备类型/profile（默认：`autodetect`；例如：`huawei`、`linux`、`fortinet`、`cisco_ios`） |
+| `--ssh-security`                | -                                   | SSH 安全档位（默认：`legacy-compatible`）：`secure`、`balanced`、`legacy-compatible`     |
 | `--force-autodetect`            | -                                   | 忽略已缓存的 autodetect 结果并重新探测目标设备                                           |
+| `--save-device`                | -                                   | 以指定名称保存当前有效设备配置和凭证引用（`-S`、`--save`）                                  |
 | `--session-retries`             | `RAUTO_SESSION_RETRIES`             | 普通命令/交互式命令发生瞬时故障时的重试次数（默认：`0`）                                 |
 | `--retry-initial-backoff-ms`    | `RAUTO_RETRY_INITIAL_BACKOFF_MS`    | 首次重试等待毫秒数（默认：`200`）                                                        |
 | `--retry-max-backoff-ms`        | `RAUTO_RETRY_MAX_BACKOFF_MS`        | 指数退避最大毫秒数（默认：`2000`）                                                       |
 | `--retry-authentication-errors` | `RAUTO_RETRY_AUTHENTICATION_ERRORS` | 同时重试认证拒绝（默认关闭）                                                             |
-| `--connection`                  | -                                   | 按名称加载已保存连接配置（`-c`）                                                         |
-| `--save-connection`             | -                                   | 成功连接后保存当前有效连接配置和凭证引用（`-S`）                                         |
 
 常用短选项速查：
 
-- 全局：`-H/--host`、`--credential`、`-P/--ssh-port`、`-d/--device-profile`、`-c/--connection`、`-S/--save-connection`
-- Flow：`-t/--template`、`-f/--file`、`-v/--vars`、`-r/--record-file`、`-l/--record-level`
-- Exec：`-m/--mode`、`-r/--record-file`、`-l/--record-level`
+- 连接：`-H/--host`、`--credential`、`-P/--ssh-port`、`-D/--device-profile`、`-d/--device`、`-S/--save-device`
+- 交互式命令：`-t/--template`、`-f/--file`、`-v/--vars`、`-r/--record-file`、`-l/--record-level`
+- Exec：`-m/--mode`、`-t/--template`、`-v/--vars`、`-r/--record-file`、`-l/--record-level`
 - Show：`-m/--mode`、`-r/--record-file`、`-l/--record-level`
-- Tx：`-t/--template`、`-m/--mode`、`-v/--vars`、`-r/--record-file`、`-l/--record-level`
+- 事务工作流：`-t/--template`、`-v/--vars`、`-r/--record-file`、`-l/--record-level`
 
 常用命令级参数：
 
@@ -1486,17 +1529,17 @@ Rust 后端是单一 Cargo package。`src/domain/` 负责领域模型和规则�
 - `show --list`：列出可用 show 对象。可配合 `--device-profile` 缩小范围。
 - `show --no-parse`：关闭默认 TextFSM 解析，只展示原始输出。
 - `show --print-command`：执行前打印内部解析出的设备命令。
-- `show-object set/list/delete`：管理保存到 SQLite 的 profile 级自定义 show object。同一 profile 和 object 下，自定义对象会覆盖内置 show 映射。
+- `show object set/list/delete`：管理保存到 SQLite 的 profile 级自定义 show object。同一 profile 和 object 下，自定义对象会覆盖内置 show 映射。
 - `--force-autodetect`：跳过本地 `host:port` autodetect 缓存，重新探测并刷新缓存。适合设备更换、同 IP/端口后的设备类型变化等特殊情况。
 - `--session-retries <N>`：普通命令和交互式命令遇到连接、初始化、传输或通道断开等瞬时故障时执行有界重试。退避从 `--retry-initial-backoff-ms` 开始，指数增长到 `--retry-max-backoff-ms`。
 - 重试默认关闭，并具有“至少执行一次”语义：设备可能已经应用命令，但连接在返回提示符前断开。只应为可安全重复的命令开启。事务、工作流和上传不会自动重试；认证拒绝只有显式设置 `--retry-authentication-errors` 后才会重试。
-- `exec/template/interactive --parse-textfsm`：启用 TextFSM 解析命令输出；不传时默认跳过 TextFSM，除非你指定了手动模板。
-- `exec/template/interactive --textfsm-template <path>`：使用指定 TextFSM 模板文件解析命令输出。对 `template` 和 `interactive` 可以重复传多个，按命令顺序匹配；数量不足时复用最后一个模板。
-- `show/exec/template/interactive --textfsm-strict-errors`：严格保留 TextFSM `-> Error` 规则，不在解析前过滤。
-- `show/exec/template/interactive --textfsm-excel <file.xlsx>`：把 TextFSM 解析成功的表格行导出为 Excel。
+- `exec/interactive --parse-textfsm`：启用 TextFSM 解析命令输出；不传时默认跳过 TextFSM，除非你指定了手动模板。
+- `exec/interactive --textfsm-template <path>`：使用指定 TextFSM 模板文件解析命令输出。对 `exec --template` 和 `interactive` 可以重复传多个，按命令顺序匹配；数量不足时复用最后一个模板。
+- `show/exec/interactive --textfsm-strict-errors`：严格保留 TextFSM `-> Error` 规则，不在解析前过滤。
+- `show/exec/interactive --textfsm-excel <file.xlsx>`：把 TextFSM 解析成功的表格行导出为 Excel。
 - `textfsm template ...`：管理保存到 SQLite 的自定义 TextFSM 模板。
 - `textfsm mapping ...`：管理自定义 `(device profile, command) -> TextFSM template` 映射。启用解析且没有显式指定模板文件时，自定义映射优先级高于内置 NTC 模板。
-- `template --vars <file>` / `template -v <file>`：为已保存命令模板加载 JSON/YAML 变量文件。
+- `exec --template <name> --vars <file>`：为已保存命令模板加载 JSON 变量文件。
 - `interactive --template <name>` / `interactive -t <name>`：运行已保存的交互式命令模板。
 - `interactive --file <path>` / `interactive -f <path>`：从 TOML 文件运行临时交互式命令模板。
 - `interactive --vars <file>` / `interactive -v <file>` / `interactive --vars-json <json>`：为交互式命令模板提供文件变量或内联 JSON 变量。
@@ -1506,14 +1549,14 @@ Rust 后端是单一 Cargo package。`src/domain/` 负责领域模型和规则�
 
 录制/回放相关参数（命令级参数）：
 
-- `exec/template/interactive/tx-workflow --record-file <path>` / `-r <path>`：执行后保存录制 JSONL。
-- `exec/template/interactive/tx-workflow --record-level <key-events-only|full>` / `-l <level>`：录制粒度。
+- `exec/interactive/tx-workflow --record-file <path>` / `-r <path>`：执行后保存录制 JSONL。
+- `exec/interactive/tx-workflow --record-level <key-events-only|full>` / `-l <level>`：录制粒度。
 - `session`：展示最近一条已保存的会话记录。
-- `session list [connection] [--limit N] [--json]`：按时间倒序列出会话记录。
-- `session show [record_id] [--connection <name>] [--json|--raw]`：展示记录详情；不传 ID 时展示符合条件的最近一条。
-- `session delete <record_id> [--connection <name>]`：删除已保存的会话记录。
-- `session replay [record_file] [--id <record_id>] [--connection <name>] [--list]`：检查数据库记录或 JSONL 文件。
-- `session replay [record_file] [--id <record_id>] [--connection <name>] --command <cmd> [--mode <mode>]`：回放单条命令输出。
+- `session list [device] [--limit N] [--json]`：按时间倒序列出会话记录。
+- `session show [record_id] [--device <name>] [--json|--raw]`：展示记录详情；不传 ID 时展示符合条件的最近一条。
+- `session delete <record_id> [--device <name>]`：删除已保存的会话记录。
+- `session replay [record_file] [--id <record_id>] [--device <name>] [--list]`：检查数据库记录或 JSONL 文件。
+- `session replay [record_file] [--id <record_id>] [--device <name>] --command <cmd> [--mode <mode>]`：回放单条命令输出。
 - 回放得到的 `SessionEvent::CommandOutput` 可能额外包含 `exit_code`，尤其适用于 Linux shell 类流程。
 
 ## 模板语法

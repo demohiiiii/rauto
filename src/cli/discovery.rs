@@ -592,7 +592,7 @@ fn validate_connection_name_match_count(
 ) -> Result<()> {
     if connection_name.is_some() && matches != 1 {
         return Err(anyhow!(
-            "--connection-name requires exactly one matched device (matched {matches})"
+            "--device-name requires exactly one matched device (matched {matches})"
         ));
     }
     Ok(())

@@ -54,6 +54,7 @@ async fn initial_schema_stores_authentication_only_in_device_credentials() -> Re
         "password_ref",
         "enable_password_ref",
         "enable_password_empty_enter",
+        "template_dir",
     ] {
         assert!(!connection_columns.contains(&removed.to_string()));
     }
@@ -74,22 +75,19 @@ async fn initial_migration_reopens_without_changing_templates_or_authentication(
          VALUES ('credential', 'network', 'test-user', 'opaque-secret-reference', 1, 2)",
     ).execute(&pool).await?;
     MIGRATOR.run(&pool).await?;
-    let applied = sqlx::query("SELECT version, checksum, success FROM _sqlx_migrations")
-        .fetch_all(&pool)
-        .await?;
-    assert_eq!(applied.len(), 2);
-    assert_eq!(applied[0].get::<i64, _>("version"), 202609220001);
-    assert_eq!(applied[1].get::<i64, _>("version"), 202609231900);
-    assert!(applied[0].get::<bool, _>("success"));
-    assert_eq!(
-        applied[0].get::<Vec<u8>, _>("checksum"),
-        MIGRATOR
-            .iter()
-            .next()
-            .expect("initial migration")
-            .checksum
-            .as_ref(),
-    );
+    let applied =
+        sqlx::query("SELECT version, checksum, success FROM _sqlx_migrations ORDER BY version")
+            .fetch_all(&pool)
+            .await?;
+    assert_eq!(applied.len(), MIGRATOR.iter().count());
+    for (row, migration) in applied.iter().zip(MIGRATOR.iter()) {
+        assert_eq!(row.get::<i64, _>("version"), migration.version);
+        assert!(row.get::<bool, _>("success"));
+        assert_eq!(
+            row.get::<Vec<u8>, _>("checksum"),
+            migration.checksum.as_ref()
+        );
+    }
     let saved: String =
         sqlx::query_scalar("SELECT content FROM interactive_templates WHERE name = 'copy'")
             .fetch_one(&pool)

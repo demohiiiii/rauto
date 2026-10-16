@@ -129,7 +129,7 @@ pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Re
     let registration_port = agent_args.port;
     tokio::spawn(async move {
         if let Err(err) = registrar
-            .register(&registration_state, &registration_bind, registration_port)
+            .register(&registration_bind, registration_port)
             .await
         {
             tracing::error!("agent registration loop exited: {}", err);
@@ -272,9 +272,7 @@ fn local_api_routes() -> Router<Arc<AppState>> {
         .route("/api/device-profiles/diagnose", post(diagnose_profile))
         .route("/api/render", post(render_template))
         .route("/api/textfsm/export/xlsx", post(export_textfsm_excel))
-        .route("/api/command-flow/execute", post(execute_interactive))
         .route("/api/interactive/execute", post(execute_interactive))
-        .route("/api/flow/execute", post(execute_interactive))
         .route("/api/connections", get(list_connections))
         .route(
             "/api/credentials",
@@ -373,7 +371,6 @@ fn local_api_routes() -> Router<Arc<AppState>> {
             "/api/interactive/batch-execute",
             post(execute_interactive_batch),
         )
-        .route("/api/flow/batch-execute", post(execute_interactive_batch))
         .route("/api/config/fetch", post(fetch_config))
         .route("/api/config/batch-fetch", post(fetch_config_batch))
         .route(
@@ -430,15 +427,7 @@ fn local_api_routes() -> Router<Arc<AppState>> {
                 .delete(delete_textfsm_mapping),
         )
         .route(
-            "/api/command-flow-templates",
-            get(list_interactive_templates).post(create_interactive_template),
-        )
-        .route(
             "/api/interactive-templates",
-            get(list_interactive_templates).post(create_interactive_template),
-        )
-        .route(
-            "/api/flow-templates",
             get(list_interactive_templates).post(create_interactive_template),
         )
         .route(
@@ -446,47 +435,15 @@ fn local_api_routes() -> Router<Arc<AppState>> {
             post(inspect_interactive_template),
         )
         .route(
-            "/api/flow-templates/inspect",
-            post(inspect_interactive_template),
-        )
-        .route(
-            "/api/command-flow-templates/builtins",
-            get(list_builtin_interactive_templates),
-        )
-        .route(
             "/api/interactive-templates/builtins",
             get(list_builtin_interactive_templates),
-        )
-        .route(
-            "/api/flow-templates/builtins",
-            get(list_builtin_interactive_templates),
-        )
-        .route(
-            "/api/command-flow-templates/builtins/{name}",
-            get(get_builtin_interactive_template),
         )
         .route(
             "/api/interactive-templates/builtins/{name}",
             get(get_builtin_interactive_template),
         )
         .route(
-            "/api/flow-templates/builtins/{name}",
-            get(get_builtin_interactive_template),
-        )
-        .route(
-            "/api/command-flow-templates/{name}",
-            get(get_interactive_template)
-                .put(update_interactive_template)
-                .delete(delete_interactive_template),
-        )
-        .route(
             "/api/interactive-templates/{name}",
-            get(get_interactive_template)
-                .put(update_interactive_template)
-                .delete(delete_interactive_template),
-        )
-        .route(
-            "/api/flow-templates/{name}",
             get(get_interactive_template)
                 .put(update_interactive_template)
                 .delete(delete_interactive_template),
@@ -631,7 +588,6 @@ mod tests {
             ssh_security: None,
             linux_shell_flavor: None,
             device_profile: None,
-            template_dir: None,
             force_autodetect: false,
             session_retries: 0,
             retry_initial_backoff_ms: 200,

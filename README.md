@@ -197,26 +197,68 @@ Add `--global` for a user-level installation or `--agent <agent>` to select a sp
 
 ### Command Selection Guide
 
+Top-level commands are ordered by task, with common execution commands first:
+
+| Category | Commands in order |
+| --- | --- |
+| Query, execution, and transfer | `show`, `exec`, `interactive`, `tx-workflow`, `orchestrate`, `upload` |
+| Devices and resources | `device`, `credential`, `inventory`, `profile` |
+| Configuration and rules | `config`, `textfsm`, `blacklist` |
+| Automation and services | `schedule`, `web`, `agent` |
+| Records and maintenance | `session`, `backup`, `completion` |
+
+Choose an entry point for common tasks:
+
 | If you need to...                            | Use                     | Notes                                                                                |
 | -------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------ |
-| Run one command immediately                  | `rauto exec`            | Best for direct ad-hoc commands; optional `--mode` narrows the target prompt/mode.   |
 | Run a configured show object by profile      | `rauto show`            | Maps objects like `interfaces` or `route` to the right device command.               |
-| Render a reusable command template with vars | `rauto template`        | Best when command text should come from stored Jinja templates.                      |
+| Run one command immediately                  | `rauto exec`            | Best for direct ad-hoc commands; optional `--mode` narrows the target prompt/mode.   |
+| Render a reusable command template with vars | `rauto exec --template` | Best when command text should come from stored Jinja templates.                      |
 | Drive interactive prompt/response flows      | `rauto interactive`     | Best for wizard-like CLI exchanges, copy dialogs, and confirmation-heavy steps.      |
-| Upload a local file over remote SFTP         | `rauto upload`          | Requires the SSH server to expose an `sftp` subsystem.                               |
-| Discover SSH devices on a network            | `rauto device discover` | Verifies SSH identification, probes device profiles, and persists the latest result. |
 | Execute a multi-step workflow from JSON      | `rauto tx-workflow`     | Best when a transaction is modeled as named blocks/stages in a workflow file.        |
 | Execute a multi-device staged plan           | `rauto orchestrate`     | Best for serial/parallel rollout plans across many saved connections.                |
+| Upload a local file over remote SFTP         | `rauto upload`          | Requires the SSH server to expose an `sftp` subsystem.                               |
+| Discover SSH devices on a network            | `rauto device discover` | Verifies SSH identification, probes device profiles, and persists the latest result. |
+
+Common options also have shortcuts; their full names remain supported:
+
+| Full option | Shortcut |
+| --- | --- |
+| `--credential` | `-C`, `--cred` |
+| `--target`, `--group`, `--label` | `-T`, `-g`, `-L`, respectively |
+| `--max-parallel` (`--concurrency` for discovery) | `-N`, `--parallel` |
+| `--parse-textfsm` | `-p`, `--parse` |
+| `--textfsm-template` | `-F`, `--tfsm` |
+| `--textfsm-excel` | `-x`, `--excel` |
+| `--textfsm-strict-errors` | `--strict` |
+| `--vars-json` | `-J` |
+| `--dry-run`, `--json` | `-n`, `-j`, respectively |
+| `--file`, `--output`, `--output-dir` | `-f`, `-o`, `-O` (`--out-dir`), respectively |
+| `--linux-shell-flavor`, `--ssh-security` | `--shell`, `--security`, respectively |
+| `--session-retries` | `--retries` |
+| `--bind`, `--port` for Web/agent services | `-b`, `-p`, respectively |
+
+Shortcuts apply only to the commands that support the original option. `-p`
+enables TextFSM parsing for `exec`/`interactive`, and selects a port for
+`web`/`agent`/`device discover`; `-P` always selects the SSH connection port.
+Use the relevant command's `--help` for the full list, including upload and agent shortcuts.
+
+```bash
+rauto show route -g core -L prod -N 8 -x ./routes.xlsx
+rauto exec 'uname -a' -H 192.0.2.10 -C linux-admin --shell fish
+rauto tx-workflow ./workflow.json -J '{"site":"core"}' -n -j
+rauto upload -d core-01 -f ./pkg.tar -o /tmp/pkg.tar --progress
+```
 
 ### Template Mode
 
 Render commands from a template and execute them on a device.
-Templates are stored in SQLite and managed with `rauto templates` or the Web UI.
+Templates are stored in SQLite and managed with `rauto exec template` or the Web UI.
 
 **Basic Usage:**
 
 ```bash
-rauto template show_version.j2 \
+rauto exec --template show_version.j2 \
     --host 192.168.1.1 \
     --credential network-admin \
     --ssh-port 22
@@ -226,7 +268,7 @@ rauto template show_version.j2 \
 Given a stored template `configure_vlan.j2` and variables file `templates/example_vars.json`:
 
 ```bash
-rauto template configure_vlan.j2 \
+rauto exec --template configure_vlan.j2 \
     --vars templates/example_vars.json \
     --host 192.168.1.1 \
     --credential network-admin \
@@ -236,7 +278,7 @@ rauto template configure_vlan.j2 \
 **Dry Run (Preview):**
 
 ```bash
-rauto template configure_vlan.j2 \
+rauto exec --template configure_vlan.j2 \
     --vars templates/example_vars.json \
     --dry-run
 ```
@@ -313,9 +355,9 @@ Linux profiles also provide common inspection objects in both CLI and Web:
 
 ```bash
 rauto show --list --device-profile linux
-rauto show memory --connection linux-server --no-parse
-rauto show disk --connection linux-server --no-parse
-rauto show services-failed --connection linux-server --no-parse
+rauto show memory --device linux-server --no-parse
+rauto show disk --device linux-server --no-parse
+rauto show services-failed --device linux-server --no-parse
 ```
 
 Run the same show object across multiple saved connections by naming targets directly, selecting inventory groups, or selecting labels/tags. Before connecting for command execution, `rauto` resolves every target profile and verifies that the requested object has a matching show command for every device; if any target is missing the mapping, the whole run fails before executing commands.
@@ -336,28 +378,28 @@ Multi-target runs execute concurrently (4 devices at a time by default); tune wi
 You can save profile-specific custom show objects in SQLite. A custom show object overrides the bundled command table for the same `(device_profile, object)`, can bind an execution mode, and can optionally bind a custom TextFSM template that is used before command mappings and bundled NTC templates.
 
 ```bash
-rauto show-object set \
+rauto show object set \
     --profile my_custom_profile \
     --object access-list \
     --command "show access-lists" \
     --mode enable \
     --textfsm-template my_access_list
 
-rauto show-object list --profile my_custom_profile
-rauto show-object delete --profile my_custom_profile --object access-list
+rauto show object list --profile my_custom_profile
+rauto show object delete --profile my_custom_profile --object access-list
 ```
 
 ### TextFSM Parse
 
-`show`, `exec`, `template`, and `interactive` can parse command output with TextFSM after execution.
+`show`, `exec`, and `interactive` can parse command output with TextFSM after execution.
 
 - `show` enables TextFSM parsing by default. Pass `--no-parse` to print raw output only.
 - Parsing is off by default. Pass `--parse-textfsm` to enable TextFSM parsing.
 - Manual parsing: pass `--textfsm-template <path>` to use a specific TextFSM template file. This has the highest priority.
-- Multi-command parsing: `template` and `interactive` can repeat `--textfsm-template <path>` to match template files by command order. If fewer template files are provided than commands, the last template file is reused for the remaining commands.
+- Multi-command parsing: `exec --template` and `interactive` can repeat `--textfsm-template <path>` to match template files by command order. If fewer template files are provided than commands, the last template file is reused for the remaining commands.
 - Platform selection: when parsing is enabled, `rauto` infers the [ntc-templates](https://github.com/networktocode/ntc-templates) platform from the resolved device profile, for example `cisco_ios`, `huawei -> huawei_vrp`, or `cisco_xe -> cisco_ios`.
 - Lenient NTC parsing: by default, `rauto` filters TextFSM fallback rules such as `^. -> Error` before parsing, which avoids failing the whole parse when a template does not match a non-essential line. Pass `--textfsm-strict-errors` to keep those Error rules.
-- Excel export: pass `--textfsm-excel <file.xlsx>` to export successful parsed rows to an Excel workbook. This also enables TextFSM parsing for `exec`, `template`, and `interactive`.
+- Excel export: pass `--textfsm-excel <file.xlsx>` to export successful parsed rows to an Excel workbook. This also enables TextFSM parsing for `exec` and `interactive`.
 - If parsing is disabled and no manual template is provided, only raw output is shown.
 - Parsing never blocks execution. If parsing fails, raw output is still returned and the parse error is reported separately.
 
@@ -380,7 +422,7 @@ rauto exec "show bgp neighbor" \
 
 ```bash
 rauto exec "show version" \
-    --connection core-01 \
+    --device core-01 \
     --parse-textfsm
 ```
 
@@ -388,7 +430,7 @@ rauto exec "show version" \
 
 ```bash
 rauto exec "show version" \
-    --connection core-01 \
+    --device core-01 \
     --parse-textfsm \
     --textfsm-excel ./show-version.xlsx
 ```
@@ -396,16 +438,16 @@ rauto exec "show version" \
 **Parse output with a specific TextFSM template file:**
 
 ```bash
-rauto template show_version.j2 \
-    --connection core-01 \
+rauto exec --template show_version.j2 \
+    --device core-01 \
     --textfsm-template ./templates/cisco_ios_show_version.textfsm
 ```
 
 **Parse multi-command template output with templates by command order:**
 
 ```bash
-rauto template check_basic.j2 \
-    --connection core-01 \
+rauto exec --template check_basic.j2 \
+    --device core-01 \
     --textfsm-template ./templates/cisco_ios_show_version.textfsm \
     --textfsm-template ./templates/cisco_ios_show_interfaces.textfsm
 ```
@@ -429,12 +471,12 @@ rauto textfsm mapping set \
 Manage saved templates:
 
 ```bash
-rauto interactive-template list
-rauto interactive-template show cisco_like_copy
-rauto interactive-template create cisco_like_copy --file ./templates/examples/cisco-like-interactive.toml
-rauto interactive-template create linux_scp_with_current_and_peer --file ./templates/examples/linux-scp-with-current-and-peer-interactive.toml
-rauto interactive-template update cisco_like_copy --file ./my-interactive-template.toml
-rauto interactive-template delete cisco_like_copy
+rauto interactive template list
+rauto interactive template show cisco_like_copy
+rauto interactive template create cisco_like_copy --file ./templates/examples/cisco-like-interactive.toml
+rauto interactive template create linux_scp_with_current_and_peer --file ./templates/examples/linux-scp-with-current-and-peer-interactive.toml
+rauto interactive template update cisco_like_copy --file ./my-interactive-template.toml
+rauto interactive template delete cisco_like_copy
 ```
 
 Execute a saved template with runtime variables:
@@ -443,7 +485,7 @@ Execute a saved template with runtime variables:
 rauto interactive \
     --template cisco_like_copy \
     --vars-json '{"command":"copy scp: flash:/new.bin","server_addr":"192.168.1.50","remote_path":"/images/new.bin","transfer_username":"backup","transfer_password":"secret","overwrite_answer":"y"}' \
-    --connection core-01
+    --device core-01
 ```
 
 Interactive commands support the same multi-target fan-out as `show` and `exec`. The interactive template is rendered per target with that device's own connection context (so `{{host}}` and cross-connection references resolve per device), prechecked against the command blacklist per rendered step, then executed concurrently:
@@ -520,7 +562,7 @@ Example: run an interactive Linux SCP command with only one peer var
 ```bash
 rauto interactive \
     --template linux_scp_with_current_and_peer \
-    --connection edge92 \
+    --device edge92 \
     --vars-json '{"peer":"edge94","local_path":"/tmp/app.tar","remote_path":"/tmp/app.tar"}'
 ```
 
@@ -562,16 +604,16 @@ Every fetch returns two SHA-256 hashes:
 
 ```bash
 # Print one device's running config with hashes
-rauto config fetch -c core-01
+rauto config fetch -d core-01
 
 # Save one device's running config to an exact file path
-rauto config fetch -c core-01 --output ./core-01-running.cfg
+rauto config fetch -d core-01 --output ./core-01-running.cfg
 
 # Archive startup configs for a whole group into timestamped files
 rauto config fetch --kind startup --group core --output-dir ./backups --max-parallel 8
 
 # Print the normalized text used for drift comparison
-rauto config fetch -c core-01 --normalized
+rauto config fetch -d core-01 --normalized
 ```
 
 `--output <FILE>` writes a single fetch to an exact path and creates missing parent directories. `--output-dir <DIR>` writes each device to `<name>_<kind>_<timestamp>.cfg`, which pairs naturally with cron + git for lightweight configuration archiving. The two options are mutually exclusive, and `--output` cannot be combined with multi-target selectors. Multi-target selectors (`--target`, `--group`, `--label`) and `--max-parallel` behave the same as in `show` and `exec`.
@@ -580,7 +622,7 @@ Inspect and manage collected configuration history without starting the Web serv
 
 ```bash
 rauto config history devices
-rauto config history list --connection core-01 --kind running --limit 20
+rauto config history list --device core-01 --kind running --limit 20
 rauto config history list --from 2026-08-01T00:00:00Z --sort asc --json
 
 rauto config history show config-0123456789abcdef
@@ -701,7 +743,7 @@ For TextFSM parsing, `rauto` will infer a matching NTC platform from the resolve
 Use `--device-profile` when you want to bypass autodetect. For example, to select the Huawei profile:
 
 ```bash
-rauto template show_ver.j2 \
+rauto exec --template show_ver.j2 \
     --host 192.168.1.1 \
     --credential network-admin \
     --ssh-port 22 \
@@ -741,7 +783,7 @@ rauto profile show cisco_ios
 rauto profile show linux
 rauto profile copy-builtin cisco_ios my_cisco
 rauto profile delete-custom my_cisco
-rauto connection test \
+rauto device test \
     --host 192.168.1.1 \
     --credential network-admin \
     --ssh-port 22
@@ -847,9 +889,9 @@ Agent mode provides:
 ### Template Storage Commands
 
 ```bash
-rauto templates list
-rauto templates show show_version.j2
-rauto templates delete show_version.j2
+rauto exec template list
+rauto exec template show show_version.j2
+rauto exec template delete show_version.j2
 ```
 
 ### Device Credentials
@@ -909,7 +951,7 @@ Download the starter file from the Web UI import dialog, or use [templates/examp
 For direct CLI targets, pass the credential name or stable ID:
 
 ```bash
-rauto connection test \
+rauto device test \
     --host 192.168.1.1 \
     --credential network-admin
 
@@ -924,7 +966,7 @@ You can save and reuse connection settings by name:
 
 ```bash
 # Add/update a profile directly from CLI args
-rauto connection add lab1 \
+rauto device add lab1 \
     --host 192.168.1.1 \
     --credential network-admin \
     --ssh-port 22 \
@@ -932,26 +974,26 @@ rauto connection add lab1 \
     --device-profile cisco_ios
 
 # Reuse the saved profile
-rauto exec "show version" --connection lab1
+rauto exec "show version" --device lab1
 
 # Save current effective connection after a successful run
-rauto connection test \
-    --connection lab1 \
-    --save-connection lab1_backup
+rauto device test \
+    --device lab1 \
+    --save-device lab1_backup
 
 # Manage saved profiles
-rauto connection list
-rauto connection list --json
-rauto connection show lab1
-rauto connection show lab1 --json
-rauto connection delete lab1
+rauto device list
+rauto device list --json
+rauto device show lab1
+rauto device show lab1 --json
+rauto device delete lab1
 rauto session list lab1 --limit 20
 ```
 
 Credential behavior:
 
 - Saved connections store only a `credential_id` reference; they do not duplicate usernames, login passwords, or Enable passwords.
-- `--save-connection` (used in `exec`, `template`, and `connection test`) saves the effective credential reference together with the connection settings.
+- `--save-device` (used in `exec` and `device test`) saves the effective credential reference together with the connection settings.
 - Passing `--credential <name-or-id>` on a direct target selects that reusable credential. A saved connection automatically resolves its stored credential.
 - A connection must reference a valid credential before test, autodetect, or execution.
 - `--ssh-security <secure|balanced|legacy-compatible>` controls SSH algorithm compatibility and is also stored in saved connections. When omitted, rauto uses `legacy-compatible` for the broadest device compatibility.
@@ -961,10 +1003,10 @@ Bulk import:
 
 ```bash
 # Import saved connections from CSV
-rauto connection import ./devices.csv
+rauto device import ./devices.csv
 
 # Import saved connections from Excel
-rauto connection import ./devices.xlsx
+rauto device import ./devices.xlsx
 ```
 
 Supported file types:
@@ -978,9 +1020,9 @@ Supported file types:
 Recommended headers:
 
 ```csv
-name,host,credential,port,connect_timeout_secs,device_model,software_version,ssh_security,linux_shell_flavor,device_profile,template_dir
-core-sw-01,192.168.1.1,network-admin,22,30,C9300,17.9.4,balanced,,cisco_ios,
-linux-jump-01,192.168.1.10,linux-admin,22,30,,,secure,posix,linux,
+name,host,credential,port,connect_timeout_secs,device_model,software_version,ssh_security,linux_shell_flavor,device_profile
+core-sw-01,192.168.1.1,network-admin,22,30,C9300,17.9.4,balanced,,cisco_ios
+linux-jump-01,192.168.1.10,linux-admin,22,30,,,secure,posix,linux
 ```
 
 Notes:
@@ -1030,7 +1072,7 @@ rauto device discover list \
 # Save all matching identified devices, or select explicit endpoints
 rauto device discover save --profile fortinet
 rauto device discover save 192.168.60.98:22 \
-    --connection-name branch-fw
+    --device-name branch-fw
 ```
 
 Targets may be individual IP addresses, CIDRs, or last-octet ranges such as `192.168.2.10-30`. Multiple target arguments can be supplied in one run. A run accepts at most 4,096 unique addresses, 16 ports, and 3 probe credentials. Use `--concurrency`, `--tcp-timeout-ms`, and `--probe-timeout-secs` to tune larger or slower networks.
@@ -1054,7 +1096,7 @@ On an interactive terminal, the CLI displays a live progress bar and opens a TUI
 
 Use `--no-tui` to keep the progress bar but print the filtered tabular result instead. `--json` disables both the progress bar and TUI so stdout remains machine-readable; it can be redirected or piped safely. JSON result `status` values use the same derived states as filtering and the TUI, so imported and existing connections are reported as `imported` and `existing`. A non-interactive stdin/stdout also falls back to plain output automatically.
 
-Use `rauto device discover list` to read the latest persisted snapshot without scanning again. It supports `--status`, repeatable or comma-separated `--profile` and `--port` filters, `--search`, and `--json`. Use `rauto device discover save` to save every matching newly identified device; optional host or `host:port` arguments restrict the operation to explicit endpoints. Default connection names combine the detected platform and IP address, for example `cisco_ios-192_168_60_98`; nonstandard SSH ports are appended to avoid endpoint collisions. `--connection-name` is available when exactly one device matches, while `--overwrite` allows replacing an existing connection with that name. The previous `rauto device discovery list|save` spelling remains available for compatibility.
+Use `rauto device discover list` to read the latest persisted snapshot without scanning again. It supports `--status`, repeatable or comma-separated `--profile` and `--port` filters, `--search`, and `--json`. Use `rauto device discover save` to save every matching newly identified device; optional host or `host:port` arguments restrict the operation to explicit endpoints. Default connection names combine the detected platform and IP address, for example `cisco_ios-192_168_60_98`; nonstandard SSH ports are appended to avoid endpoint collisions. `--device-name` is available when exactly one device matches, while `--overwrite` allows replacing an existing connection with that name.
 
 The latest run and its results are stored in SQLite and appear in the Web console. Starting another scan replaces the previous discovery run, its results, and its Task Center entry; saved device connections are not removed. A second scan cannot start while the current one is active. Saving from the TUI, `device discover save`, and `device discover --auto-save` all use the same duplicate-endpoint, credential, and connection-name validation as the Web console. Press `Ctrl+C` during scanning to request cancellation of the active run.
 
@@ -1463,29 +1505,31 @@ These runtime directories are auto-created on startup.
 
 ## Configuration
 
+Top-level help lists commands and the help/version options. Connection and execution options appear in the applicable command's `--help` and shell completions; explicitly supplied options outside that command's scope are rejected. Options are grouped and ordered by function: device, targets, input/execution, parsing/output, recording, retries, then help. Service, discovery, and management commands prioritize their own settings. Shared device options can be passed before or after subcommands. Templates and profiles are loaded from SQLite.
+
 | Argument                        | Env Var                             | Description                                                                                       |
 | ------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `--device`                     | -                                   | Select a saved device by name (`-d`)                                                              |
 | `--host`                        | -                                   | Device hostname or IP (`-H`)                                                                      |
-| `--credential`                  | -                                   | Reusable device credential name or ID                                                             |
 | `--ssh-port`                    | -                                   | SSH port (default: 22)                                                                            |
-| `--ssh-security`                | -                                   | SSH security profile (default: `legacy-compatible`): `secure`, `balanced`, `legacy-compatible`    |
+| `--credential`                  | -                                   | Reusable device credential name or ID                                                             |
+| `--device-profile`              | -                                   | Device type/profile (`-D`; default: `autodetect`; examples: `huawei`, `linux`, `fortinet`, `cisco_ios`) |
 | `--linux-shell-flavor`          | -                                   | Linux shell flavor for exit-code capture: `posix` (`bash` alias) or `fish`                        |
-| `--device-profile`              | -                                   | Device type/profile (default: `autodetect`; examples: `huawei`, `linux`, `fortinet`, `cisco_ios`) |
+| `--ssh-security`                | -                                   | SSH security profile (default: `legacy-compatible`): `secure`, `balanced`, `legacy-compatible`    |
 | `--force-autodetect`            | -                                   | Ignore cached autodetect result and probe the target again                                        |
+| `--save-device`                | -                                   | Save the effective device settings and credential reference under this name (`-S`, `--save`)       |
 | `--session-retries`             | `RAUTO_SESSION_RETRIES`             | Retry transient failures for ordinary commands/flows (default: `0`)                               |
 | `--retry-initial-backoff-ms`    | `RAUTO_RETRY_INITIAL_BACKOFF_MS`    | Initial retry delay in milliseconds (default: `200`)                                              |
 | `--retry-max-backoff-ms`        | `RAUTO_RETRY_MAX_BACKOFF_MS`        | Maximum exponential retry delay in milliseconds (default: `2000`)                                 |
 | `--retry-authentication-errors` | `RAUTO_RETRY_AUTHENTICATION_ERRORS` | Also retry authentication rejections (default: off)                                               |
-| `--connection`                  | -                                   | Load saved connection profile by name (`-c`)                                                      |
-| `--save-connection`             | -                                   | Save effective connection profile and credential reference after successful connect (`-S`)        |
 
 Common shorthand aliases:
 
-- Global: `-H/--host`, `--credential`, `-P/--ssh-port`, `-d/--device-profile`, `-c/--connection`, `-S/--save-connection`
-- Flow: `-t/--template`, `-f/--file`, `-v/--vars`, `-r/--record-file`, `-l/--record-level`
-- Exec: `-m/--mode`, `-r/--record-file`, `-l/--record-level`
+- Connection: `-H/--host`, `--credential`, `-P/--ssh-port`, `-D/--device-profile`, `-d/--device`, `-S/--save-device`
+- Interactive: `-t/--template`, `-f/--file`, `-v/--vars`, `-r/--record-file`, `-l/--record-level`
+- Exec: `-m/--mode`, `-t/--template`, `-v/--vars`, `-r/--record-file`, `-l/--record-level`
 - Show: `-m/--mode`, `-r/--record-file`, `-l/--record-level`
-- Tx: `-t/--template`, `-m/--mode`, `-v/--vars`, `-r/--record-file`, `-l/--record-level`
+- Tx workflow: `-t/--template`, `-v/--vars`, `-r/--record-file`, `-l/--record-level`
 
 Common command-specific options:
 
@@ -1495,17 +1539,17 @@ Common command-specific options:
 - `show --list`: List available show objects. Pass `--device-profile` to narrow the list.
 - `show --no-parse`: Disable the default TextFSM parsing and print raw output only.
 - `show --print-command`: Print the resolved device command before execution.
-- `show-object set/list/delete`: Manage profile-specific custom show objects saved in SQLite. Custom objects override bundled show mappings for the same profile and object.
+- `show object set/list/delete`: Manage profile-specific custom show objects saved in SQLite. Custom objects override bundled show mappings for the same profile and object.
 - `--force-autodetect`: Bypass the local `host:port` autodetect cache, probe again, and refresh the cached profile. Useful when the device behind an existing IP/port has changed.
 - `--session-retries <N>`: Retry transient connection, initialization, transport, and channel-disconnect failures for ordinary commands and interactive commands. Backoff starts at `--retry-initial-backoff-ms` and doubles up to `--retry-max-backoff-ms`.
 - Retries are disabled by default and have at-least-once semantics: a device may apply a command before the connection drops. Enable them only for commands that are safe to repeat. Transactions, workflows, and uploads are not automatically retried. Authentication rejections are excluded unless `--retry-authentication-errors` is explicitly set.
-- `exec/template/interactive --parse-textfsm`: Enable TextFSM parsing for the command output. Without it, `rauto` skips TextFSM unless you provide a manual template.
-- `exec/template/interactive --textfsm-template <path>`: Parse command output with a specific TextFSM template file. For `template` and `interactive`, repeat this option to match templates by command order; the last template is reused for remaining commands.
-- `show/exec/template/interactive --textfsm-strict-errors`: Keep TextFSM `-> Error` rules instead of filtering them before parsing.
-- `show/exec/template/interactive --textfsm-excel <file.xlsx>`: Export successful TextFSM parsed rows to Excel.
+- `exec/interactive --parse-textfsm`: Enable TextFSM parsing for the command output. Without it, `rauto` skips TextFSM unless you provide a manual template.
+- `exec/interactive --textfsm-template <path>`: Parse command output with a specific TextFSM template file. For `exec --template` and `interactive`, repeat this option to match templates by command order; the last template is reused for remaining commands.
+- `show/exec/interactive --textfsm-strict-errors`: Keep TextFSM `-> Error` rules instead of filtering them before parsing.
+- `show/exec/interactive --textfsm-excel <file.xlsx>`: Export successful TextFSM parsed rows to Excel.
 - `textfsm template ...`: Manage custom TextFSM templates saved in SQLite.
 - `textfsm mapping ...`: Manage custom `(device profile, command) -> TextFSM template` mappings. These mappings have higher priority than bundled NTC templates when parsing is enabled and no explicit template file is provided.
-- `template --vars <file>` / `template -v <file>`: Load JSON/YAML vars for a stored command template.
+- `exec --template <name> --vars <file>`: Load JSON variables for a stored command template.
 - `interactive --template <name>` / `interactive -t <name>`: Run a saved interactive command template.
 - `interactive --file <path>` / `interactive -f <path>`: Run an ad-hoc interactive command template from a TOML file.
 - `interactive --vars <file>` / `interactive -v <file>` / `interactive --vars-json <json>`: Provide file-based or inline JSON vars to an interactive command template.
@@ -1515,14 +1559,14 @@ Common command-specific options:
 
 Recording-related options (command-specific):
 
-- `exec/template/interactive/tx-workflow --record-file <path>` / `-r <path>`: Save recording JSONL after execution.
-- `exec/template/interactive/tx-workflow --record-level <key-events-only|full>` / `-l <level>`: Recording granularity.
+- `exec/interactive/tx-workflow --record-file <path>` / `-r <path>`: Save recording JSONL after execution.
+- `exec/interactive/tx-workflow --record-level <key-events-only|full>` / `-l <level>`: Recording granularity.
 - `session`: Show the most recent saved session record.
-- `session list [connection] [--limit N] [--json]`: List saved records, newest first.
-- `session show [record_id] [--connection <name>] [--json|--raw]`: Show a record; when the ID is omitted, show the most recent matching record.
-- `session delete <record_id> [--connection <name>]`: Delete a saved record.
-- `session replay [record_file] [--id <record_id>] [--connection <name>] [--list]`: Inspect a saved database record or JSONL file.
-- `session replay [record_file] [--id <record_id>] [--connection <name>] --command <cmd> [--mode <mode>]`: Replay one command output.
+- `session list [device] [--limit N] [--json]`: List saved records, newest first.
+- `session show [record_id] [--device <name>] [--json|--raw]`: Show a record; when the ID is omitted, show the most recent matching record.
+- `session delete <record_id> [--device <name>]`: Delete a saved record.
+- `session replay [record_file] [--id <record_id>] [--device <name>] [--list]`: Inspect a saved database record or JSONL file.
+- `session replay [record_file] [--id <record_id>] [--device <name>] --command <cmd> [--mode <mode>]`: Replay one command output.
 - Replayed `SessionEvent::CommandOutput` entries may include `exit_code` for Linux shell flows.
 
 ## Template Syntax

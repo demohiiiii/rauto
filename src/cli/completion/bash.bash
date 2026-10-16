@@ -79,6 +79,22 @@ _rauto_completion() {
     quote=$_rauto_quote
     current=${COMP_WORDS[COMP_CWORD]}
     previous=${COMP_WORDS[COMP_CWORD-1]}
+    # Consume shared prefix options so their values cannot become subcommands.
+    local start=1 _rauto_prefix_takes_value
+    local -a _rauto_prefix_values
+    while (( start < COMP_CWORD )); do
+        _rauto_prefix_option "${COMP_WORDS[start]}" || break
+        ((start+=1))
+        if [[ $_rauto_prefix_takes_value == true ]]; then
+            if (( start == COMP_CWORD )); then
+                COMPREPLY=( $(compgen -W "${_rauto_prefix_values[*]}" -- "$current") )
+                return 0
+            fi
+            ((start+=1))
+        fi
+    done
+    COMP_WORDS=("${COMP_WORDS[0]}" "${COMP_WORDS[@]:start}")
+    COMP_CWORD=$((${#COMP_WORDS[@]}-1))
     # Readline removes the opening quote, but leaves backslash escapes intact.
     _rauto_dequote "$2" "$quote"
     prefix=${current%"$REPLY"}

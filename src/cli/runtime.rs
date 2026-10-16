@@ -75,7 +75,6 @@ pub(crate) struct EffectiveConnection {
     pub(crate) output_encoding: DeviceEncoding,
     pub(crate) device_profile: String,
     pub(crate) vars: serde_json::Value,
-    pub(crate) template_dir: Option<PathBuf>,
     pub(crate) force_autodetect: bool,
     pub(crate) retry_policy: RetryPolicy,
 }
@@ -153,11 +152,6 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         .clone()
         .or_else(|| saved.as_ref().and_then(|s| s.device_profile.clone()))
         .unwrap_or_else(|| AUTODETECT_DEVICE_PROFILE.to_string());
-    let template_dir = opts.template_dir.clone().or_else(|| {
-        saved
-            .as_ref()
-            .and_then(|s| s.template_dir.clone().map(PathBuf::from))
-    });
     let vars = saved
         .as_ref()
         .map(|s| s.vars.clone())
@@ -185,7 +179,6 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
         output_encoding,
         device_profile,
         vars,
-        template_dir,
         force_autodetect: opts.force_autodetect,
         retry_policy: manager_retry_policy(opts),
     })
@@ -315,10 +308,6 @@ pub(crate) fn save_named_connection(name: &str, conn: &EffectiveConnection) -> R
         linux_shell_flavor: conn.linux_shell_flavor,
         output_encoding: conn.output_encoding,
         device_profile: Some(conn.device_profile.clone()),
-        template_dir: conn
-            .template_dir
-            .as_ref()
-            .map(|p| p.to_string_lossy().to_string()),
         enabled: true,
         labels: vec![],
         vars: conn.vars.clone(),
@@ -546,7 +535,6 @@ mod tests {
             ssh_security: None,
             linux_shell_flavor: None,
             device_profile: None,
-            template_dir: None,
             force_autodetect: false,
             session_retries: 3,
             retry_initial_backoff_ms: 25,

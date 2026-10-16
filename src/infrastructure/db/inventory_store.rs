@@ -235,7 +235,6 @@ mod tests {
             ssh_security: None,
             linux_shell_flavor: None,
             output_encoding: Default::default(),
-            template_dir: None,
         }
     }
 

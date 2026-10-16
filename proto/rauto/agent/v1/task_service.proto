@@ -207,7 +207,6 @@ message ConnectionRef {
   repeated string labels             = 8;
   repeated string groups             = 9;
   string          vars_json          = 10;
-  string          template_dir       = 11;
   string          device_model       = 12;
   string          software_version   = 13;
   string          credential_id      = 14;
@@ -432,7 +431,6 @@ message UpsertCustomProfileRequest {
 
 message DiagnoseProfileRequest {
   string name         = 1;
-  string template_dir = 2;
 }
 
 message ListProfileModesRequest {
@@ -466,7 +464,6 @@ message RenderTemplateRequest {
   string        template     = 1;
   string        vars_json    = 2;
   ConnectionRef connection   = 3;
-  string        template_dir = 4;
 }
 
 message RenderTemplateResponse {
@@ -629,7 +626,6 @@ message ExecuteTemplateRequest {
   bool          parse_textfsm          = 9;
   string        textfsm_vendor         = 10;
   bool          textfsm_strict_errors  = 11;
-  string        template_dir           = 12;
   string        multiline_mode         = 13;
 }
 

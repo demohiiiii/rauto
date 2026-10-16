@@ -225,7 +225,6 @@ fn saved_connection_detail_response(
             linux_shell_flavor: data.linux_shell_flavor,
             output_encoding: Some(data.output_encoding),
             device_profile: data.device_profile.clone(),
-            template_dir: data.template_dir.clone(),
             enabled: data.enabled,
             labels: data.labels.clone(),
             groups: data.groups.clone(),

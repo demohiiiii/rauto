@@ -514,12 +514,12 @@ impl AgentTaskService for AgentTaskGrpcService {
         let (filename, content) = if is_zh {
             (
                 "rauto-connection-import-template-zh.csv",
-                "\u{feff}连接名,主机地址,用户名,密码,端口,特权密码,SSH安全级别,Linux Shell,设备模板,模板目录\n",
+                "\u{feff}连接名,主机地址,设备凭证,端口,连接超时秒,设备型号,软件版本,SSH安全级别,Linux Shell,设备模板\n",
             )
         } else {
             (
                 "rauto-connection-import-template-en.csv",
-                "name,host,username,password,port,enable_password,ssh_security,linux_shell_flavor,device_profile,template_dir\n",
+                "name,host,credential,port,connect_timeout_secs,device_model,software_version,ssh_security,linux_shell_flavor,output_encoding,device_profile\n",
             )
         };
         Ok(Response::new(BytesResponse {
@@ -1112,10 +1112,7 @@ impl AgentTaskService for AgentTaskGrpcService {
         let req = request.into_inner();
         let Json(response) = diagnose_profile(
             State(self.state.clone()),
-            Json(WebProfileDiagnoseRequest {
-                name: req.name,
-                template_dir: optional_string(req.template_dir),
-            }),
+            Json(WebProfileDiagnoseRequest { name: req.name }),
         )
         .await
         .map_err(api_error_to_status)?;
@@ -1159,7 +1156,6 @@ impl AgentTaskService for AgentTaskGrpcService {
                 template_content: None,
                 vars: parse_json_value(&req.vars_json, "vars_json", Value::Null)?,
                 connection,
-                template_dir: optional_string(req.template_dir),
             }),
         )
         .await
@@ -1452,7 +1448,6 @@ impl AgentTaskService for AgentTaskGrpcService {
                 run: DryRunOptions {
                     dry_run: Some(req.dry_run),
                 },
-                template_dir: optional_string(req.template_dir),
                 target: map_execution_target_options(req.connection, &req.record_level)?,
                 task: map_managed_task_options(req.task_id),
             }),
@@ -1498,7 +1493,6 @@ impl AgentTaskService for AgentTaskGrpcService {
                 run: DryRunOptions {
                     dry_run: Some(req.dry_run),
                 },
-                template_dir: optional_string(req.template_dir),
                 target: map_execution_target_options(req.connection, &req.record_level)?,
                 task: map_managed_task_options(req.task_id),
             }),

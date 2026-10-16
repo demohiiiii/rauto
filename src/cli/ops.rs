@@ -387,7 +387,7 @@ pub(crate) async fn run_device_command(
                 ));
             }
         }
-        DeviceCommands::Discover(_) | DeviceCommands::Discovery(_) => {
+        DeviceCommands::Discover(_) => {
             unreachable!("device discovery is handled by cli::discovery")
         }
     }
@@ -857,7 +857,6 @@ struct ConnectionShowOutput {
     ssh_security: Option<crate::config::ssh_security::SshSecurityProfile>,
     linux_shell_flavor: Option<crate::config::linux_shell::LinuxShellFlavor>,
     device_profile: Option<String>,
-    template_dir: Option<String>,
     enabled: bool,
     labels: Vec<String>,
     groups: Vec<String>,
@@ -882,7 +881,6 @@ fn connection_show_output(name: &str) -> Result<ConnectionShowOutput> {
         ssh_security: data.ssh_security,
         linux_shell_flavor: data.linux_shell_flavor,
         device_profile: data.device_profile.clone(),
-        template_dir: data.template_dir.clone(),
         enabled: data.enabled,
         labels: data.labels.clone(),
         groups: data.groups.clone(),
