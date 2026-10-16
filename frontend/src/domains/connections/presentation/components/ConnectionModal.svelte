@@ -2,6 +2,7 @@
   import ConnectionModalShell from "./ConnectionModalShell.svelte";
   import SavedConnectionLibraryPanel from "./SavedConnectionLibraryPanel.svelte";
   import TemporaryConnectionPanel from "./TemporaryConnectionPanel.svelte";
+  import ConnectionSessionControls from "./ConnectionSessionControls.svelte";
   import { currentLanguageState } from "$lib/i18n.js";
   import { tabListPresentation } from "$lib/ui.js";
   import { cn } from "$lib/utils.js";
@@ -29,7 +30,9 @@
 </script>
 
 {#snippet connectionModeControls()}
-  <div class="border-b border-border bg-muted/30 px-7 py-3">
+  <div
+    class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-7 py-3"
+  >
     <div
       class="inline-flex rounded-full border border-border bg-background p-1 shadow-sm"
       aria-label={connectionModeDisplay.ariaLabelText}
@@ -52,6 +55,7 @@
         </button>
       {/each}
     </div>
+    <ConnectionSessionControls />
   </div>
 {/snippet}
 

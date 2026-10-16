@@ -201,6 +201,7 @@ export interface ConnectionImportReport extends Record<string, unknown> {
 }
 
 export interface ConnectionRequestPayload {
+  keep_alive?: ConnectionKeepAlive | null;
   connect_timeout_secs?: number | null;
   connection_name?: string | null;
   credential_id?: string | null;
@@ -217,6 +218,28 @@ export interface ConnectionRequestPayload {
   ssh_security?: string | null;
   template_dir?: string | null;
   vars?: Record<string, unknown>;
+}
+
+export interface ConnectionKeepAlive {
+  enabled: boolean;
+  interval_secs: number;
+}
+
+export interface ConnectionSessionIdentity {
+  host: string;
+  port: number;
+  username: string;
+}
+
+export interface ConnectionDisconnectResponse {
+  closed_connections: number;
+}
+
+export interface ConnectionSessionState {
+  connectionName: string | null;
+  status: "idle" | "connecting" | "connected" | "error";
+  error: string;
+  keepAlive: ConnectionKeepAlive;
 }
 
 export interface ConnectionTestResponse {

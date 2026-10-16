@@ -417,6 +417,7 @@ async fn fetch_config_target_inner(
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
             target.conn.retry_policy,
+            target.conn.keep_alive,
         )
         .await?
     } else {
@@ -435,6 +436,7 @@ async fn fetch_config_target_inner(
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
             target.conn.retry_policy,
+            target.conn.keep_alive,
         )
         .await?
     };

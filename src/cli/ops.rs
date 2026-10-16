@@ -318,6 +318,7 @@ pub(crate) async fn run_device_command(
                 conn.ssh_security,
                 conn.connect_timeout_secs,
                 conn.retry_policy,
+                None,
             )
             .await?;
             crate::maybe_save_connection_profile(global_opts, &conn)?;

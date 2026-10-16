@@ -116,6 +116,7 @@ fn map_connection_ref(
         return Ok(None);
     };
     Ok(Some(ConnectionRequest {
+        keep_alive: None,
         connection_name: optional_string(connection.connection_name),
         host: optional_string(connection.host),
         credential_id: optional_string(connection.credential_id),
@@ -432,6 +433,7 @@ pub(super) fn connection_ref_to_request(
     connection: ConnectionRef,
 ) -> Result<ConnectionRequest, Status> {
     Ok(ConnectionRequest {
+        keep_alive: None,
         connection_name: optional_string(connection.connection_name),
         host: optional_string(connection.host),
         credential_id: optional_string(connection.credential_id),

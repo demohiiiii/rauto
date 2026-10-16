@@ -18,6 +18,7 @@ use crate::config::{
 };
 use crate::config::{history_store, history_store::HistoryBinding};
 use crate::device::DeviceClient;
+use crate::manager_connection_request;
 use crate::orchestrator;
 use crate::task::{
     TaskCallback, TaskEventLevel, TaskEventType, TaskOperation, TaskResultEnvelope,
@@ -45,7 +46,6 @@ use crate::web::state::{
     resolve_autodetect_connection,
 };
 use crate::web::storage;
-use crate::{manager_connection_request, manager_execution_context_with_security};
 use axum::http::StatusCode;
 use axum::{
     Json,
@@ -99,12 +99,13 @@ pub use config_catalog::{
     upsert_config_command,
 };
 pub use connections::{
-    delete_connection, delete_connection_history, delete_inventory_group, delete_inventory_label,
-    delete_session_history, detect_connection_facts, get_connection, get_connection_history,
-    get_connection_history_detail, get_inventory_group, get_inventory_label,
-    get_session_history_detail, import_connections, list_connections, list_inventory_groups,
-    list_inventory_labels, list_session_history, list_session_history_devices, test_connection,
-    upsert_connection, upsert_inventory_group, upsert_inventory_label,
+    connect_connection, delete_connection, delete_connection_history, delete_inventory_group,
+    delete_inventory_label, delete_session_history, detect_connection_facts, disconnect_connection,
+    get_connection, get_connection_history, get_connection_history_detail, get_inventory_group,
+    get_inventory_label, get_session_history_detail, import_connections, list_connections,
+    list_inventory_groups, list_inventory_labels, list_session_history,
+    list_session_history_devices, test_connection, upsert_connection, upsert_inventory_group,
+    upsert_inventory_label,
 };
 pub use credentials::{
     create_credential, delete_credential, get_credential, import_credentials, list_credentials,
@@ -212,6 +213,7 @@ fn saved_connection_detail_response(
             .and_then(|id| crate::config::device_credential_store::get_credential(id).ok())
             .is_none(),
         connection: ConnectionRequest {
+            keep_alive: None,
             connection_name: Some(name.to_string()),
             host: data.host.clone(),
             credential_id: data.credential_id.clone(),

@@ -155,11 +155,8 @@ where
         let forwarder = spawn_recording_event_forwarder(state, task_ctx, &recorder, recording_plan);
         let execution_result = execute(
             request,
-            manager_execution_context_with_security(
-                None,
-                conn.ssh_security,
-                conn.connect_timeout_secs,
-            ),
+            // Per-run recorder pools must still expire after this execution.
+            conn.execution_context().with_keep_alive(false),
             Some(recorder.clone()),
         )
         .await;
@@ -202,16 +199,7 @@ where
             handler,
             conn.output_encoding,
         );
-        let result = execute(
-            request,
-            manager_execution_context_with_security(
-                None,
-                conn.ssh_security,
-                conn.connect_timeout_secs,
-            ),
-            None,
-        )
-        .await?;
+        let result = execute(request, conn.execution_context(), None).await?;
         Ok((result, None))
     }
 }

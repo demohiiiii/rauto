@@ -37,6 +37,7 @@ import {
   refreshSavedConnectionOptions,
 } from "./connectionTargetRuntimeState.js";
 import { openSavedConnectionEditor } from "./connectionEditorState.js";
+import { connectionSession } from "./connectionSessionState.js";
 
 export function createHistoryDrawerWorkspace() {
   const historyDisplayStateStore = derived(
@@ -135,16 +136,19 @@ export function createSavedConnectionLibraryWorkspace() {
     [
       savedConnectionSelectState,
       savedConnectionStatusState,
+      connectionSession.state,
       currentLanguageState,
     ],
     ([
       $savedConnectionSelectState,
       $savedConnectionStatusState,
+      $connectionSession,
       _currentLanguageState,
     ]) =>
       savedConnectionLibraryPresentation(
         $savedConnectionSelectState,
         $savedConnectionStatusState,
+        $connectionSession,
       ),
   );
   const savedConnectionSelectFocusRequestVersionStateStore = derived(

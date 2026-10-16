@@ -45,6 +45,8 @@ pub struct RenderResponse {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ConnectionRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keep_alive: Option<crate::domain::connection::ConnectionKeepAlive>,
     pub connection_name: Option<String>,
     pub host: Option<String>,
     pub credential_id: Option<String>,
@@ -87,6 +89,18 @@ pub struct ConnectionTestResponse {
     pub linux_shell_flavor: Option<LinuxShellFlavor>,
     pub output_encoding: DeviceEncoding,
     pub device_profile: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConnectionDisconnectResponse {
+    pub closed_connections: usize,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ConnectionDisconnectRequest {
+    pub host: String,
+    pub port: u16,
+    pub username: String,
 }
 
 #[derive(Debug, Serialize)]

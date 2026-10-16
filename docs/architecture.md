@@ -27,6 +27,38 @@ tags converted in history, tasks, and structured task results. Application
 startup retains SQLx checksum validation; it never silently resets migration
 history or reruns the initial schema over an existing database.
 
+## Workbench connection sessions
+
+With keepalive enabled, the Web connection workbench connects a selected or
+restored target through `POST /api/connection/connect`. It uses rneter's pooled SSH
+sessions and transport heartbeats, with browser preferences defaulting to enabled
+and 30 seconds. Disabling keepalive releases the workbench session and retains the
+selected target without automatically connecting, including after a page reload;
+execution establishes a connection when needed. The interval accepts whole seconds
+from 1 to 3600. Execution requests carry the same
+runtime `connection.keep_alive` options (`enabled`, `interval_secs`) so subsequent
+commands preserve the heartbeat policy. These options are not saved connection
+attributes. Omitting them retains the existing non-heartbeat API behavior.
+
+Switching targets, editing the selected saved connection's transport settings,
+or changing these preferences releases the previous session via
+`POST /api/connection/disconnect`, using the returned `host`, `port`, and `username`.
+Refreshing labels, groups, or other inventory metadata does not reconnect.
+rneter waits for active operations before closing the pooled sessions, including
+recorded variants. Independent per-run recorders retain normal idle expiry.
+
+While keepalive is enabled and the selected target is connected, the browser
+revalidates it through the connect endpoint every 15 seconds and when the browser
+comes online. rneter reuses healthy sessions and replaces disconnected sessions.
+Background validation preserves the connected indicator until it fails; failures
+show the error state and wait for an explicit retry. Disabling keepalive stops
+validation. `POST /api/connection/test` uses independent one-shot sessions for both
+autodetection and the final handshake, so testing a connection cannot replace the
+workbench's pooled session or its heartbeat policy.
+
+CLI and gRPC do not have a browser-selected target lifecycle and retain their
+existing connection behavior; no automatic connection flags are added there.
+
 ## Module ownership
 
 | Layer | Path | Owns |

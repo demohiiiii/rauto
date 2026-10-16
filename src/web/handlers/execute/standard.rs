@@ -168,6 +168,7 @@ pub async fn exec_command(
                     conn.ssh_security,
                     conn.connect_timeout_secs,
                     conn.retry_policy,
+                    conn.keep_alive,
                 )
                 .await?
             } else {
@@ -186,6 +187,7 @@ pub async fn exec_command(
                     conn.ssh_security,
                     conn.connect_timeout_secs,
                     conn.retry_policy,
+                    conn.keep_alive,
                 )
                 .await?
             };
@@ -465,6 +467,7 @@ pub async fn execute_show(
                     conn.ssh_security,
                     conn.connect_timeout_secs,
                     conn.retry_policy,
+                    conn.keep_alive,
                 )
                 .await?
             } else {
@@ -483,6 +486,7 @@ pub async fn execute_show(
                     conn.ssh_security,
                     conn.connect_timeout_secs,
                     conn.retry_policy,
+                    conn.keep_alive,
                 )
                 .await?
             };
@@ -932,6 +936,7 @@ async fn execute_batch_show_target_inner(
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
             target.conn.retry_policy,
+            target.conn.keep_alive,
         )
         .await?
     } else {
@@ -950,6 +955,7 @@ async fn execute_batch_show_target_inner(
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
             target.conn.retry_policy,
+            target.conn.keep_alive,
         )
         .await?
     };
@@ -1322,6 +1328,7 @@ async fn execute_batch_exec_target_inner(
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
             target.conn.retry_policy,
+            target.conn.keep_alive,
         )
         .await?
     } else {
@@ -1340,6 +1347,7 @@ async fn execute_batch_exec_target_inner(
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
             target.conn.retry_policy,
+            target.conn.keep_alive,
         )
         .await?
     };
@@ -1557,6 +1565,7 @@ pub async fn execute_template(
                     conn.ssh_security,
                     conn.connect_timeout_secs,
                     conn.retry_policy,
+                    conn.keep_alive,
                 )
                 .await?
             } else {
@@ -1575,6 +1584,7 @@ pub async fn execute_template(
                     conn.ssh_security,
                     conn.connect_timeout_secs,
                     conn.retry_policy,
+                    conn.keep_alive,
                 )
                 .await?
             };

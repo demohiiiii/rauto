@@ -217,6 +217,7 @@ async fn execute_resolved_exec_target_buffered(
         target.conn.ssh_security,
         target.conn.connect_timeout_secs,
         target.conn.retry_policy,
+        None,
     )
     .await?;
 
@@ -331,6 +332,7 @@ pub(crate) async fn run_template(args: TemplateArgs, opts: &crate::cli::GlobalOp
         conn.ssh_security,
         conn.connect_timeout_secs,
         conn.retry_policy,
+        None,
     )
     .await?;
 
@@ -440,6 +442,7 @@ pub(crate) async fn run_exec(args: ExecArgs, opts: &crate::cli::GlobalOpts) -> R
         conn.ssh_security,
         conn.connect_timeout_secs,
         conn.retry_policy,
+        None,
     )
     .await?;
 
@@ -583,6 +586,7 @@ pub(crate) async fn run_show(args: ShowArgs, opts: &crate::cli::GlobalOpts) -> R
         conn.ssh_security,
         conn.connect_timeout_secs,
         conn.retry_policy,
+        None,
     )
     .await?;
 
@@ -840,6 +844,7 @@ async fn execute_resolved_show_target_buffered(
         target.conn.ssh_security,
         target.conn.connect_timeout_secs,
         target.conn.retry_policy,
+        None,
     )
     .await?;
 

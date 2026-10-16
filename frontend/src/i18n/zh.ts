@@ -1,6 +1,21 @@
 import type { I18nDictionary } from "./types.js";
 
 export const i18nZh = {
+  connectionSessionIdle: "未连接",
+  connectionSessionConnecting: "正在连接",
+  connectionSessionConnected: "已连接",
+  connectionSessionError: "连接失败",
+  connectionKeepAlive: "连接保活",
+  connectionHeartbeat: "心跳间隔",
+  connectionHeartbeatShort: "心跳",
+  connectionHeartbeatCustom: "自定义间隔",
+  connectionHeartbeatApply: "应用心跳间隔",
+  connectionHeartbeatSeconds: "秒",
+  connectionKeepAliveHint:
+    "开启后，选择连接会自动连接设备并通过 SSH 心跳保活；关闭后，仅在执行操作时连接。",
+  connectionHeartbeatInvalid: "请输入 1 到 3600 之间的整数秒数",
+  connectionReconnect: "重新连接",
+
   renderedCommandsPreview: "预览命令",
   renderedCommandsTitle: "执行命令预览",
   renderedCommandsHint:

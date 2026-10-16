@@ -1,4 +1,6 @@
 import {
+  connectDevice,
+  disconnectDevice,
   deleteConnection as deleteConnectionRequest,
   deleteSessionHistory as deleteSessionHistoryRequest,
   detectConnectionFacts as detectConnectionFactsRequest,
@@ -20,6 +22,8 @@ import type {
 export type { ConnectionRequestPayload } from "../model/types.js";
 
 export const connectionApi = {
+  connect: connectDevice,
+  disconnect: disconnectDevice,
   deleteConnection(name: string): Promise<unknown> {
     return deleteConnectionRequest(name);
   },

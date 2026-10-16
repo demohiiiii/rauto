@@ -466,6 +466,7 @@ async fn fetch_config_over_connection(
         conn.ssh_security,
         conn.connect_timeout_secs,
         conn.retry_policy,
+        None,
     )
     .await?;
     let output = client

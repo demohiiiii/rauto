@@ -585,6 +585,192 @@ record_input = false
 }
 
 #[test]
+fn workbench_connection_preserves_heartbeat_policy_through_execution_and_releases_session() {
+    run_route_test(|context| async move {
+        let device = context
+            .spawn_cisco("heartbeat-edge", FaultInjection::new())
+            .await;
+        let request = device.handle.connection_request().expect("device request");
+        let execution_context = device
+            .handle
+            .execution_context()
+            .with_keep_alive(true)
+            .with_keep_alive_interval_secs(45);
+        let original = rneter::session::MANAGER
+            .get_with_context(request.clone(), execution_context.clone())
+            .await
+            .expect("establish heartbeat session");
+        let connection = json!({
+            "connection_name": device.connection_name,
+            "keep_alive": { "enabled": true, "interval_secs": 45 }
+        });
+        let connected = context
+            .post_json("/api/connection/connect", json!({"connection": connection}))
+            .await;
+        let connected = connected.assert_ok();
+        assert_eq!(connected["ok"], true);
+        let reused = rneter::session::MANAGER
+            .get_with_context(request.clone(), execution_context.clone())
+            .await
+            .expect("inspect warmed connection");
+        assert!(
+            original.same_channel(&reused),
+            "connect endpoint must apply heartbeat settings"
+        );
+
+        for overrides in [json!({}), json!({"device_profile": "autodetect"})] {
+            let mut test_connection = json!({"connection_name": device.connection_name});
+            test_connection
+                .as_object_mut()
+                .unwrap()
+                .extend(overrides.as_object().unwrap().clone());
+            context
+                .post_json(
+                    "/api/connection/test",
+                    json!({"connection": test_connection}),
+                )
+                .await
+                .assert_ok();
+            let after_test = rneter::session::MANAGER
+                .get_with_context(request.clone(), execution_context.clone())
+                .await
+                .expect("inspect connection after independent test");
+            assert!(
+                original.same_channel(&after_test),
+                "connection testing must preserve the kept-alive session"
+            );
+        }
+
+        let (recorded, _) = rneter::session::MANAGER
+            .get_with_recording_level_and_context(
+                request.clone(),
+                execution_context.clone(),
+                rneter::session::SessionRecordLevel::KeyEventsOnly,
+            )
+            .await
+            .expect("warm recorded execution session");
+
+        context
+            .post_json(
+                "/api/exec",
+                json!({"command": "show clock", "connection": connection}),
+            )
+            .await
+            .assert_ok();
+        let (after_exec, _) = rneter::session::MANAGER
+            .get_with_recording_level_and_context(
+                request.clone(),
+                execution_context,
+                rneter::session::SessionRecordLevel::KeyEventsOnly,
+            )
+            .await
+            .expect("inspect execution connection");
+        assert!(
+            recorded.same_channel(&after_exec),
+            "executions must preserve heartbeat settings"
+        );
+
+        let identity = json!({"host": connected["host"], "port": connected["port"], "username": connected["username"]});
+        let closed = context
+            .post_json("/api/connection/disconnect", identity.clone())
+            .await;
+        assert_eq!(closed.assert_ok()["closed_connections"], 2);
+        let repeated = context
+            .post_json("/api/connection/disconnect", identity)
+            .await;
+        assert_eq!(repeated.assert_ok()["closed_connections"], 0);
+        assert!(original.is_closed());
+        assert!(recorded.is_closed());
+
+        let disabled = json!({"connection_name": device.connection_name, "keep_alive": {"enabled": false, "interval_secs": 45}});
+        context
+            .post_json("/api/connection/connect", json!({"connection": disabled}))
+            .await
+            .assert_ok();
+        let normal = rneter::session::MANAGER
+            .get_with_context(request, device.handle.execution_context())
+            .await
+            .expect("disabled heartbeat session");
+        assert!(!original.same_channel(&normal));
+    });
+}
+
+#[test]
+fn workbench_rejects_invalid_heartbeat_intervals_without_opening_a_connection() {
+    run_route_test(|context| async move {
+        let device = context
+            .spawn_cisco("invalid-heartbeat", FaultInjection::new())
+            .await;
+        for enabled in [true, false] {
+            for interval in [0, 3601] {
+                let result = context.post_json("/api/connection/connect", json!({
+                    "connection": {"connection_name": device.connection_name, "keep_alive": {"enabled": enabled, "interval_secs": interval}}
+                })).await;
+                assert_eq!(result.status, StatusCode::BAD_REQUEST);
+                assert!(
+                    result.body["error"]["message"]
+                        .as_str()
+                        .unwrap()
+                        .contains("interval_secs")
+                );
+            }
+        }
+        assert!(device.handle.received_commands().is_empty());
+    });
+}
+
+#[test]
+fn workbench_connection_revalidates_a_dropped_session() {
+    run_route_test(|context| async move {
+        let device = context
+            .spawn_cisco(
+                "revalidate-edge",
+                FaultInjection::new().with_disconnect_command("show clock", 1),
+            )
+            .await;
+        let connection = json!({"connection_name": device.connection_name, "keep_alive":{"enabled": true,"interval_secs":30}});
+        context
+            .post_json("/api/connection/connect", json!({"connection": connection}))
+            .await
+            .assert_ok();
+        let request = device.handle.connection_request().expect("request");
+        let execution_context = device.handle.execution_context().with_keep_alive(true);
+        let original = rneter::session::MANAGER
+            .get_with_context(request.clone(), execution_context.clone())
+            .await
+            .expect("pooled session");
+        let result = rneter::session::MANAGER
+            .execute_command_with_context(
+                request.clone(),
+                rneter::session::Command {
+                    mode: "Enable".to_string(),
+                    command: "show clock".to_string(),
+                    timeout: Some(2),
+                    ..Default::default()
+                },
+                execution_context.clone(),
+            )
+            .await;
+        assert!(
+            result.is_err(),
+            "the virtual device should drop the session"
+        );
+        context
+            .post_json("/api/connection/connect", json!({"connection": connection}))
+            .await
+            .assert_ok();
+        let recovered = rneter::session::MANAGER
+            .get_with_context(request, execution_context)
+            .await
+            .expect("recovered session");
+        assert!(
+            !original.same_channel(&recovered),
+            "revalidation must detect and replace the closed SSH session"
+        );
+    });
+}
+
+#[test]
 fn http_execution_routes_reach_rneter_virtual_device() {
     run_route_test(|context| async move {
         let device = context.spawn_cisco("edge-a", FaultInjection::new()).await;

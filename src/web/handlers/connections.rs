@@ -13,21 +13,49 @@ use crate::domain::connection::{
 };
 use crate::web::error::ApiError;
 use crate::web::models::{
-    ConnectionFactsDetectResponse, ConnectionHistoryDetailResponse, ConnectionHistoryEntry,
-    ConnectionTestRequest, ConnectionTestResponse, InventoryGroup, InventoryLabel,
-    SavedConnectionDetail, SavedConnectionMeta, UpsertConnectionRequest,
-    UpsertInventoryGroupRequest, UpsertInventoryLabelRequest,
+    ConnectionDisconnectRequest, ConnectionDisconnectResponse, ConnectionFactsDetectResponse,
+    ConnectionHistoryDetailResponse, ConnectionHistoryEntry, ConnectionTestRequest,
+    ConnectionTestResponse, InventoryGroup, InventoryLabel, SavedConnectionDetail,
+    SavedConnectionMeta, UpsertConnectionRequest, UpsertInventoryGroupRequest,
+    UpsertInventoryLabelRequest,
 };
-use crate::web::state::{AppState, merge_connection_options, resolve_autodetect_connection};
+use crate::web::state::{
+    AppState, merge_connection_options, resolve_autodetect_connection,
+    resolve_autodetect_connection_with_mode,
+};
 use axum::Json;
 use axum::extract::{Multipart, Path, Query, State};
-use rneter::session::SessionRecorder;
+use rneter::session::{ConnectionMode, SessionRecorder};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use tracing::warn;
 
-pub async fn test_connection(
+pub async fn disconnect_connection(
+    Json(req): Json<ConnectionDisconnectRequest>,
+) -> Result<Json<ConnectionDisconnectResponse>, ApiError> {
+    if req.host.trim().is_empty() || req.username.trim().is_empty() || req.port == 0 {
+        return Err(ApiError::bad_request(
+            "host, username and a non-zero port are required",
+        ));
+    }
+    // Closing is keyed only by user/host/port. Never autodetect and open a
+    // connection just to release a previous workbench target.
+    let handler = template_loader::load_device_profile_for_connection("linux", None)?;
+    let request = crate::manager_connection_request(
+        req.username,
+        req.host,
+        req.port,
+        rneter::session::SshAuthMethod::password(String::new()),
+        None,
+        handler,
+        Default::default(),
+    );
+    let closed_connections = rneter::session::MANAGER.close_connection(&request).await?;
+    Ok(Json(ConnectionDisconnectResponse { closed_connections }))
+}
+
+pub async fn connect_connection(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ConnectionTestRequest>,
 ) -> Result<Json<ConnectionTestResponse>, ApiError> {
@@ -50,9 +78,52 @@ pub async fn test_connection(
         conn.ssh_security,
         conn.connect_timeout_secs,
         conn.retry_policy,
+        conn.keep_alive,
     )
     .await?;
 
+    Ok(Json(ConnectionTestResponse {
+        ok: true,
+        host: conn.host,
+        port: conn.port,
+        username: conn.username,
+        ssh_security: conn.ssh_security,
+        linux_shell_flavor: conn.linux_shell_flavor,
+        output_encoding: conn.output_encoding,
+        device_profile: conn.device_profile,
+    }))
+}
+
+pub async fn test_connection(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ConnectionTestRequest>,
+) -> Result<Json<ConnectionTestResponse>, ApiError> {
+    let conn = resolve_autodetect_connection_with_mode(
+        merge_connection_options(&state.defaults, req.connection)?,
+        ConnectionMode::OneShot,
+    )
+    .await?;
+    let context = conn
+        .execution_context()
+        .with_connection_mode(ConnectionMode::OneShot)
+        .with_keep_alive(false)
+        .with_retry_policy(conn.retry_policy);
+    let handler = template_loader::load_device_profile_for_connection(
+        &conn.device_profile,
+        conn.linux_shell_flavor,
+    )?;
+    let default_mode =
+        template_loader::default_profile_mode_for_connection(&conn.device_profile, &conn.username)?;
+    let request = crate::manager_connection_request(
+        conn.username.clone(),
+        conn.host.clone(),
+        conn.port,
+        conn.auth,
+        conn.enable_password,
+        handler,
+        conn.output_encoding,
+    );
+    let _client = DeviceClient::connect_with_context(request, context, default_mode).await?;
     Ok(Json(ConnectionTestResponse {
         ok: true,
         host: conn.host,
@@ -127,6 +198,7 @@ pub async fn detect_connection_facts(
         conn.ssh_security,
         conn.connect_timeout_secs,
         conn.retry_policy,
+        conn.keep_alive,
     )
     .await?;
 

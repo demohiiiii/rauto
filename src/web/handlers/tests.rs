@@ -189,6 +189,7 @@ fn managed_async_task_requires_agent_mode_and_task_id() {
 #[test]
 fn json_template_context_supports_flat_lookup_with_runtime_precedence() {
     let conn = ResolvedConnection {
+        keep_alive: None,
         connection_name: None,
         host: "192.168.30.92".to_string(),
         username: "admin".to_string(),

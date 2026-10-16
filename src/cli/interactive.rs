@@ -152,6 +152,7 @@ pub(crate) async fn run_interactive(
         conn.ssh_security,
         conn.connect_timeout_secs,
         conn.retry_policy,
+        None,
     )
     .await?;
 
@@ -441,6 +442,7 @@ async fn execute_resolved_interactive_target_buffered(
         target.conn.ssh_security,
         target.conn.connect_timeout_secs,
         target.conn.retry_policy,
+        None,
     )
     .await?;
 

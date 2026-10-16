@@ -1,4 +1,5 @@
 use crate::config::ssh_security::SshSecurityProfile;
+use crate::domain::connection::ConnectionKeepAlive;
 use crate::domain::device::DeviceEncoding;
 use crate::{manager_connection_request, manager_execution_context_with_security};
 use anyhow::{Result, anyhow};
@@ -11,6 +12,18 @@ use rneter::{
     },
 };
 use tracing::{debug, error, info, warn};
+
+pub(crate) fn configure_keep_alive(
+    context: ExecutionContext,
+    options: Option<ConnectionKeepAlive>,
+) -> ExecutionContext {
+    match options {
+        Some(options) => context
+            .with_keep_alive(options.enabled)
+            .with_keep_alive_interval_secs(options.interval_secs),
+        None => context,
+    }
+}
 
 fn connection_retry_delay(policy: RetryPolicy, retry_index: usize) -> std::time::Duration {
     let mut delay = policy.initial_backoff.min(policy.max_backoff);
@@ -76,8 +89,12 @@ impl DeviceClient {
         ssh_security: SshSecurityProfile,
         connect_timeout_secs: Option<u64>,
         retry_policy: RetryPolicy,
+        keep_alive: Option<ConnectionKeepAlive>,
     ) -> Result<Self> {
         validate_retry_policy(retry_policy)?;
+        if let Some(options) = keep_alive {
+            options.validate().map_err(|error| anyhow!(error))?;
+        }
         info!("Connecting to {}:{} as {}", host, port, username);
 
         let request = manager_connection_request(
@@ -89,9 +106,21 @@ impl DeviceClient {
             handler,
             output_encoding,
         );
-        let context =
-            manager_execution_context_with_security(None, ssh_security, connect_timeout_secs)
-                .with_retry_policy(retry_policy);
+        let context = configure_keep_alive(
+            manager_execution_context_with_security(None, ssh_security, connect_timeout_secs),
+            keep_alive,
+        )
+        .with_retry_policy(retry_policy);
+        Self::connect_with_context(request, context, default_mode).await
+    }
+
+    pub(crate) async fn connect_with_context(
+        request: ConnectionRequest,
+        context: ExecutionContext,
+        default_mode: String,
+    ) -> Result<Self> {
+        let retry_policy = context.retry_policy;
+        validate_retry_policy(retry_policy)?;
         let mut retries_used = 0;
         loop {
             match MANAGER
@@ -135,8 +164,12 @@ impl DeviceClient {
         ssh_security: SshSecurityProfile,
         connect_timeout_secs: Option<u64>,
         retry_policy: RetryPolicy,
+        keep_alive: Option<ConnectionKeepAlive>,
     ) -> Result<Self> {
         validate_retry_policy(retry_policy)?;
+        if let Some(options) = keep_alive {
+            options.validate().map_err(|error| anyhow!(error))?;
+        }
         info!(
             "Connecting with recording to {}:{} as {}",
             host, port, username
@@ -151,9 +184,11 @@ impl DeviceClient {
             handler,
             output_encoding,
         );
-        let context =
-            manager_execution_context_with_security(None, ssh_security, connect_timeout_secs)
-                .with_retry_policy(retry_policy);
+        let context = configure_keep_alive(
+            manager_execution_context_with_security(None, ssh_security, connect_timeout_secs),
+            keep_alive,
+        )
+        .with_retry_policy(retry_policy);
         let mut retries_used = 0;
         let recorder = loop {
             match MANAGER
@@ -357,6 +392,7 @@ mod tests {
             SshSecurityProfile::TestNoCheck,
             Some(10),
             RetryPolicy::default(),
+            None,
         )
         .await?;
         let output = client.execute_output("uname -a", Some("User")).await?;
@@ -394,6 +430,7 @@ mod tests {
             SshSecurityProfile::TestNoCheck,
             Some(10),
             retry_policy,
+            None,
         )
         .await?;
         let output = client.execute_output("uname -a", Some("User")).await?;
@@ -426,6 +463,7 @@ mod tests {
             SshSecurityProfile::TestNoCheck,
             Some(10),
             retry_policy,
+            None,
         )
         .await?;
         client.execute_output("uname -a", Some("User")).await?;
@@ -459,6 +497,7 @@ mod tests {
             SshSecurityProfile::TestNoCheck,
             Some(10),
             RetryPolicy::default(),
+            None,
         )
         .await?;
         first
@@ -478,6 +517,7 @@ mod tests {
             SshSecurityProfile::TestNoCheck,
             Some(10),
             RetryPolicy::default(),
+            None,
         )
         .await?;
         second
@@ -525,6 +565,7 @@ mod tests {
             SshSecurityProfile::TestNoCheck,
             Some(10),
             RetryPolicy::default(),
+            None,
         )
         .await?;
         let output = client

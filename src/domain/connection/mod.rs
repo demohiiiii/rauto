@@ -8,9 +8,11 @@ use std::error::Error;
 use std::fmt;
 
 pub mod import;
+mod keep_alive;
 pub mod security;
 
 pub use import::{ConnectionImportFailure, ConnectionImportReport};
+pub use keep_alive::ConnectionKeepAlive;
 pub use security::SshSecurityProfile;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

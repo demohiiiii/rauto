@@ -8,6 +8,7 @@
   import FilePickerButton from "$components/fragments/FilePickerButton.svelte";
   import LoadingButton from "$components/fragments/LoadingButton.svelte";
   import StatusCard from "$components/fragments/StatusCard.svelte";
+  import ConnectionSessionIndicator from "./ConnectionSessionIndicator.svelte";
   import {
     createSavedConnectionLibraryWorkspace,
     openConnectionModal,
@@ -222,15 +223,12 @@
                       {connectionRow.summary}
                     </p>
                   </div>
-                  <span
-                    class={cn(
-                      "mt-1 size-2 shrink-0 rounded-full",
-                      connectionRow.enabled
-                        ? "bg-primary"
-                        : "bg-muted-foreground/50",
-                    )}
-                    aria-label={connectionRow.statusLabel}
-                  ></span>
+                  <span class="mt-0.5 shrink-0">
+                    <ConnectionSessionIndicator
+                      compact
+                      session={connectionRow.session}
+                    />
+                  </span>
                 </div>
                 <div class="mt-1.5 flex flex-wrap items-center gap-1">
                   <span
@@ -281,18 +279,9 @@
                     libraryDisplay.select.placeholder}
                 </h3>
                 {#if selectedConnectionRow}
-                  <Badge variant="secondary" class="gap-1 rounded-full">
-                    <span
-                      class={cn(
-                        "size-1.5 rounded-full",
-                        selectedConnectionRow.enabled
-                          ? "bg-primary"
-                          : "bg-muted-foreground/50",
-                      )}
-                      aria-hidden="true"
-                    ></span>
-                    {selectedConnectionRow.statusLabel}
-                  </Badge>
+                  <ConnectionSessionIndicator
+                    session={selectedConnectionRow.session}
+                  />
                 {/if}
               </div>
               <p class="mt-2 truncate font-mono text-sm text-muted-foreground">

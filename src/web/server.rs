@@ -11,16 +11,17 @@ use crate::web::auth::{
 };
 use crate::web::handlers::{
     add_blacklist_pattern, add_config_volatile_pattern, cancel_device_discovery_run,
-    check_blacklist_command, create_backup, create_credential, create_device_discovery_run,
-    create_interactive_template, create_or_update_custom_profile, create_orchestration_template,
-    create_schedule, create_template, create_textfsm_template, create_tx_block_template,
-    create_tx_workflow_template, delete_blacklist_pattern, delete_config_command,
-    delete_connection, delete_connection_history, delete_credential, delete_custom_profile,
-    delete_custom_show_object, delete_device_config_snapshot, delete_interactive_template,
-    delete_inventory_group, delete_inventory_label, delete_orchestration_template, delete_schedule,
-    delete_session_history, delete_template, delete_textfsm_mapping, delete_textfsm_template,
-    delete_tx_block_template, delete_tx_workflow_template, detect_connection_facts,
-    diagnose_profile, disable_schedule, download_backup, download_connection_import_template,
+    check_blacklist_command, connect_connection, create_backup, create_credential,
+    create_device_discovery_run, create_interactive_template, create_or_update_custom_profile,
+    create_orchestration_template, create_schedule, create_template, create_textfsm_template,
+    create_tx_block_template, create_tx_workflow_template, delete_blacklist_pattern,
+    delete_config_command, delete_connection, delete_connection_history, delete_credential,
+    delete_custom_profile, delete_custom_show_object, delete_device_config_snapshot,
+    delete_interactive_template, delete_inventory_group, delete_inventory_label,
+    delete_orchestration_template, delete_schedule, delete_session_history, delete_template,
+    delete_textfsm_mapping, delete_textfsm_template, delete_tx_block_template,
+    delete_tx_workflow_template, detect_connection_facts, diagnose_profile, disable_schedule,
+    disconnect_connection, download_backup, download_connection_import_template,
     download_credential_import_template, enable_schedule, exec_command, exec_command_async,
     execute_exec_batch, execute_interactive, execute_interactive_batch, execute_orchestration,
     execute_orchestration_async, execute_show, execute_show_batch, execute_template,
@@ -351,6 +352,8 @@ fn local_api_routes() -> Router<Arc<AppState>> {
             get(get_connection_history_detail).delete(delete_connection_history),
         )
         .route("/api/connection/test", post(test_connection))
+        .route("/api/connection/connect", post(connect_connection))
+        .route("/api/connection/disconnect", post(disconnect_connection))
         .route(
             "/api/connection/detect-facts",
             post(detect_connection_facts),

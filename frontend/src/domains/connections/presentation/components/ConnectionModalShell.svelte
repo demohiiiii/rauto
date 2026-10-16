@@ -1,11 +1,9 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { currentLanguageState, t } from "$lib/i18n.js";
   import { Button } from "$lib/components/ui/button/index.js";
-  import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { cn } from "$lib/utils.js";
-  import CircleIcon from "@lucide/svelte/icons/circle";
+  import ConnectionSessionIndicator from "./ConnectionSessionIndicator.svelte";
   import PencilIcon from "@lucide/svelte/icons/pencil";
   import PlugIcon from "@lucide/svelte/icons/plug";
   import XIcon from "@lucide/svelte/icons/x";
@@ -37,11 +35,6 @@
     onClose,
     variant = "workbench",
   }: Props = $props();
-  let i18nCurrentLanguage = $derived($currentLanguageState);
-  let i18nReadyLabel = $derived.by(() => {
-    i18nCurrentLanguage;
-    return t("connModalReady");
-  });
 
   let dialogOpen = $state(false);
   let lastDisplayOpen = $state(false);
@@ -116,13 +109,7 @@
               {modalDisplay?.title}
             </Dialog.Title>
             {#if !isEditor}
-              <Badge variant="secondary" class="gap-1 rounded-full">
-                <CircleIcon
-                  class="size-1.5 fill-current text-primary"
-                  aria-hidden="true"
-                />
-                {i18nReadyLabel}
-              </Badge>
+              <ConnectionSessionIndicator />
             {/if}
           </div>
           {#if modalDisplay?.subtitle}

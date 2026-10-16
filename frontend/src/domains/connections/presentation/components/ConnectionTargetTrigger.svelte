@@ -8,6 +8,7 @@
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { cn } from "$lib/utils.js";
   import type { sidebarConnectionPresentation } from "../connectionTargetDisplayState.js";
+  import ConnectionSessionIndicator from "./ConnectionSessionIndicator.svelte";
 
   interface Props {
     display: ReturnType<typeof sidebarConnectionPresentation>;
@@ -36,7 +37,7 @@
         >
           <span
             class={cn(
-              "flex size-8 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset transition-[background-color,color,box-shadow] duration-[160ms] ease-out motion-reduce:transition-none",
+              "relative flex size-8 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset transition-[background-color,color,box-shadow] duration-[160ms] ease-out motion-reduce:transition-none",
               display.showError
                 ? "bg-destructive/10 text-destructive ring-destructive/20"
                 : display.hasCard
@@ -50,6 +51,11 @@
               <EthernetPortIcon class="size-4" aria-hidden="true" />
             {:else}
               <CrosshairIcon class="size-4" aria-hidden="true" />
+            {/if}
+            {#if display.hasCard}
+              <span class="absolute -right-0.5 -bottom-0.5"
+                ><ConnectionSessionIndicator compact /></span
+              >
             {/if}
           </span>
           <span class="min-w-0 flex-1 max-sm:hidden">

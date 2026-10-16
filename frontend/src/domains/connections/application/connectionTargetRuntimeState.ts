@@ -7,6 +7,9 @@ import {
   splitCsvValues,
 } from "../../../lib/ui.js";
 import { writable } from "svelte/store";
+import { hasWindow } from "$lib/browser.js";
+import { connectionSession } from "./connectionSessionState.js";
+import { savedConnectionSessionKey } from "../model/connectionSession.js";
 import { connectionApi } from "../infrastructure/connectionApi.js";
 import {
   connectionBasicFieldWiring,
@@ -30,6 +33,7 @@ import {
   clearSavedConnectionDetailCache,
   closeConnectionModal,
   connectionOverlayState,
+  connectionTargetState,
   currentSavedConnections,
   isTemporaryConnectionActive,
   notifySavedConnectionsRefreshed,
@@ -723,7 +727,10 @@ export function connectionPayload(): ConnectionRequestPayload {
     if (!savedConnectionName) {
       throw new Error(t("connectionTargetRequired"));
     }
-    return { connection_name: savedConnectionName };
+    return {
+      connection_name: savedConnectionName,
+      keep_alive: connectionSession.keepAliveOptions(),
+    };
   }
   if (target.kind !== "temporary" || !target.connection) {
     throw new Error(t("connectionTargetRequired"));
@@ -736,7 +743,7 @@ export function connectionPayload(): ConnectionRequestPayload {
   if (!payload.credential_id) {
     throw new Error(t("credentialRequired"));
   }
-  return payload;
+  return { ...payload, keep_alive: connectionSession.keepAliveOptions() };
 }
 
 export async function detectTemporaryConnectionFacts(): Promise<ConnectionFactsResponse> {
@@ -970,3 +977,24 @@ export async function downloadConnectionImportTemplate(): Promise<void> {
     setSavedConnectionStatus(runtimeErrorMessage(e), "error");
   }
 }
+
+connectionTargetState.subscribe((target) => {
+  if (!hasWindow()) return;
+  try {
+    const savedConnection =
+      target.kind === "saved"
+        ? currentSavedConnections().find(
+            (connection) =>
+              connection.name ===
+              (target.connection?.name || target.details?.name),
+          )
+        : null;
+    void connectionSession.selectConnection(
+      target.kind === "none" ? null : connectionPayload(),
+      savedConnection ? savedConnectionSessionKey(savedConnection) : "",
+    );
+  } catch (error) {
+    void connectionSession.selectConnection(null);
+    showToast(runtimeErrorMessage(error), "error");
+  }
+});

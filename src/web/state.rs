@@ -185,6 +185,7 @@ impl Drop for RunningTaskGuard {
 }
 
 pub struct ResolvedConnection {
+    pub keep_alive: Option<crate::domain::connection::ConnectionKeepAlive>,
     pub connection_name: Option<String>,
     pub host: String,
     pub username: String,
@@ -200,6 +201,19 @@ pub struct ResolvedConnection {
     pub vars: serde_json::Value,
     pub force_autodetect: bool,
     pub retry_policy: rneter::session::RetryPolicy,
+}
+
+impl ResolvedConnection {
+    pub fn execution_context(&self) -> rneter::session::ExecutionContext {
+        crate::device::configure_keep_alive(
+            crate::manager_execution_context_with_security(
+                None,
+                self.ssh_security,
+                self.connect_timeout_secs,
+            ),
+            self.keep_alive,
+        )
+    }
 }
 
 const MAX_SESSION_RETRIES: usize = 20;
@@ -284,6 +298,7 @@ pub fn merge_connection_options(
         ));
     }
     let incoming = incoming.unwrap_or(ConnectionRequest {
+        keep_alive: None,
         connection_name: None,
         host: None,
         credential_id: None,
@@ -318,7 +333,14 @@ pub fn merge_connection_options(
 }
 
 pub async fn resolve_autodetect_connection(
+    conn: ResolvedConnection,
+) -> Result<ResolvedConnection, ApiError> {
+    resolve_autodetect_connection_with_mode(conn, rneter::session::ConnectionMode::Pooled).await
+}
+
+pub async fn resolve_autodetect_connection_with_mode(
     mut conn: ResolvedConnection,
+    connection_mode: rneter::session::ConnectionMode,
 ) -> Result<ResolvedConnection, ApiError> {
     if !template_loader::is_autodetect_profile_name(&conn.device_profile) {
         return Ok(conn);
@@ -367,11 +389,9 @@ pub async fn resolve_autodetect_connection(
         conn.auth.clone(),
     )
     .with_output_encoding(conn.output_encoding.to_text_encoding());
-    let context = crate::manager_execution_context_with_security(
-        None,
-        conn.ssh_security,
-        conn.connect_timeout_secs,
-    );
+    let context = conn
+        .execution_context()
+        .with_connection_mode(connection_mode);
     let policy = DetectConnectPolicy::default();
     let connected = MANAGER
         .autodetect_and_connect_with_templates_and_context(
@@ -425,6 +445,9 @@ fn merge_connection_sources(
         return Err(ApiError::bad_request(
             "connect_timeout_secs must be a positive integer",
         ));
+    }
+    if let Some(options) = incoming.keep_alive {
+        options.validate().map_err(ApiError::bad_request)?;
     }
     let saved = saved.as_ref();
     let incoming_vars = incoming.vars;
@@ -509,6 +532,7 @@ fn merge_connection_sources(
         .or_else(|| defaults.device_profile.clone())
         .unwrap_or_else(|| DEFAULT_DEVICE_PROFILE.to_string());
     Ok(ResolvedConnection {
+        keep_alive: incoming.keep_alive,
         connection_name,
         host,
         username,
@@ -671,6 +695,7 @@ mod tests {
     #[test]
     fn merge_connection_sources_uses_saved_runtime_credential_and_explicit_connection_fields() {
         let incoming = ConnectionRequest {
+            keep_alive: None,
             connection_name: Some("lab1".to_string()),
             host: Some("explicit-host".to_string()),
             credential_id: None,

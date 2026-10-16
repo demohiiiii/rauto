@@ -6,10 +6,12 @@ import {
   statusPresentation,
 } from "../../../lib/ui.js";
 import { CONNECTION_PICKER } from "../application/connectionFieldStoreState.js";
+import { connectionSessionPresentation } from "./connectionSessionDisplay.js";
 import type {
   ConnectionAutodetectState,
   ConnectionFocusRequest,
   ConnectionOverlayState,
+  ConnectionSessionState,
   ConnectionStatus,
   SavedConnection,
   SavedConnectionSelectState,
@@ -49,7 +51,10 @@ function firstValue(values: unknown[] = []) {
   return displayString(values.find(Boolean) || "").trim();
 }
 
-function savedConnectionRowPresentation(connection: SavedConnection = {}) {
+function savedConnectionRowPresentation(
+  connection: SavedConnection,
+  sessionState: ConnectionSessionState | null,
+) {
   const name = safeString(connection.name || "").trim();
   const host = safeString(connection.host || "-").trim() || "-";
   const port = Number(connection.port || 22) || 22;
@@ -68,9 +73,12 @@ function savedConnectionRowPresentation(connection: SavedConnection = {}) {
     firstValue(connection.groups) ||
     safeString(connection.group || connection.label || "").trim();
   const enabled = connection.enabled !== false;
-  const statusLabel = enabled
-    ? tr("connStatusEnabled", "在线")
-    : tr("connStatusDisabled", "停用");
+  const session = connectionSessionPresentation(
+    sessionState?.connectionName === name
+      ? sessionState
+      : { status: "idle", error: "" },
+  );
+  const statusLabel = session.label;
   return {
     enabled,
     deviceModel,
@@ -92,7 +100,7 @@ function savedConnectionRowPresentation(connection: SavedConnection = {}) {
       .join(" ")
       .toLowerCase(),
     statusLabel,
-    statusTone: enabled ? "primary" : "muted",
+    session,
     softwareVersion,
     summary: `${credentialName} · ${host}:${port}`,
     tag: tag || tr("connUngrouped", "未分组"),
@@ -147,12 +155,15 @@ export function savedConnectionEditModalDisplay(
 export function savedConnectionLibraryPresentation(
   selectState: SavedConnectionSelectState = {},
   statusState: ConnectionStatus | null = null,
+  sessionState: ConnectionSessionState | null = null,
 ) {
   const placeholder = tr("savedConnSelectPlaceholder");
   const status = connectionStatusPresentation(statusState);
   const selected = selectState.selected || "";
   const connectionRows = Array.isArray(selectState.connections)
-    ? selectState.connections.map(savedConnectionRowPresentation)
+    ? selectState.connections.map((connection) =>
+        savedConnectionRowPresentation(connection, sessionState),
+      )
     : [];
   const selectedConnectionRow =
     connectionRows.find((connectionRow) => connectionRow.name === selected) ||

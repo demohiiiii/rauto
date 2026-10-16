@@ -38,6 +38,8 @@ import type {
   SavedConnection,
   SavedConnectionDetail,
   ConnectionTestResponse,
+  ConnectionSessionIdentity,
+  ConnectionDisconnectResponse,
 } from "$domains/connections/model/types.js";
 import type {
   CredentialApiRow,
@@ -612,6 +614,18 @@ export function testConnection(
   return apiRequest("POST", "/api/connection/test", {
     connection,
   });
+}
+
+export function connectDevice(
+  connection: ConnectionRequestPayload,
+): Promise<ConnectionTestResponse> {
+  return apiRequest("POST", "/api/connection/connect", { connection });
+}
+
+export function disconnectDevice(
+  target: ConnectionSessionIdentity,
+): Promise<ConnectionDisconnectResponse> {
+  return apiRequest("POST", "/api/connection/disconnect", target);
 }
 
 export function detectConnectionFacts(

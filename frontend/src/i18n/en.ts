@@ -1,6 +1,21 @@
 import type { I18nDictionary } from "./types.js";
 
 export const i18nEn = {
+  connectionSessionIdle: "Not connected",
+  connectionSessionConnecting: "Connecting",
+  connectionSessionConnected: "Connected",
+  connectionSessionError: "Connection failed",
+  connectionKeepAlive: "Keep alive",
+  connectionHeartbeat: "Heartbeat",
+  connectionHeartbeatShort: "Interval",
+  connectionHeartbeatCustom: "Custom interval",
+  connectionHeartbeatApply: "Apply heartbeat interval",
+  connectionHeartbeatSeconds: "sec",
+  connectionKeepAliveHint:
+    "When enabled, selecting a target connects automatically and keeps it alive with SSH heartbeats. When disabled, connect only when an operation runs.",
+  connectionHeartbeatInvalid: "Enter a whole number between 1 and 3600 seconds",
+  connectionReconnect: "Reconnect",
+
   renderedCommandsPreview: "Preview commands",
   renderedCommandsTitle: "Execution command preview",
   renderedCommandsHint:

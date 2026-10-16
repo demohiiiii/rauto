@@ -86,6 +86,7 @@ pub async fn execute_interactive(
             conn.ssh_security,
             conn.connect_timeout_secs,
             conn.retry_policy,
+            conn.keep_alive,
         )
         .await?
     } else {
@@ -101,6 +102,7 @@ pub async fn execute_interactive(
             conn.ssh_security,
             conn.connect_timeout_secs,
             conn.retry_policy,
+            conn.keep_alive,
         )
         .await?
     };
@@ -503,6 +505,7 @@ async fn execute_batch_interactive_target_inner(
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
             target.conn.retry_policy,
+            target.conn.keep_alive,
         )
         .await?
     } else {
@@ -518,6 +521,7 @@ async fn execute_batch_interactive_target_inner(
             target.conn.ssh_security,
             target.conn.connect_timeout_secs,
             target.conn.retry_policy,
+            target.conn.keep_alive,
         )
         .await?
     };
@@ -617,8 +621,7 @@ pub async fn execute_upload(
         handler,
         conn.output_encoding,
     );
-    let context =
-        manager_execution_context_with_security(None, conn.ssh_security, conn.connect_timeout_secs);
+    let context = conn.execution_context();
 
     let recording_jsonl = if let Some(level) = to_record_level(record_level) {
         let recorder = crate::config::session_recording::redacting_recorder(
@@ -627,7 +630,12 @@ pub async fn execute_upload(
             conn.enable_password.as_deref(),
         );
         MANAGER
-            .upload_file_with_recorder_and_context(request, upload, context, recorder.clone())
+            .upload_file_with_recorder_and_context(
+                request,
+                upload,
+                context.with_keep_alive(false),
+                recorder.clone(),
+            )
             .await?;
         let jsonl_raw = recorder.to_jsonl().map_err(ApiError::from)?;
         let jsonl = normalize_recording_jsonl_for_web_level(record_level, &jsonl_raw);
