@@ -11,7 +11,7 @@ use std::sync::OnceLock;
 #[folder = "assets/ntc_templates/templates"]
 struct NtcTemplates;
 
-static CLI_TABLE: OnceLock<Option<textfsm_rust::CliTable>> = OnceLock::new();
+static CLI_TABLE: OnceLock<std::result::Result<textfsm_rust::CliTable, String>> = OnceLock::new();
 
 #[derive(Debug, Clone, Default)]
 pub struct AutoParseAttributes {
@@ -141,24 +141,23 @@ pub fn parse_output_with_template_file(template_file: &Path, output: &str) -> Re
     )
 }
 
-pub fn parse_output_with_auto_selection(output: &str, attrs: AutoParseAttributes) -> Result<Value> {
-    parse_output_with_auto_selection_filtered(output, attrs, true)
-}
-
-fn parse_output_with_auto_selection_filtered(
+pub fn parse_output_with_auto_selection(
     output: &str,
     attrs: AutoParseAttributes,
     filter_error_rules: bool,
-) -> Result<Value> {
+) -> Result<Option<Value>> {
     let table = cli_table()?;
     let attrs = attrs.to_map();
     let template_contexts = selected_ntc_template_contexts(table, &attrs);
-    if filter_error_rules && !template_contexts.is_empty() {
+    if template_contexts.is_empty() {
+        return Ok(None);
+    }
+    if filter_error_rules {
         let effective_contexts = filtered_template_contexts(&template_contexts);
         let mut last_error = None;
         for context in &effective_contexts {
             match parse_output_with_template_content_inner(&context.content, output, false) {
-                Ok(value) => return Ok(value),
+                Ok(value) => return Ok(Some(value)),
                 Err(err) => last_error = Some(err),
             }
         }
@@ -172,7 +171,7 @@ fn parse_output_with_auto_selection_filtered(
     let parsed = table
         .parse_cmd(output, &attrs)
         .map_err(|err| textfsm_error_with_template_contexts(err, &template_contexts))?;
-    table_to_json(&parsed)
+    table_to_json(&parsed).map(Some)
 }
 
 pub fn parse_command_output(output: &str, command: &str, options: &ParseOptions) -> Result<Value> {
@@ -233,10 +232,14 @@ pub fn parse_command_output(output: &str, command: &str, options: &ParseOptions)
         platform,
         vendor: options.vendor.clone(),
     };
-    if options.filter_error_rules {
-        return parse_output_with_auto_selection(output, attrs);
-    }
-    parse_output_with_auto_selection_filtered(output, attrs, false)
+    parse_output_with_auto_selection(output, attrs, options.filter_error_rules)?
+        .with_context(|| {
+            format!(
+                "no predefined or custom TextFSM parsing template matches command '{}' (device profile: '{}'); configure a parsing template for this command",
+                command,
+                options.device_profile.as_deref().unwrap_or("unspecified"),
+            )
+        })
 }
 
 pub fn parse_command_output_optional(
@@ -511,12 +514,15 @@ fn line_numbered_template_content(content: &str) -> String {
 
 fn cli_table() -> Result<&'static textfsm_rust::CliTable> {
     let table = CLI_TABLE.get_or_init(|| {
-        let root = embedded_ntc_template_root().ok()?;
-        textfsm_rust::CliTable::new(root.join("index"), &root).ok()
+        (|| {
+            let root = embedded_ntc_template_root()?;
+            textfsm_rust::CliTable::new(root.join("index"), &root).map_err(anyhow::Error::from)
+        })()
+        .map_err(|error| format!("{error:#}"))
     });
-    table
-        .as_ref()
-        .context("ntc templates CliTable is not available")
+    table.as_ref().map_err(|error| {
+        anyhow::anyhow!("failed to load predefined TextFSM parsing templates: {error}")
+    })
 }
 
 fn table_to_json(table: &textfsm_rust::TextTable) -> Result<Value> {
@@ -541,17 +547,19 @@ fn table_to_json(table: &textfsm_rust::TextTable) -> Result<Value> {
 
 fn embedded_ntc_template_root() -> Result<std::path::PathBuf> {
     let cache_root = std::env::temp_dir().join("rauto-embedded-ntc-templates");
-    if cache_root.exists() {
-        return Ok(cache_root);
-    }
-    fs::create_dir_all(&cache_root).context("failed to create embedded ntc template cache")?;
+    prepare_embedded_template_cache(&cache_root)?;
+    Ok(cache_root)
+}
+
+fn prepare_embedded_template_cache(cache_root: &Path) -> Result<()> {
+    fs::create_dir_all(cache_root).context("failed to create predefined TextFSM template cache")?;
     for path in NtcTemplates::iter() {
         let rel = std::path::Path::new(path.as_ref());
         let target = cache_root.join(rel);
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent).with_context(|| {
                 format!(
-                    "failed to create ntc template cache dir '{}'",
+                    "failed to create predefined TextFSM template cache dir '{}'",
                     parent.display()
                 )
             })?;
@@ -559,14 +567,25 @@ fn embedded_ntc_template_root() -> Result<std::path::PathBuf> {
         let Some(content) = NtcTemplates::get(path.as_ref()) else {
             continue;
         };
-        fs::write(&target, content.data.as_ref()).with_context(|| {
+        if fs::read(&target).is_ok_and(|cached| cached == content.data.as_ref()) {
+            continue;
+        }
+        let temporary = target.with_extension(format!("{:032x}.tmp", rand::random::<u128>()));
+        let result = (|| {
+            fs::write(&temporary, content.data.as_ref())?;
+            fs::rename(&temporary, &target)
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(&temporary);
+        }
+        result.with_context(|| {
             format!(
-                "failed to write embedded ntc template cache '{}'",
+                "failed to write predefined TextFSM template cache '{}'",
                 target.display()
             )
         })?;
     }
-    Ok(cache_root)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -621,6 +640,90 @@ mod tests {
         );
 
         assert_eq!(result, (None, None));
+    }
+
+    #[test]
+    fn missing_template_reports_both_sources_and_the_command_profile() {
+        let _db_guard = isolated_parse_database();
+        for filter_error_rules in [true, false] {
+            let (parsed, error) = parse_command_output_optional(
+                "Linux test-host 6.8.0",
+                "uname -a",
+                &ParseOptions {
+                    enabled: true,
+                    device_profile: Some("linux".into()),
+                    filter_error_rules,
+                    ..Default::default()
+                },
+            );
+            assert!(parsed.is_none());
+            let error = error.expect("missing template should be reported");
+            assert!(error.contains("no predefined or custom TextFSM parsing template"));
+            assert!(error.contains("uname -a"));
+            assert!(error.contains("linux"));
+            assert!(!error.contains("CliTable"));
+            assert!(!error.contains("ntc"));
+        }
+    }
+
+    #[test]
+    fn custom_template_is_preferred_and_its_errors_are_preserved() {
+        let _db_guard = isolated_parse_database();
+        crate::config::custom_textfsm_store::create_template(
+            "uname",
+            "Value NAME (\\S+)\n\nStart\n  ^${NAME} -> Record\n",
+        )
+        .unwrap();
+        crate::config::custom_textfsm_store::upsert_mapping("linux", "uname -a", "uname").unwrap();
+        // Override a command with a predefined template as well.
+        crate::config::custom_textfsm_store::upsert_mapping(
+            "linux",
+            "cat /etc/os-release",
+            "uname",
+        )
+        .unwrap();
+        let options = ParseOptions {
+            enabled: true,
+            device_profile: Some("linux".into()),
+            ..Default::default()
+        };
+        for command in ["uname -a", "cat /etc/os-release"] {
+            let parsed = parse_command_output("Linux", command, &options).unwrap();
+            assert_eq!(parsed[0]["name"], "Linux");
+        }
+        crate::config::custom_textfsm_store::update_template("uname", "invalid TextFSM").unwrap();
+        let (_, error) = parse_command_output_optional("Linux", "uname -a", &options);
+        let error = error.unwrap();
+        assert!(error.contains("failed to parse TextFSM template"));
+        assert!(error.contains("db://custom-textfsm/linux/uname -a?template=uname"));
+        assert!(!error.contains("no predefined or custom"));
+    }
+
+    #[test]
+    fn incomplete_or_stale_predefined_cache_is_repaired_before_parsing() {
+        let root = std::env::temp_dir().join(format!(
+            "rauto-textfsm-cache-{:032x}",
+            rand::random::<u128>()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        prepare_embedded_template_cache(&root).expect("repair an empty cache directory");
+        fs::write(root.join("index"), "stale index").unwrap();
+        fs::remove_file(root.join("linux_cat_etc_os-release.textfsm")).unwrap();
+        prepare_embedded_template_cache(&root).expect("repair stale and missing cache files");
+        let table = textfsm_rust::CliTable::new(root.join("index"), &root).unwrap();
+        let attrs = AutoParseAttributes {
+            command: Some("cat /etc/os-release".into()),
+            platform: Some("linux".into()),
+            ..Default::default()
+        }
+        .to_map();
+        let parsed = table
+            .parse_cmd("NAME=Ubuntu\nVERSION_ID=24.04\n", &attrs)
+            .expect("repaired predefined template should parse");
+        let facts = extract_device_facts(&table_to_json(&parsed).unwrap());
+        assert_eq!(facts.device_model.as_deref(), Some("Ubuntu"));
+        assert_eq!(facts.software_version.as_deref(), Some("24.04"));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

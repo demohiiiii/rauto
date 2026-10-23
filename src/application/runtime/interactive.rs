@@ -1,3 +1,40 @@
+use crate::config::interactive_template::cisco_like_copy_interactive_template;
+const BUILTIN_FLOW_TEMPLATE_PREFIX: &str = "builtin:";
+const BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY: &str = "cisco-like-copy";
+pub(crate) fn normalize_builtin_interactive_template_name(raw: &str) -> String {
+    raw.trim().to_ascii_lowercase().replace('_', "-")
+}
+
+pub(crate) fn parse_builtin_interactive_template_token(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if !trimmed
+        .get(..BUILTIN_FLOW_TEMPLATE_PREFIX.len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(BUILTIN_FLOW_TEMPLATE_PREFIX))
+    {
+        return None;
+    }
+    let suffix = trimmed
+        .get(BUILTIN_FLOW_TEMPLATE_PREFIX.len()..)
+        .unwrap_or("");
+    let normalized = normalize_builtin_interactive_template_name(suffix);
+    (!normalized.is_empty()).then_some(normalized)
+}
+
+pub(crate) fn builtin_interactive_template_by_name(name: &str) -> Option<InteractiveTemplate> {
+    let normalized = normalize_builtin_interactive_template_name(name);
+    match normalized.as_str() {
+        BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY => {
+            let mut template = cisco_like_copy_interactive_template().ok()?;
+            template.name = BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY.to_string();
+            Some(template)
+        }
+        _ => None,
+    }
+}
+
 use super::context::current_connection_param_context;
 use super::*;
 

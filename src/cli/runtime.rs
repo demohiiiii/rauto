@@ -1,23 +1,17 @@
 use crate::cli::{GlobalOpts, RecordLevelOpt};
-use crate::config::autodetect_cache;
 use crate::config::connection_store::{SavedConnection, load_connection, save_connection};
 use crate::config::history_store::{self, HistoryBinding};
-use crate::config::interactive_template::InteractiveTemplate;
-use crate::config::interactive_vars::{ConnectionParamContext, resolve_interactive_runtime_vars};
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::session_recording;
 use crate::config::ssh_security::{SshSecurityProfile, connection_security_options};
-use crate::config::template_loader::{self, AUTODETECT_DEVICE_PROFILE};
-use crate::device::DeviceClient;
+use crate::config::template_loader::AUTODETECT_DEVICE_PROFILE;
 use crate::domain::device::DeviceEncoding;
 use anyhow::Result;
 use rneter::device::DeviceHandler;
 use rneter::session::{
-    ConnectionRequest as ManagerConnectionRequest, DetectRequest, ExecutionContext, MANAGER,
-    RetryPolicy, SessionRecordLevel, SshAuthMethod,
+    ConnectionRequest as ManagerConnectionRequest, DetectRequest, ExecutionContext, RetryPolicy,
+    SessionRecordLevel, SshAuthMethod,
 };
-use rneter::templates::DetectConnectPolicy;
-use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -187,48 +181,6 @@ pub(crate) fn resolve_effective_connection(opts: &GlobalOpts) -> Result<Effectiv
 pub(crate) async fn resolve_autodetect_connection(
     mut conn: EffectiveConnection,
 ) -> Result<EffectiveConnection> {
-    if !template_loader::is_autodetect_profile_name(&conn.device_profile) {
-        return Ok(conn);
-    }
-
-    if conn.force_autodetect {
-        info!(
-            "Bypassing autodetect cache and reprobe requested for {}:{}",
-            conn.host, conn.port
-        );
-    } else {
-        match autodetect_cache::load_cached_profile(&conn.host, conn.port) {
-            Ok(Some(profile)) => {
-                info!(
-                    "Reusing cached autodetected device profile '{}' for {}:{}",
-                    profile, conn.host, conn.port
-                );
-                conn.device_profile = profile;
-                // Older autodetect cache entries only contain the profile. A
-                // cached Linux target still needs a shell probe when the
-                // caller did not explicitly provide one, otherwise fish is
-                // handled with POSIX exit-status syntax and command waits can
-                // time out.
-                if !conn.device_profile.eq_ignore_ascii_case("linux")
-                    || conn.linux_shell_flavor.is_some()
-                {
-                    return Ok(conn);
-                }
-                info!(
-                    "Cached Linux profile for {}:{} has no shell flavor; reprobing shell",
-                    conn.host, conn.port
-                );
-            }
-            Ok(None) => {}
-            Err(err) => {
-                warn!(
-                    "failed to load autodetect cache for {}:{}: {}",
-                    conn.host, conn.port, err
-                );
-            }
-        }
-    }
-
     let request = DetectRequest::new_with_auth(
         conn.username.clone(),
         conn.host.clone(),
@@ -238,48 +190,16 @@ pub(crate) async fn resolve_autodetect_connection(
     .with_output_encoding(conn.output_encoding.to_text_encoding());
     let context =
         manager_execution_context_with_security(None, conn.ssh_security, conn.connect_timeout_secs);
-    let policy = DetectConnectPolicy::default();
-    let connected = MANAGER
-        .autodetect_and_connect_with_templates_and_context(
+    (conn.device_profile, conn.linux_shell_flavor) =
+        crate::application::autodetect::resolve_connection_profile(
             request,
             conn.enable_password.clone(),
             context,
-            policy,
-            template_loader::autodetect_template_definitions()?,
+            conn.device_profile,
+            conn.linux_shell_flavor,
+            conn.force_autodetect,
         )
         .await?;
-    let best = connected
-        .report
-        .best_match
-        .as_ref()
-        .expect("rneter connected autodetect result must contain a best match");
-    info!(
-        "Device profile autodetected as '{}' (confidence={:?}, score={})",
-        best.template_name, best.confidence, best.score
-    );
-    if let Err(err) =
-        autodetect_cache::save_cached_profile(&conn.host, conn.port, &best.template_name)
-    {
-        warn!(
-            "failed to save autodetect cache for {}:{} -> {}: {}",
-            conn.host, conn.port, best.template_name, err
-        );
-    }
-    conn.device_profile = best.template_name.clone();
-    if conn.device_profile.eq_ignore_ascii_case("linux") && conn.linux_shell_flavor.is_none() {
-        conn.linux_shell_flavor = connected
-            .report
-            .linux_shell_flavor
-            .map(LinuxShellFlavor::from_device_shell_flavor);
-        info!(
-            "Detected Linux shell flavor '{}' for {}:{}",
-            conn.linux_shell_flavor
-                .map(|flavor| flavor.to_string())
-                .unwrap_or_else(|| "posix".to_string()),
-            conn.host,
-            conn.port
-        );
-    }
     Ok(conn)
 }
 
@@ -315,29 +235,6 @@ pub(crate) fn save_named_connection(name: &str, conn: &EffectiveConnection) -> R
     };
 
     save_connection(name, &data)
-}
-
-fn current_connection_param_context(conn: &EffectiveConnection) -> ConnectionParamContext {
-    ConnectionParamContext::new(
-        conn.connection_name.as_deref(),
-        Some(&conn.host),
-        Some(&conn.username),
-        Some(&conn.password),
-        Some(conn.port),
-        conn.enable_password.as_deref(),
-        Some(conn.ssh_security),
-        conn.linux_shell_flavor,
-        Some(&conn.device_profile),
-        &conn.vars,
-    )
-}
-
-pub(crate) fn resolve_interactive_connection_vars(
-    template: &InteractiveTemplate,
-    vars: Value,
-    conn: &EffectiveConnection,
-) -> Result<Value> {
-    resolve_interactive_runtime_vars(template, vars, Some(current_connection_param_context(conn)))
 }
 
 pub(crate) fn read_required_text_input(
@@ -390,69 +287,6 @@ pub(crate) fn normalize_recording_jsonl_for_cli_level(
     }
 }
 
-pub(crate) fn persist_auto_recording_history(
-    client: &DeviceClient,
-    conn: &EffectiveConnection,
-    operation: &str,
-    command_label: &str,
-    mode: Option<&str>,
-    record_level: RecordLevelOpt,
-) -> Result<()> {
-    let Some(jsonl) = client.recording_jsonl()? else {
-        return Ok(());
-    };
-    let jsonl = normalize_recording_jsonl_for_cli_level(&jsonl, record_level);
-    let result = history_store::save_recording(
-        HistoryBinding {
-            connection_name: conn.connection_name.as_deref(),
-            host: &conn.host,
-            port: conn.port,
-            username: &conn.username,
-            device_profile: &conn.device_profile,
-        },
-        operation,
-        command_label,
-        mode,
-        record_level_name(record_level),
-        &jsonl,
-    );
-    match result {
-        Ok(entry) => {
-            info!(
-                "Auto-saved recording history: {} -> {}",
-                entry.connection_key, entry.record_path
-            );
-        }
-        Err(e) => {
-            error!("Failed to auto-save recording history: {}", e);
-        }
-    }
-    Ok(())
-}
-
-pub(crate) fn write_recording_if_requested(
-    record_file: Option<&PathBuf>,
-    client: &DeviceClient,
-    record_level: RecordLevelOpt,
-) -> Result<()> {
-    let Some(path) = record_file else {
-        return Ok(());
-    };
-    let Some(jsonl) = client.recording_jsonl()? else {
-        return Ok(());
-    };
-    let jsonl = normalize_recording_jsonl_for_cli_level(&jsonl, record_level);
-
-    if let Some(parent) = path.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, jsonl.as_bytes())?;
-    println!("Saved session recording to '{}'", path.to_string_lossy());
-    Ok(())
-}
-
 pub(crate) fn persist_auto_recording_history_jsonl(
     jsonl: &str,
     conn: &EffectiveConnection,
@@ -487,25 +321,6 @@ pub(crate) fn persist_auto_recording_history_jsonl(
             error!("Failed to auto-save recording history: {}", e);
         }
     }
-    Ok(())
-}
-
-pub(crate) fn write_recording_text_if_requested(
-    record_file: Option<&PathBuf>,
-    jsonl: &str,
-    record_level: RecordLevelOpt,
-) -> Result<()> {
-    let Some(path) = record_file else {
-        return Ok(());
-    };
-    let jsonl = normalize_recording_jsonl_for_cli_level(jsonl, record_level);
-    if let Some(parent) = path.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, jsonl.as_bytes())?;
-    println!("Saved session recording to '{}'", path.to_string_lossy());
     Ok(())
 }
 

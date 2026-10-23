@@ -30,7 +30,7 @@ pub(crate) fn load_json_template_from_input(
 
 pub(crate) fn build_json_template_context(
     vars: Value,
-    conn: Option<&crate::web::state::ResolvedConnection>,
+    conn: Option<&crate::application::state::ResolvedConnection>,
 ) -> Value {
     let vars_for_root = vars.clone();
     let mut root = serde_json::Map::new();

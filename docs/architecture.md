@@ -72,7 +72,7 @@ existing connection behavior; no automatic connection flags are added there.
 | Domain | `src/domain/template` | Jinja rendering, interactive templates and content models |
 | Infrastructure | `src/infrastructure/db` | SQLite, migrations, repositories, encryption and keyring integration |
 | Interfaces | `src/interfaces/api` | HTTP DTOs and generated manager/agent gRPC contracts |
-| Application | `src/cli`, `src/web`, `src/agent`, `src/orchestrator` | Use-case coordination and runtime adapters |
+| Application | `src/application`, `src/cli`, `src/web`, `src/agent`, `src/orchestrator`, `src/scheduler` | Use-case coordination and runtime adapters |
 
 ## Dependency rules
 
@@ -103,3 +103,53 @@ cargo fmt --all --check
 cargo check --all-targets --all-features
 cargo test --all-targets
 ```
+
+## Shared CLI and service runtime
+
+`src/application/execution` owns execution, rendering, parsing, history and task
+reporting. Existing Axum handlers are transport adapters over that service; the
+CLI prepares `ExecutionRequest` and presents `ExecutionReply`. The tagged request
+and result variants reuse the concrete HTTP DTOs in `interfaces::api::models`.
+`application::dispatch` is the common dispatcher for direct execution and the
+synchronous local service call. Both return the final execution result.
+CLI input files cross the boundary as content; export paths remain client-side.
+The internal request preserves CLI execution semantics: plain workflow and plan
+JSON loads literally, workflow control structures and named templates render,
+and command templates continue after individual command failures and report the
+aggregate result. Web requests retain template rendering and stop-on-error
+defaults. Preview results never export a session recording.
+
+Before initializing SQLite, credentials or rneter sessions, the process checks
+`infrastructure::runtime::RuntimeLock`. Ownership uses an OS file lock on the
+stable `runtime.lock` inode. Metadata alone never proves ownership. A healthy
+service for the same home is preferred; otherwise local execution must acquire
+that lock. A busy or unresponsive owner is never bypassed. `serve`, `web` and
+`agent` retain ownership until their servers and active requests have ended.
+Help, version and static completion return before runtime initialization.
+
+`interfaces::runtime` serves a separate authenticated loopback control plane.
+The randomly generated token is kept in `runtime.json` (mode 0600 on Unix),
+identity checks include a protocol version and instance ID, and the local client
+ignores proxy configuration. The listener uses an ephemeral local port and is
+independent of browser session authentication and the public listen address.
+`serve` is a foreground service entry point; operating-system service managers
+own daemonization and restart policy.
+
+The control plane exposes `POST /execute` and returns `ExecutionReply` in the
+same HTTP call. Execution lives in the response body future, with no spawned
+execution worker or persistent pending requests. Dropping the body cancels
+in-memory waits. Device operations already sent cannot be assumed to be undone.
+The shared dispatcher cancels all CLI execution types on shutdown, including
+interactive commands and uploads waiting for a device lease. Shutdown takes
+priority over ready execution so pending requests cannot start during shutdown.
+The client has a connect timeout and short identity-probe timeout, but no fixed
+execution response timeout. Errors never trigger automatic resubmission or
+local fallback. Service startup does not reload or replay CLI requests.
+
+`application::limits` limits active device operations to four and holds an
+exclusive host/port lease across workflows and rollback. DeviceClient, direct
+rneter workflow execution and orchestration compensation share those limits.
+Web and cron call the same application execution functions, so their independent
+request/stage limits cannot exceed this shared device capacity. rneter remains
+the sole session engine. Batch fanout belongs to the shared service; the old CLI
+execution and fanout implementations have been removed.

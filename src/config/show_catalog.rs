@@ -328,7 +328,9 @@ mod tests {
                 platform: Some(command.platform),
                 vendor: None,
             },
+            true,
         )
+        .expect("automatic TextFSM lookup should succeed")
         .expect("batch top command should still select the bundled parser");
 
         assert_eq!(parsed.as_array().expect("parsed rows").len(), 1);

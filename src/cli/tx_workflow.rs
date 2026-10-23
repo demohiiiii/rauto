@@ -1,93 +1,10 @@
-use crate::cli::{JsonTemplateCommands, TxWorkflowArgs};
-use crate::config::{command_blacklist, content_store, template_loader};
+use crate::cli::JsonTemplateCommands;
+use crate::config::content_store;
 use crate::tx_operation::command_timeout_secs;
 use anyhow::Result;
-use rneter::session::{MANAGER, RollbackPolicy, SessionOperation, TxBlock, TxWorkflowResult};
+use rneter::session::{RollbackPolicy, SessionOperation, TxBlock, TxWorkflowResult};
 use std::fmt::Write as _;
-use std::fs;
 use std::path::PathBuf;
-
-pub(crate) async fn run_tx_workflow(
-    args: TxWorkflowArgs,
-    opts: &crate::cli::GlobalOpts,
-) -> Result<()> {
-    let (workflow, source) = load_tx_workflow_from_args(&args, opts).await?;
-
-    if args.view {
-        print_tx_workflow_plan(&workflow, source.as_ref());
-        return Ok(());
-    }
-
-    if args.dry_run {
-        if args.json {
-            println!("{}", serde_json::to_string_pretty(&workflow)?);
-        } else {
-            print_tx_workflow_plan(&workflow, source.as_ref());
-        }
-        return Ok(());
-    }
-
-    command_blacklist::ensure_tx_workflow_allowed(
-        &workflow,
-        &format!("tx workflow '{}'", workflow.name),
-    )?;
-
-    let conn =
-        crate::resolve_autodetect_connection(crate::resolve_effective_connection(opts)?).await?;
-    let handler = template_loader::load_device_profile_for_connection(
-        &conn.device_profile,
-        conn.linux_shell_flavor,
-    )?;
-    let request = crate::manager_connection_request(
-        conn.username.clone(),
-        conn.host.clone(),
-        conn.port,
-        conn.auth.clone(),
-        conn.enable_password.clone(),
-        handler,
-        conn.output_encoding,
-    );
-    let record_level = crate::to_record_level(args.record_level);
-    let recorder = crate::config::session_recording::redacting_recorder(
-        record_level,
-        &conn.auth,
-        conn.enable_password.as_deref(),
-    );
-    let workflow_result = MANAGER
-        .execute_tx_workflow_with_recorder_and_context(
-            request,
-            workflow.clone(),
-            crate::manager_execution_context_with_security(
-                None,
-                conn.ssh_security,
-                conn.connect_timeout_secs,
-            ),
-            recorder.clone(),
-        )
-        .await?;
-    let recording_jsonl = recorder.to_jsonl()?;
-    crate::write_recording_text_if_requested(
-        args.record_file.as_ref(),
-        &recording_jsonl,
-        args.record_level,
-    )?;
-    crate::persist_auto_recording_history_jsonl(
-        &recording_jsonl,
-        &conn,
-        "tx_workflow",
-        &workflow.name,
-        None,
-        args.record_level,
-    )?;
-
-    if args.json {
-        println!("{}", serde_json::to_string_pretty(&workflow_result)?);
-    } else {
-        print_tx_workflow_result(&workflow_result);
-    }
-    crate::maybe_save_connection_profile(opts, &conn)?;
-    Ok(())
-}
 
 pub(crate) fn run_tx_workflow_template_command(cmd: JsonTemplateCommands) -> Result<()> {
     run_json_template_command(
@@ -164,59 +81,10 @@ fn run_json_template_command(
     Ok(())
 }
 
-async fn load_tx_workflow_from_args(
-    args: &TxWorkflowArgs,
-    opts: &crate::cli::GlobalOpts,
-) -> Result<(rneter::session::TxWorkflow, Option<PathBuf>)> {
-    match (&args.workflow_file, &args.template) {
-        (Some(_), Some(_)) => Err(anyhow::anyhow!(
-            "use either workflow_file or --template, not both"
-        )),
-        (None, None) => Err(anyhow::anyhow!(
-            "tx-workflow requires workflow_file or --template <name>"
-        )),
-        (Some(path), None) => {
-            let workflow_text = fs::read_to_string(path)?;
-            let source: serde_json::Value = serde_json::from_str(&workflow_text)?;
-            let workflow =
-                if crate::domain::execution::workflow_template::has_workflow_controls(&source) {
-                    let vars = crate::cli::json_templates::read_json_vars(
-                        args.vars.as_deref(),
-                        args.vars_json.as_deref(),
-                    )?;
-                    let conn = crate::resolve_effective_connection(opts).ok();
-                    let mut context =
-                        crate::cli::json_templates::template_context(vars, conn.as_ref());
-                    serde_json::from_value(crate::cli::json_templates::render_json_template_value(
-                        &source,
-                        &mut context,
-                    )?)?
-                } else {
-                    serde_json::from_value(source)?
-                };
-            Ok((workflow, Some(path.clone())))
-        }
-        (None, Some(name)) => {
-            let content = crate::cli::json_templates::load_json_template_content(
-                crate::cli::json_templates::JsonTemplateKind::TxWorkflow,
-                name,
-            )?;
-            let source: serde_json::Value = serde_json::from_str(&content)?;
-            let vars = crate::cli::json_templates::read_json_vars(
-                args.vars.as_deref(),
-                args.vars_json.as_deref(),
-            )?;
-            let conn = crate::resolve_effective_connection(opts).ok();
-            let mut context = crate::cli::json_templates::template_context(vars, conn.as_ref());
-            let rendered =
-                crate::cli::json_templates::render_json_template_value(&source, &mut context)?;
-            let workflow = serde_json::from_value(rendered)?;
-            Ok((workflow, None))
-        }
-    }
-}
-
-fn print_tx_workflow_plan(workflow: &rneter::session::TxWorkflow, source: Option<&PathBuf>) {
+pub(crate) fn print_tx_workflow_plan(
+    workflow: &rneter::session::TxWorkflow,
+    source: Option<&PathBuf>,
+) {
     println!("{}", render_tx_workflow_plan(workflow, source));
 }
 
@@ -712,7 +580,7 @@ impl AnsiTheme {
     }
 }
 
-fn print_tx_workflow_result(result: &TxWorkflowResult) {
+pub(crate) fn print_tx_workflow_result(result: &TxWorkflowResult) {
     println!("# tx_workflow: {}", result.workflow_name);
     println!("committed: {}", result.committed);
     println!(

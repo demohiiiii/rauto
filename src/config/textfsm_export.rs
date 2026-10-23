@@ -5,10 +5,6 @@ use std::path::Path;
 
 pub use crate::domain::template::ParsedOutputSheet;
 
-pub fn write_parsed_output_xlsx(path: &Path, sheet: ParsedOutputSheet) -> Result<()> {
-    write_parsed_outputs_xlsx(path, &[sheet])
-}
-
 pub fn write_parsed_outputs_xlsx(path: &Path, sheets: &[ParsedOutputSheet]) -> Result<()> {
     let bytes = parsed_outputs_xlsx_bytes(sheets)?;
     std::fs::write(path, bytes)

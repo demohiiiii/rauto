@@ -94,7 +94,10 @@ pub fn create_backup(output: Option<&Path>) -> Result<PathBuf> {
     for entry in fs::read_dir(&root)? {
         let entry = entry?;
         let path = entry.path();
-        if path.file_name().and_then(|s| s.to_str()) == Some("backups") {
+        if matches!(
+            path.file_name().and_then(|s| s.to_str()),
+            Some("backups" | "runtime.lock" | "runtime.json")
+        ) {
             continue;
         }
         let rel = archive_root.join(entry.file_name());
@@ -212,6 +215,10 @@ fn append_path_recursive(
 }
 
 fn copy_dir_recursive(source: &Path, target: &Path) -> Result<()> {
+    copy_backup_contents(source, target, true)
+}
+
+fn copy_backup_contents(source: &Path, target: &Path, root: bool) -> Result<()> {
     if !source.exists() {
         return Ok(());
     }
@@ -219,6 +226,14 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> Result<()> {
     for entry in fs::read_dir(source)? {
         let entry = entry?;
         let source_path = entry.path();
+        if root
+            && matches!(
+                entry.file_name().to_str(),
+                Some("runtime.lock" | "runtime.json")
+            )
+        {
+            continue;
+        }
         let target_path = target.join(entry.file_name());
         let metadata = fs::symlink_metadata(&source_path)?;
         if fs::symlink_metadata(&target_path)
@@ -231,7 +246,7 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> Result<()> {
         }
         if metadata.file_type().is_dir() {
             fs::create_dir_all(&target_path)?;
-            copy_dir_recursive(&source_path, &target_path)?;
+            copy_backup_contents(&source_path, &target_path, false)?;
         } else if metadata.file_type().is_file() {
             if let Some(parent) = target_path.parent() {
                 fs::create_dir_all(parent)?;
@@ -252,7 +267,10 @@ fn clear_rauto_except_backups(target: &Path) -> Result<()> {
     for entry in fs::read_dir(target)? {
         let entry = entry?;
         let path = entry.path();
-        let keep = path.file_name().and_then(|s| s.to_str()) == Some("backups");
+        let keep = matches!(
+            path.file_name().and_then(|s| s.to_str()),
+            Some("backups" | "runtime.lock" | "runtime.json")
+        );
         if keep {
             continue;
         }
@@ -268,6 +286,49 @@ fn clear_rauto_except_backups(target: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{backup_path_by_name_in, unpack_archive};
+
+    #[test]
+    fn restore_preserves_the_live_lock_inode_and_does_not_import_runtime_tokens() {
+        let root = test_root();
+        let archive = root.join("archive");
+        let target = root.join("target");
+        std::fs::create_dir_all(&archive).unwrap();
+        std::fs::create_dir_all(&target).unwrap();
+        std::fs::write(archive.join("runtime.lock"), "old lock").unwrap();
+        std::fs::write(archive.join("runtime.json"), "old instance").unwrap();
+        std::fs::write(archive.join("data"), "restored data").unwrap();
+        std::fs::write(target.join("runtime.json"), "current instance").unwrap();
+        let lock_path = target.join("runtime.lock");
+        let lock = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&lock_path)
+            .unwrap();
+        lock.lock().unwrap();
+        super::clear_rauto_except_backups(&target).unwrap();
+        super::copy_dir_recursive(&archive, &target).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(target.join("runtime.json")).unwrap(),
+            "current instance"
+        );
+        assert_eq!(
+            std::fs::read_to_string(target.join("data")).unwrap(),
+            "restored data"
+        );
+        let other = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(lock_path)
+            .unwrap();
+        assert!(matches!(
+            other.try_lock(),
+            Err(std::fs::TryLockError::WouldBlock)
+        ));
+        drop((other, lock));
+        std::fs::remove_dir_all(root).unwrap();
+    }
     use flate2::Compression;
     use flate2::read::GzDecoder;
     use flate2::write::GzEncoder;

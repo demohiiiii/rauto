@@ -9,7 +9,6 @@ pub(crate) mod discovery_tui;
 pub(crate) mod exec;
 pub(crate) mod interactive;
 pub(crate) mod json_templates;
-pub(crate) mod multi_target;
 pub(crate) mod ops;
 pub(crate) mod runtime;
 pub(crate) mod schedule;
@@ -18,3 +17,5 @@ pub(crate) mod tx_workflow;
 
 pub use args::*;
 pub use commands::*;
+
+pub(crate) mod execution;

@@ -2,10 +2,14 @@ use super::connections::{
     connection_facts_response, upsert_connection_target_name, validate_persisted_connect_timeout,
 };
 use super::{
-    TaskReportContext, build_json_template_context, builtin_interactive_template_by_name,
-    parse_builtin_interactive_template_token, require_managed_async_task,
-    sanitize_rendered_output_for_response, saved_connection_detail_response,
+    build_json_template_context, sanitize_rendered_output_for_response,
+    saved_connection_detail_response,
 };
+use crate::application::execution::require_managed_async_task;
+use crate::application::runtime::{
+    builtin_interactive_template_by_name, parse_builtin_interactive_template_token,
+};
+use crate::application::task_events::TaskReportContext;
 use crate::config::connection_store::SavedConnection;
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
@@ -184,6 +188,7 @@ fn managed_async_task_requires_agent_mode_and_task_id() {
 #[test]
 fn json_template_context_supports_flat_lookup_with_runtime_precedence() {
     let conn = ResolvedConnection {
+        credential_id: None,
         keep_alive: None,
         connection_name: None,
         host: "192.168.30.92".to_string(),

@@ -22,7 +22,7 @@ fn stage_status_name(status: StageStatus) -> &'static str {
     }
 }
 
-pub(super) fn render_plan(plan: &OrchestrationPlan, source: Option<&PathBuf>) -> Result<String> {
+pub(crate) fn render_plan(plan: &OrchestrationPlan, source: Option<&PathBuf>) -> Result<String> {
     let mut out = String::new();
     let _ = writeln!(&mut out, "# orchestration_plan: {}", plan.name);
     if let Some(path) = source {
@@ -93,7 +93,7 @@ pub(super) fn render_plan(plan: &OrchestrationPlan, source: Option<&PathBuf>) ->
     Ok(out)
 }
 
-pub(super) fn render_execution_result(result: &OrchestrationExecutionResult) -> String {
+pub(crate) fn render_execution_result(result: &OrchestrationExecutionResult) -> String {
     let mut out = String::new();
     let _ = writeln!(&mut out, "# orchestration: {}", result.plan_name);
     let _ = writeln!(&mut out, "success: {}", result.success);

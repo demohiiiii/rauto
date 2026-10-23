@@ -407,7 +407,7 @@ pub struct GlobalOpts {
         long,
         global = true,
         env = "RAUTO_SESSION_RETRIES",
-        default_value_t = 0
+        default_value_t = GlobalOpts::default().session_retries
     )]
     pub session_retries: usize,
 
@@ -417,7 +417,7 @@ pub struct GlobalOpts {
         long,
         global = true,
         env = "RAUTO_RETRY_INITIAL_BACKOFF_MS",
-        default_value_t = 200
+        default_value_t = GlobalOpts::default().retry_initial_backoff_ms
     )]
     pub retry_initial_backoff_ms: u64,
 
@@ -427,7 +427,7 @@ pub struct GlobalOpts {
         long,
         global = true,
         env = "RAUTO_RETRY_MAX_BACKOFF_MS",
-        default_value_t = 2000
+        default_value_t = GlobalOpts::default().retry_max_backoff_ms
     )]
     pub retry_max_backoff_ms: u64,
 
@@ -437,7 +437,7 @@ pub struct GlobalOpts {
         long,
         global = true,
         env = "RAUTO_RETRY_AUTHENTICATION_ERRORS",
-        default_value_t = false
+        default_value_t = GlobalOpts::default().retry_authentication_errors
     )]
     pub retry_authentication_errors: bool,
 
@@ -458,4 +458,24 @@ pub struct GlobalOpts {
         global = true
     )]
     pub save_connection: Option<String>,
+}
+
+impl Default for GlobalOpts {
+    fn default() -> Self {
+        Self {
+            host: None,
+            port: None,
+            ssh_security: None,
+            linux_shell_flavor: None,
+            device_profile: None,
+            force_autodetect: false,
+            session_retries: 0,
+            retry_initial_backoff_ms: 200,
+            retry_max_backoff_ms: 2000,
+            retry_authentication_errors: false,
+            connection: None,
+            credential: None,
+            save_connection: None,
+        }
+    }
 }

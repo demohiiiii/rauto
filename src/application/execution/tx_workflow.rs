@@ -1,24 +1,39 @@
 use super::*;
 
 pub async fn execute_tx_workflow(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ExecuteTxWorkflowRequest>,
-) -> Result<Json<ApiResponse<ExecuteTxWorkflowResponse>>, ApiError> {
-    Box::pin(execute_tx_workflow_request(state, req, false)).await
+    state: Arc<AppState>,
+    req: ExecuteTxWorkflowRequest,
+) -> Result<ApiResponse<ExecuteTxWorkflowResponse>, ApiError> {
+    execute_tx_workflow_with_input_mode(state, req, JsonInputMode::Template).await
+}
+
+pub(crate) async fn execute_tx_workflow_with_input_mode(
+    state: Arc<AppState>,
+    req: ExecuteTxWorkflowRequest,
+    input_mode: JsonInputMode,
+) -> Result<ApiResponse<ExecuteTxWorkflowResponse>, ApiError> {
+    Box::pin(execute_tx_workflow_request(state, req, false, input_mode)).await
 }
 
 pub(crate) async fn execute_scheduled_tx_workflow(
     state: Arc<AppState>,
     req: ExecuteTxWorkflowRequest,
-) -> Result<Json<ApiResponse<ExecuteTxWorkflowResponse>>, ApiError> {
-    Box::pin(execute_tx_workflow_request(state, req, true)).await
+) -> Result<ApiResponse<ExecuteTxWorkflowResponse>, ApiError> {
+    Box::pin(execute_tx_workflow_request(
+        state,
+        req,
+        true,
+        JsonInputMode::Template,
+    ))
+    .await
 }
 
 async fn execute_tx_workflow_request(
     state: Arc<AppState>,
     req: ExecuteTxWorkflowRequest,
     force_tracking: bool,
-) -> Result<Json<ApiResponse<ExecuteTxWorkflowResponse>>, ApiError> {
+    input_mode: JsonInputMode,
+) -> Result<ApiResponse<ExecuteTxWorkflowResponse>, ApiError> {
     if req.preview_commands && !req.run.dry_run.unwrap_or(false) {
         return Err(ApiError::bad_request("preview_commands requires dry_run"));
     }
@@ -36,8 +51,7 @@ async fn execute_tx_workflow_request(
             let record_level = req.target.record_level;
             let dry_run = req.run.dry_run.unwrap_or(false);
             let connection_for_context = if dry_run {
-                let connection =
-                    merge_connection_options(&state.defaults, req.target.connection.clone());
+                let connection = state.resolve_connection(req.target.connection.clone());
                 if req.preview_commands {
                     Some(connection?)
                 } else {
@@ -45,10 +59,9 @@ async fn execute_tx_workflow_request(
                 }
             } else {
                 Some(
-                    resolve_autodetect_connection(merge_connection_options(
-                        &state.defaults,
-                        req.target.connection.clone(),
-                    )?)
+                    resolve_autodetect_connection(
+                        state.resolve_connection(req.target.connection.clone())?,
+                    )
                     .await?,
                 )
             };
@@ -74,10 +87,17 @@ async fn execute_tx_workflow_request(
                 resolved_workflow_vars,
                 connection_for_context.as_ref(),
             );
-            enrich_context_with_connection_refs_from_value(&mut workflow_context, &workflow_source)
-                .map_err(ApiError::from)?;
-            let workflow_value =
-                render_json_template_value(&workflow_source, &mut workflow_context, &renderer)?;
+            let workflow_value = match input_mode {
+                JsonInputMode::Template => {
+                    enrich_context_with_connection_refs_from_value(
+                        &mut workflow_context,
+                        &workflow_source,
+                    )
+                    .map_err(ApiError::from)?;
+                    render_json_template_value(&workflow_source, &mut workflow_context, &renderer)?
+                }
+                JsonInputMode::Literal => workflow_source,
+            };
             let mut preview_contexts = req.preview_commands.then(|| vec![workflow_context]);
             let workflow_value = resolve_tx_workflow_blocks_from_templates(
                 workflow_value,
@@ -146,7 +166,7 @@ async fn execute_tx_workflow_request(
             let conn = if let Some(conn) = connection_for_context {
                 conn
             } else {
-                merge_connection_options(&state.defaults, req.target.connection.clone())?
+                state.resolve_connection(req.target.connection.clone())?
             };
             emit_task_event(
                 &state,
@@ -324,12 +344,4 @@ async fn execute_tx_workflow_request(
             (!committed).then_some("Tx workflow finished with failure")
         },
     )
-}
-
-pub async fn execute_tx_workflow_async(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ExecuteTxWorkflowRequest>,
-) -> Result<(StatusCode, Json<ApiResponse<AsyncTaskAcceptedResponse>>), ApiError> {
-    let response = queue_tx_workflow_async_task(state, req)?;
-    Ok((StatusCode::ACCEPTED, Json(ApiResponse::accepted(response))))
 }

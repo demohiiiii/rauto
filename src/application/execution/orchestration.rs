@@ -1,24 +1,39 @@
 use super::*;
 
 pub async fn execute_orchestration(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ExecuteOrchestrationRequest>,
-) -> Result<Json<ApiResponse<ExecuteOrchestrationResponse>>, ApiError> {
-    Box::pin(execute_orchestration_request(state, req, false)).await
+    state: Arc<AppState>,
+    req: ExecuteOrchestrationRequest,
+) -> Result<ApiResponse<ExecuteOrchestrationResponse>, ApiError> {
+    execute_orchestration_with_input_mode(state, req, JsonInputMode::Template).await
+}
+
+pub(crate) async fn execute_orchestration_with_input_mode(
+    state: Arc<AppState>,
+    req: ExecuteOrchestrationRequest,
+    input_mode: JsonInputMode,
+) -> Result<ApiResponse<ExecuteOrchestrationResponse>, ApiError> {
+    Box::pin(execute_orchestration_request(state, req, false, input_mode)).await
 }
 
 pub(crate) async fn execute_scheduled_orchestration(
     state: Arc<AppState>,
     req: ExecuteOrchestrationRequest,
-) -> Result<Json<ApiResponse<ExecuteOrchestrationResponse>>, ApiError> {
-    Box::pin(execute_orchestration_request(state, req, true)).await
+) -> Result<ApiResponse<ExecuteOrchestrationResponse>, ApiError> {
+    Box::pin(execute_orchestration_request(
+        state,
+        req,
+        true,
+        JsonInputMode::Template,
+    ))
+    .await
 }
 
 async fn execute_orchestration_request(
     state: Arc<AppState>,
     req: ExecuteOrchestrationRequest,
     force_tracking: bool,
-) -> Result<Json<ApiResponse<ExecuteOrchestrationResponse>>, ApiError> {
+    input_mode: JsonInputMode,
+) -> Result<ApiResponse<ExecuteOrchestrationResponse>, ApiError> {
     if req.preview_commands && !req.run.dry_run.unwrap_or(false) {
         return Err(ApiError::bad_request("preview_commands requires dry_run"));
     }
@@ -34,7 +49,7 @@ async fn execute_orchestration_request(
     let result: Result<ExecuteOrchestrationResponse, ApiError> = state
         .run_until_shutdown(async {
             let connection_for_context =
-                merge_connection_options(&state.defaults, req.target.connection.clone()).ok();
+                state.resolve_connection(req.target.connection.clone()).ok();
             let plan_source = load_json_template_from_input(
                 req.plan_template_name.as_deref(),
                 req.plan_template_content.as_deref(),
@@ -69,11 +84,18 @@ async fn execute_orchestration_request(
                     }),
                 );
             }
-            enrich_context_with_connection_refs_from_value(&mut plan_context, &plan_source)
-                .map_err(ApiError::from)?;
-            let plan = renderer
-                .render_orchestration_plan(&plan_source, &plan_context)
-                .map_err(|error| ApiError::bad_request(format!("{error:#}")))?;
+            let plan = match input_mode {
+                JsonInputMode::Template => {
+                    enrich_context_with_connection_refs_from_value(&mut plan_context, &plan_source)
+                        .map_err(ApiError::from)?;
+                    renderer
+                        .render_orchestration_plan(&plan_source, &plan_context)
+                        .map_err(|error| ApiError::bad_request(format!("{error:#}")))?
+                }
+                JsonInputMode::Literal => {
+                    serde_json::from_value(plan_source).map_err(ApiError::from)?
+                }
+            };
             let plan_root = req
                 .base_dir
                 .as_deref()
@@ -259,12 +281,4 @@ async fn execute_orchestration_request(
             (!succeeded).then_some("Orchestration finished with failure")
         },
     )
-}
-
-pub async fn execute_orchestration_async(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ExecuteOrchestrationRequest>,
-) -> Result<(StatusCode, Json<ApiResponse<AsyncTaskAcceptedResponse>>), ApiError> {
-    let response = queue_orchestration_async_task(state, req)?;
-    Ok((StatusCode::ACCEPTED, Json(ApiResponse::accepted(response))))
 }

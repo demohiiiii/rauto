@@ -1,0 +1,489 @@
+use crate::application::execution::*;
+use futures_util::FutureExt;
+use std::panic::AssertUnwindSafe;
+
+pub(crate) fn require_managed_async_task(
+    operation: TaskOperation,
+    task_id: Option<String>,
+    managed: bool,
+) -> Result<String, ApiError> {
+    if !managed {
+        return Err(ApiError::bad_request(format!(
+            "{} async endpoint requires agent mode",
+            operation
+        )));
+    }
+    task_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| {
+            ApiError::bad_request(format!("{} async endpoint requires task_id", operation))
+        })
+}
+
+fn build_async_task_accepted_response(
+    task_id: String,
+    operation: TaskOperation,
+) -> AsyncTaskAcceptedResponse {
+    if let Err(err) = task_store::save_task_accepted(&task_id, operation) {
+        warn!("failed to persist accepted task {}: {}", task_id, err);
+    }
+    AsyncTaskAcceptedResponse {
+        accepted: true,
+        task_id,
+        operation,
+        status: TaskStatus::Queued,
+    }
+}
+
+struct AsyncTaskFailureSpec {
+    task_id: String,
+    operation_name: String,
+    started_at: chrono::DateTime<Utc>,
+    started_instant: Instant,
+    failure_message: String,
+    details: Value,
+    fallback_reason: String,
+}
+
+async fn report_async_task_failure(state: Arc<AppState>, spec: AsyncTaskFailureSpec) {
+    let Some(registrar) = state.registrar() else {
+        return;
+    };
+
+    let AsyncTaskFailureSpec {
+        task_id,
+        operation_name,
+        started_at,
+        started_instant,
+        failure_message,
+        details,
+        fallback_reason,
+    } = spec;
+
+    let agent_name = current_agent_name(&state);
+    let event = TaskEvent {
+        task_id: task_id.clone(),
+        agent_name: agent_name.clone(),
+        event_type: TaskEventType::Failed,
+        message: failure_message.clone(),
+        level: TaskEventLevel::Error,
+        stage: Some(operation_name.to_string()),
+        progress: Some(100),
+        details: Some(details),
+        occurred_at: Utc::now().to_rfc3339(),
+    };
+    registrar.report_task_event_best_effort(event).await;
+
+    let callback = TaskCallback {
+        task_id: task_id.clone(),
+        agent_name,
+        status: TaskStatus::Failed,
+        started_at: started_at.to_rfc3339(),
+        completed_at: Utc::now().to_rfc3339(),
+        execution_time_ms: started_instant.elapsed().as_millis() as u64,
+        result_summary: Some(build_error_result_summary(
+            task_name_to_operation(&operation_name),
+            failure_message.clone(),
+        )),
+        result: None,
+        error: Some(failure_message),
+    };
+
+    if let Err(err) = registrar.send_task_callback(&callback).await {
+        warn!("fallback task callback failed: {}", err);
+        registrar
+            .report_async_error_best_effort(
+                AsyncErrorReportInput::new("task_callback_failed", err.to_string())
+                    .with_task_id(Some(task_id))
+                    .with_operation(Some(operation_name))
+                    .with_target_url(Some(registrar.task_callback_report_target()))
+                    .with_http_method(Some(registrar.report_transport_method_name().to_string()))
+                    .with_details(Some(json!({
+                        "task_status": callback.status,
+                        "started_at": callback.started_at,
+                        "completed_at": callback.completed_at,
+                        "execution_time_ms": callback.execution_time_ms,
+                        "fallback_reason": fallback_reason
+                    }))),
+            )
+            .await;
+    }
+}
+
+fn spawn_supervised_async_task<F>(state: Arc<AppState>, task_id: String, operation: &str, task: F)
+where
+    F: Future<Output = Result<(), ApiError>> + Send + 'static,
+{
+    let operation_name = operation.to_string();
+    let accepted_at = Utc::now();
+    let accepted_instant = Instant::now();
+    tokio::spawn(async move {
+        match AssertUnwindSafe(task).catch_unwind().await {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => {
+                warn!(
+                    "background {} task returned error after handler execution: {}",
+                    operation_name, err.message
+                );
+                let api_error_message = err.message;
+                report_async_task_failure(
+                    state.clone(),
+                    AsyncTaskFailureSpec {
+                        task_id: task_id.clone(),
+                        operation_name: operation_name.clone(),
+                        started_at: accepted_at,
+                        started_instant: accepted_instant,
+                        failure_message: api_error_message.clone(),
+                        details: json!({
+                            "failure_type": "task_error",
+                            "operation": operation_name.clone(),
+                            "api_error": api_error_message
+                        }),
+                        fallback_reason: api_error_message,
+                    },
+                )
+                .await;
+            }
+            Err(panic_payload) => {
+                let panic_payload = panic_payload.as_ref();
+                let panic_message = panic_payload
+                    .downcast_ref::<&str>()
+                    .map(|value| (*value).to_string())
+                    .or_else(|| panic_payload.downcast_ref::<String>().cloned())
+                    .unwrap_or_else(|| "unknown panic payload".to_string());
+                let failure_message = format!("Background {} task panicked", operation_name);
+                warn!("{} for task_id={}", failure_message, task_id);
+                report_async_task_failure(
+                    state,
+                    AsyncTaskFailureSpec {
+                        task_id,
+                        operation_name,
+                        started_at: accepted_at,
+                        started_instant: accepted_instant,
+                        failure_message,
+                        details: json!({
+                            "failure_type": "panic",
+                            "panic_message": panic_message
+                        }),
+                        fallback_reason: panic_message,
+                    },
+                )
+                .await;
+            }
+        }
+    });
+}
+
+pub(crate) fn queue_exec_async_task(
+    state: Arc<AppState>,
+    req: ExecRequest,
+) -> Result<AsyncTaskAcceptedResponse, ApiError> {
+    let task_id = require_managed_async_task(
+        TaskOperation::Exec,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    )?;
+    let background_state = state.clone();
+    spawn_supervised_async_task(
+        background_state.clone(),
+        task_id.clone(),
+        "exec",
+        async move { exec_command(background_state, req).await.map(|_| ()) },
+    );
+    Ok(build_async_task_accepted_response(
+        task_id,
+        TaskOperation::Exec,
+    ))
+}
+
+pub(crate) fn queue_template_async_task(
+    state: Arc<AppState>,
+    req: ExecuteTemplateRequest,
+) -> Result<AsyncTaskAcceptedResponse, ApiError> {
+    let task_id = require_managed_async_task(
+        TaskOperation::TemplateExecute,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    )?;
+    let background_state = state.clone();
+    spawn_supervised_async_task(
+        background_state.clone(),
+        task_id.clone(),
+        "template_execute",
+        async move { execute_template(background_state, req).await.map(|_| ()) },
+    );
+    Ok(build_async_task_accepted_response(
+        task_id,
+        TaskOperation::TemplateExecute,
+    ))
+}
+
+pub(crate) fn queue_tx_workflow_async_task(
+    state: Arc<AppState>,
+    req: ExecuteTxWorkflowRequest,
+) -> Result<AsyncTaskAcceptedResponse, ApiError> {
+    let task_id = require_managed_async_task(
+        TaskOperation::TxWorkflow,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    )?;
+    let background_state = state.clone();
+    spawn_supervised_async_task(
+        background_state.clone(),
+        task_id.clone(),
+        "tx_workflow",
+        async move { execute_tx_workflow(background_state, req).await.map(|_| ()) },
+    );
+    Ok(build_async_task_accepted_response(
+        task_id,
+        TaskOperation::TxWorkflow,
+    ))
+}
+
+pub(crate) fn queue_orchestration_async_task(
+    state: Arc<AppState>,
+    req: ExecuteOrchestrationRequest,
+) -> Result<AsyncTaskAcceptedResponse, ApiError> {
+    let task_id = require_managed_async_task(
+        TaskOperation::Orchestrate,
+        req.task.task_id.clone(),
+        state.is_managed(),
+    )?;
+    let background_state = state.clone();
+    spawn_supervised_async_task(
+        background_state.clone(),
+        task_id.clone(),
+        "orchestrate",
+        async move {
+            execute_orchestration(background_state, req)
+                .await
+                .map(|_| ())
+        },
+    );
+    Ok(build_async_task_accepted_response(
+        task_id,
+        TaskOperation::Orchestrate,
+    ))
+}
+
+fn build_task_callback<T: Serialize>(
+    state: &Arc<AppState>,
+    task_ctx: &TaskReportContext,
+    result: &Result<T, ApiError>,
+) -> TaskCallback {
+    match result {
+        Ok(value) => {
+            let result_json = serde_json::to_value(value).ok();
+            let result_summary = extract_result_summary(value).unwrap_or_else(|| {
+                build_error_result_summary(
+                    task_ctx.operation,
+                    "missing result_summary in successful task response",
+                )
+            });
+            let succeeded = result_summary.success;
+            let error = (!succeeded).then(|| result_summary.summary.clone());
+            callback_from_result_envelope(
+                state,
+                TaskResultEnvelope {
+                    task_id: task_ctx.task_id.clone(),
+                    operation: task_ctx.operation,
+                    status: if succeeded {
+                        TaskStatus::Success
+                    } else {
+                        TaskStatus::Failed
+                    },
+                    started_at: task_ctx.started_at.to_rfc3339(),
+                    completed_at: Utc::now().to_rfc3339(),
+                    execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
+                    result_summary,
+                    result: result_json,
+                    error,
+                },
+            )
+        }
+        Err(err) => callback_from_result_envelope(
+            state,
+            TaskResultEnvelope {
+                task_id: task_ctx.task_id.clone(),
+                operation: task_ctx.operation,
+                status: TaskStatus::Failed,
+                started_at: task_ctx.started_at.to_rfc3339(),
+                completed_at: Utc::now().to_rfc3339(),
+                execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
+                result_summary: build_error_result_summary(task_ctx.operation, err.message.clone()),
+                result: None,
+                error: Some(err.message.clone()),
+            },
+        ),
+    }
+}
+
+fn callback_from_result_envelope(
+    state: &Arc<AppState>,
+    envelope: TaskResultEnvelope,
+) -> TaskCallback {
+    TaskCallback {
+        task_id: envelope.task_id,
+        agent_name: current_agent_name(state),
+        status: envelope.status,
+        started_at: envelope.started_at,
+        completed_at: envelope.completed_at,
+        execution_time_ms: envelope.execution_time_ms,
+        result_summary: Some(envelope.result_summary),
+        result: envelope.result,
+        error: envelope.error,
+    }
+}
+
+pub(crate) fn build_failed_task_callback<T: Serialize>(
+    state: &Arc<AppState>,
+    task_ctx: &TaskReportContext,
+    message: impl Into<String>,
+    result: Option<&T>,
+) -> TaskCallback {
+    let error_message = message.into();
+    callback_from_result_envelope(
+        state,
+        TaskResultEnvelope {
+            task_id: task_ctx.task_id.clone(),
+            operation: task_ctx.operation,
+            status: TaskStatus::Failed,
+            started_at: task_ctx.started_at.to_rfc3339(),
+            completed_at: Utc::now().to_rfc3339(),
+            execution_time_ms: task_ctx.started_instant.elapsed().as_millis() as u64,
+            result_summary: result.and_then(extract_result_summary).unwrap_or_else(|| {
+                build_error_result_summary(task_ctx.operation, error_message.clone())
+            }),
+            result: result.and_then(|value| serde_json::to_value(value).ok()),
+            error: Some(error_message),
+        },
+    )
+}
+
+pub(crate) fn spawn_prepared_task_callback(
+    state: Arc<AppState>,
+    task_ctx: Option<TaskReportContext>,
+    callback: TaskCallback,
+) {
+    let Some(task_ctx) = task_ctx else {
+        return;
+    };
+
+    let registrar = state.registrar();
+    if registrar.is_none() {
+        if let Err(err) = task_store::save_task_callback(&callback, task_ctx.operation) {
+            warn!(
+                "failed to persist task callback {}: {}",
+                task_ctx.task_id, err
+            );
+        }
+        return;
+    }
+    tokio::spawn(async move {
+        if let Err(err) = task_store::save_task_callback(&callback, task_ctx.operation) {
+            warn!(
+                "failed to persist task callback {}: {}",
+                task_ctx.task_id, err
+            );
+        }
+        let Some(registrar) = registrar else {
+            return;
+        };
+        let send_result = registrar.send_task_callback(&callback).await;
+        if let Err(err) = send_result {
+            warn!("task callback failed: {}", err);
+            if let Some(registrar) = state.registrar() {
+                let target_url = registrar.task_callback_report_target();
+                let transport_method = registrar.report_transport_method_name().to_string();
+                registrar
+                    .report_async_error_best_effort(
+                        AsyncErrorReportInput::new("task_callback_failed", err.to_string())
+                            .with_task_id(Some(task_ctx.task_id.clone()))
+                            .with_operation(Some(task_ctx.operation.to_string()))
+                            .with_target_url(Some(target_url))
+                            .with_http_method(Some(transport_method))
+                            .with_details(Some(json!({
+                                "task_status": callback.status,
+                                "started_at": callback.started_at,
+                                "completed_at": callback.completed_at,
+                                "execution_time_ms": callback.execution_time_ms
+                            }))),
+                    )
+                    .await;
+            }
+        }
+    });
+}
+
+pub(crate) fn spawn_task_callback<T: Serialize>(
+    state: Arc<AppState>,
+    task_ctx: Option<TaskReportContext>,
+    result: &Result<T, ApiError>,
+) {
+    let Some(task_ctx_ref) = task_ctx.as_ref() else {
+        return;
+    };
+    let callback = build_task_callback(&state, task_ctx_ref, result);
+    spawn_prepared_task_callback(state, task_ctx, callback);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::GlobalOpts;
+
+    fn test_state() -> Arc<AppState> {
+        AppState::new(
+            GlobalOpts {
+                credential: None,
+                host: None,
+                port: None,
+                ssh_security: None,
+                linux_shell_flavor: None,
+                device_profile: None,
+                force_autodetect: false,
+                session_retries: 0,
+                retry_initial_backoff_ms: 200,
+                retry_max_backoff_ms: 2000,
+                retry_authentication_errors: false,
+                connection: None,
+                save_connection: None,
+            },
+            None,
+            None,
+        )
+    }
+
+    #[test]
+    fn task_callback_persists_failed_business_envelope_as_failed() {
+        let state = test_state();
+        let task_ctx = TaskReportContext::from_request(
+            TaskOperation::Exec,
+            Some("task-failed".to_string()),
+            true,
+        )
+        .expect("managed task context");
+        let summary = build_result_summary(
+            TaskOperation::Exec,
+            TaskResultOutcome::Failed,
+            "Device command failed",
+        );
+        let response = ApiResponse::completed(json!({ "output": "partial" }), summary);
+
+        let callback = build_task_callback(&state, &task_ctx, &Ok::<_, ApiError>(response));
+
+        assert_eq!(callback.status, TaskStatus::Failed);
+        assert_eq!(callback.error.as_deref(), Some("Device command failed"));
+        assert_eq!(
+            callback.result_summary.as_ref().map(|value| value.success),
+            Some(false)
+        );
+        let result = callback.result.expect("stored response envelope");
+        assert_eq!(result["success"], json!(false));
+        assert_eq!(result["data"]["output"], json!("partial"));
+        assert!(result["data"].get("result_summary").is_none());
+    }
+}

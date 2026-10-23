@@ -5,12 +5,12 @@ use std::collections::VecDeque;
 use tokio::task::JoinSet;
 
 pub async fn execute_interactive(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ExecuteInteractiveRequest>,
-) -> Result<Json<ApiResponse<ExecuteInteractiveResponse>>, ApiError> {
+    state: Arc<AppState>,
+    req: ExecuteInteractiveRequest,
+) -> Result<ApiResponse<ExecuteInteractiveResponse>, ApiError> {
     let record_level = req.target.record_level;
     let conn = resolve_autodetect_connection(apply_session_retry_options(
-        merge_connection_options(&state.defaults, req.target.connection)?,
+        state.resolve_connection(req.target.connection)?,
         req.retry.as_ref(),
     )?)
     .await?;
@@ -107,6 +107,7 @@ pub async fn execute_interactive(
         .await?
     };
 
+    remember_connection(&state, &conn)?;
     let result = client.execute_sequence(interactive).await?;
     persist_history_if_recorded(
         &conn,
@@ -140,7 +141,7 @@ pub async fn execute_interactive(
             );
             CommandResult {
                 command,
-                success: output.success,
+                success: output.success && output.exit_code.unwrap_or(0) == 0,
                 exit_code: output.exit_code,
                 output: Some(output.content),
                 all: Some(output.all),
@@ -191,7 +192,7 @@ pub async fn execute_interactive(
         recording_jsonl,
     };
     let summary = response.result_summary.clone();
-    Ok(Json(ApiResponse::completed(response, summary)))
+    Ok(ApiResponse::completed(response, summary))
 }
 
 struct ResolvedBatchInteractiveTarget {
@@ -216,9 +217,9 @@ struct BatchInteractiveOptions {
 }
 
 pub async fn execute_interactive_batch(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<InteractiveBatchExecuteRequest>,
-) -> Result<Json<ApiResponse<InteractiveBatchExecuteResponse>>, ApiError> {
+    state: Arc<AppState>,
+    req: InteractiveBatchExecuteRequest,
+) -> Result<ApiResponse<InteractiveBatchExecuteResponse>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::Interactive,
@@ -410,7 +411,7 @@ async fn resolve_batch_interactive_target(
         ..Default::default()
     };
     let conn = resolve_autodetect_connection(apply_session_retry_options(
-        merge_connection_options(&state.defaults, Some(connection))?,
+        state.resolve_connection(Some(connection))?,
         retry,
     )?)
     .await?;
@@ -560,7 +561,7 @@ async fn execute_batch_interactive_target_inner(
             );
             CommandResult {
                 command,
-                success: output.success,
+                success: output.success && output.exit_code.unwrap_or(0) == 0,
                 exit_code: output.exit_code,
                 output: Some(output.content),
                 all: Some(output.all),
@@ -582,17 +583,14 @@ async fn execute_batch_interactive_target_inner(
 }
 
 pub async fn execute_upload(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ExecuteUploadRequest>,
-) -> Result<Json<ApiResponse<ExecuteUploadResponse>>, ApiError> {
+    state: Arc<AppState>,
+    req: ExecuteUploadRequest,
+) -> Result<ApiResponse<ExecuteUploadResponse>, ApiError> {
     let record_level = req.target.record_level;
     let local_path = crate::web::path_policy::resolve_upload_file(&req.local_path)?;
     let local_path_display = crate::web::path_policy::upload_file_label(&local_path);
-    let conn = resolve_autodetect_connection(merge_connection_options(
-        &state.defaults,
-        req.target.connection,
-    )?)
-    .await?;
+    let conn =
+        resolve_autodetect_connection(state.resolve_connection(req.target.connection)?).await?;
     let handler = template_loader::load_device_profile_for_connection(
         &conn.device_profile,
         conn.linux_shell_flavor,
@@ -621,6 +619,7 @@ pub async fn execute_upload(
         handler,
         conn.output_encoding,
     );
+    let _lease = crate::application::limits::ExecutionLease::acquire(&conn.host, conn.port).await;
     let context = conn.execution_context();
 
     let recording_jsonl = if let Some(level) = to_record_level(record_level) {
@@ -654,6 +653,7 @@ pub async fn execute_upload(
             .await?;
         None
     };
+    remember_connection(&state, &conn)?;
 
     let local_path_str = local_path_display;
     let remote_path = req.remote_path.trim().to_string();
@@ -678,5 +678,5 @@ pub async fn execute_upload(
         recording_jsonl,
     };
     let summary = response.result_summary.clone();
-    Ok(Json(ApiResponse::completed(response, summary)))
+    Ok(ApiResponse::completed(response, summary))
 }

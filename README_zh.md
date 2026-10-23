@@ -67,6 +67,7 @@ rauto web --bind 127.0.0.1 --port 3000
 - [Skill](#skill)
 - [使用方法](#使用方法)
   - [命令选型指南](#命令选型指南)
+  - [自动选择执行方式](#自动选择执行方式)
   - [模板模式](#模板模式)
   - [直接执行](#直接执行)
   - [交互式命令模板](#交互式命令模板)
@@ -203,7 +204,7 @@ npx skills add demohiiiii/rauto --skill rauto-usage
 | 查询、执行与传输 | `show`、`exec`、`interactive`、`tx-workflow`、`orchestrate`、`upload` |
 | 设备与资源 | `device`、`credential`、`inventory`、`profile` |
 | 配置与规则 | `config`、`textfsm`、`blacklist` |
-| 自动化与服务 | `schedule`、`web`、`agent` |
+| 自动化与服务 | `schedule`、`web`、`serve`、`agent` |
 | 记录与维护 | `session`、`backup`、`completion` |
 
 常见场景可按下表选择：
@@ -247,6 +248,38 @@ rauto exec 'uname -a' -H 192.0.2.10 -C linux-admin --shell fish
 rauto tx-workflow ./workflow.json -J '{"site":"core"}' -n -j
 rauto upload -d core-01 -f ./pkg.tar -o /tmp/pkg.tar --progress
 ```
+
+### 自动选择执行方式
+
+执行命令自动选择本地或服务执行，并等待本次执行结果：
+
+```bash
+rauto exec -d core-01 'show version'     # 没有服务时，本地执行
+rauto serve --bind 127.0.0.1 --port 3000 # 持续运行，同时提供 Web 工作台
+rauto exec -d core-01 'show version'     # 服务已启动时，调用接口并等待结果
+```
+
+通过系统服务管理器或 shell 的后台运行功能保持 `serve` 运行。`web` 和 `agent`
+也接受本地 CLI 调用。服务在 `RAUTO_HOME`（默认 `~/.rauto`）保存带身份校验的本机
+接口信息，并持有操作系统文件锁，避免同一运行目录被第二个服务或 CLI 执行进程重复
+接管。服务启动会等待已有的本地执行结束；多个独立 CLI 本地执行会串行等待，批量
+执行内部仍可并发。CLI 等待运行环境所有权超过 15 秒时会报错。
+
+`show`、`exec`、`interactive`、`tx-workflow`、`orchestrate`、`config fetch`
+和 `upload` 共用执行核心及标准请求、结果。CLI、Web、定时任务和编排共享最多四台
+设备的执行并发，同一主机/端口的操作互斥执行，工作流回滚也在保护范围内。
+并发等待只存在于当前调用的内存中。CLI 执行请求不会持久化，服务重启后不会恢复
+或补执行之前的请求，也不提供 CLI 异步任务提交功能。
+
+设备、凭证和已保存模板由服务解析；本地输入文件按内容传递，录制、Excel 和配置
+导出由等待结果的 CLI 保存。CLI 上传文件上限为 32 MiB。执行接口没有固定的 HTTP
+响应超时；Ctrl+C 停止等待并关闭请求。已经发出的设备命令可能已生效，中断后再次
+执行前请确认设备状态。服务调用出错时不会自动转为本地执行或重新提交。
+
+资源管理命令仍直接访问 SQLite。`device test`、新建自动发现扫描、
+`profile autodetect` 和备份恢复需要独占运行环境；服务运行时请使用 Web/API
+诊断功能，或先停止服务。只有 `web`/`serve` 启动已有的本地 cron 调度器，单次
+CLI 执行不会启动周期调度。
 
 ### 模板模式
 
@@ -688,7 +721,7 @@ rauto schedule delete "夜间核心配置采集"
 
 编排任务的 action 可写为 `{"type":"orchestrate","template_name":"...","vars":{}}`；单设备事务工作流可写为 `{"type":"tx_workflow","connection_name":"...","template_name":"...","vars":{}}`。创建或更新前会校验引用的已保存连接与模板。
 
-`rauto schedule run` 只会在本地 SQLite 中排入一次立即执行记录。真正的 cron 触发与排队任务执行由运行中的 `rauto web` 内置调度器负责；仅运行 CLI 管理命令不会启动常驻后台进程。
+`rauto schedule run` 只会在本地 SQLite 中排入一次立即执行记录。真正的 cron 触发与排队任务执行由运行中的 `rauto web` / `rauto serve` 内置调度器负责；仅运行 CLI 管理命令不会启动常驻后台进程。
 
 ### 设备配置模板
 

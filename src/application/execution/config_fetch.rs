@@ -25,9 +25,9 @@ struct ConfigFetchTaskOptions {
 }
 
 pub async fn fetch_config(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ConfigFetchRequest>,
-) -> Result<Json<ApiResponse<ConfigFetchResponse>>, ApiError> {
+    state: Arc<AppState>,
+    req: ConfigFetchRequest,
+) -> Result<ApiResponse<ConfigFetchResponse>, ApiError> {
     Box::pin(execute_config_fetch_request(state, req, false)).await
 }
 
@@ -35,7 +35,7 @@ async fn execute_config_fetch_request(
     state: Arc<AppState>,
     req: ConfigFetchRequest,
     force_tracking: bool,
-) -> Result<Json<ApiResponse<ConfigFetchResponse>>, ApiError> {
+) -> Result<ApiResponse<ConfigFetchResponse>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task_with_tracking(
         &state,
         TaskOperation::Exec,
@@ -142,16 +142,16 @@ async fn execute_config_fetch_request(
 }
 
 pub async fn fetch_config_batch(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ConfigBatchFetchRequest>,
-) -> Result<Json<ApiResponse<ConfigBatchFetchResponse>>, ApiError> {
+    state: Arc<AppState>,
+    req: ConfigBatchFetchRequest,
+) -> Result<ApiResponse<ConfigBatchFetchResponse>, ApiError> {
     Box::pin(execute_config_batch_request(state, req, false)).await
 }
 
 pub(crate) async fn execute_scheduled_config_batch(
     state: Arc<AppState>,
     req: ConfigBatchFetchRequest,
-) -> Result<Json<ApiResponse<ConfigBatchFetchResponse>>, ApiError> {
+) -> Result<ApiResponse<ConfigBatchFetchResponse>, ApiError> {
     Box::pin(execute_config_batch_request(state, req, true)).await
 }
 
@@ -159,7 +159,7 @@ async fn execute_config_batch_request(
     state: Arc<AppState>,
     req: ConfigBatchFetchRequest,
     force_tracking: bool,
-) -> Result<Json<ApiResponse<ConfigBatchFetchResponse>>, ApiError> {
+) -> Result<ApiResponse<ConfigBatchFetchResponse>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task_with_tracking(
         &state,
         TaskOperation::Exec,
@@ -343,7 +343,7 @@ async fn resolve_config_fetch_connection_target(
     retry: Option<&SessionRetryOptions>,
 ) -> Result<ResolvedConfigFetchTarget, ApiError> {
     let conn = resolve_autodetect_connection(apply_session_retry_options(
-        merge_connection_options(&state.defaults, connection)?,
+        state.resolve_connection(connection)?,
         retry,
     )?)
     .await?;

@@ -1,3 +1,6 @@
+use crate::application::execution::{
+    execute_scheduled_config_batch, execute_scheduled_orchestration, execute_scheduled_tx_workflow,
+};
 use crate::domain::scheduling::ScheduledAction;
 use crate::domain::task::{TaskCallback, TaskOperation, TaskStatus, build_error_result_summary};
 use crate::infrastructure::db::schedule_store::ClaimedScheduleRun;
@@ -6,9 +9,6 @@ use crate::interfaces::api::models::{
     ApiResponse, ConfigBatchFetchRequest, ConnectionRequest, DryRunOptions,
     ExecuteOrchestrationRequest, ExecuteTxWorkflowRequest, ExecutionTargetOptions,
     ManagedTaskOptions,
-};
-use crate::web::handlers::{
-    execute_scheduled_config_batch, execute_scheduled_orchestration, execute_scheduled_tx_workflow,
 };
 use crate::web::state::AppState;
 use chrono::Utc;
@@ -63,7 +63,7 @@ pub async fn execute_claimed_run(
             )
             .await
             .map_err(|error| error.message)
-            .and_then(|response| scheduled_response_result(response.0)),
+            .and_then(scheduled_response_result),
             ScheduledAction::ConfigFetch {
                 connection_name,
                 mut targets,
@@ -92,7 +92,7 @@ pub async fn execute_claimed_run(
                 )
                 .await
                 .map_err(|error| error.message)
-                .and_then(|response| scheduled_response_result(response.0))
+                .and_then(scheduled_response_result)
             }
             ScheduledAction::TxWorkflow {
                 connection_name,
@@ -117,7 +117,7 @@ pub async fn execute_claimed_run(
             )
             .await
             .map_err(|error| error.message)
-            .and_then(|response| scheduled_response_result(response.0)),
+            .and_then(scheduled_response_result),
         }
     };
 

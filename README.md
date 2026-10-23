@@ -68,6 +68,7 @@ rauto web --bind 127.0.0.1 --port 3000
 - [Skill](#skill)
 - [Usage](#usage)
   - [Command Selection Guide](#command-selection-guide)
+  - [Automatic Service Routing](#automatic-service-routing)
   - [Template Mode](#template-mode)
   - [Direct Execution](#direct-execution)
   - [Interactive Templates](#interactive-templates)
@@ -204,7 +205,7 @@ Top-level commands are ordered by task, with common execution commands first:
 | Query, execution, and transfer | `show`, `exec`, `interactive`, `tx-workflow`, `orchestrate`, `upload` |
 | Devices and resources | `device`, `credential`, `inventory`, `profile` |
 | Configuration and rules | `config`, `textfsm`, `blacklist` |
-| Automation and services | `schedule`, `web`, `agent` |
+| Automation and services | `schedule`, `web`, `serve`, `agent` |
 | Records and maintenance | `session`, `backup`, `completion` |
 
 Choose an entry point for common tasks:
@@ -249,6 +250,46 @@ rauto exec 'uname -a' -H 192.0.2.10 -C linux-admin --shell fish
 rauto tx-workflow ./workflow.json -J '{"site":"core"}' -n -j
 rauto upload -d core-01 -f ./pkg.tar -o /tmp/pkg.tar --progress
 ```
+
+### Automatic Service Routing
+
+Execution commands automatically choose direct execution or a running service:
+
+```bash
+rauto exec -d core-01 'show version'     # Execute locally when no service is running
+rauto serve --bind 127.0.0.1 --port 3000 # Keep running; also serves the Web workbench
+rauto exec -d core-01 'show version'     # Call the running service and wait for the result
+```
+
+Run `serve` under a service manager, or use your shell's background-process support.
+`web` and `agent` also accept local CLI execution. The CLI discovers the service
+through an authenticated loopback endpoint recorded under `RAUTO_HOME` (default
+`~/.rauto`). An OS file lock prevents a second service or direct execution process
+from owning the same runtime. A service waits for an existing direct execution to
+finish. Separate direct CLI invocations are serialized; batch requests retain
+parallel device execution. CLI ownership waits time out after 15 seconds.
+
+`show`, `exec`, `interactive`, `tx-workflow`, `orchestrate`, `config fetch`, and
+`upload` share the same execution core and typed request/result contracts.
+Across CLI, Web, cron, and orchestration, active device execution has a shared
+limit of four and operations for the same host/port execute exclusively,
+including workflow rollback. Waiting for capacity happens only in memory as
+part of the current call. CLI execution requests are not persisted or replayed
+when the service restarts; there is no detached CLI task submission.
+
+The service resolves saved device, credential, and template references. Input
+files are sent as content; recording, Excel, and configuration exports are
+written by the waiting CLI. CLI uploads are limited to 32 MiB. The CLI waits for
+the execution result without a fixed HTTP response timeout. Ctrl+C stops waiting
+and closes the request. Already-sent device commands may have taken effect;
+verify device state before rerunning after an interruption. Service errors never
+trigger an automatic local fallback or resubmission.
+
+Resource management commands continue to use SQLite directly. Live diagnostics
+(`device test`, new discovery scans, and `profile autodetect`) and backup restore
+require exclusive runtime ownership; while a service is running, use its Web/API
+diagnostics or stop it first. Only `web`/`serve` starts the existing local cron
+scheduler; one-shot CLI commands do not start recurring jobs.
 
 ### Template Mode
 
@@ -690,7 +731,7 @@ rauto schedule delete "nightly core configs"
 
 For an orchestration action, use `{"type":"orchestrate","template_name":"...","vars":{}}`; for a single-device transaction workflow, use `{"type":"tx_workflow","connection_name":"...","template_name":"...","vars":{}}`. Referenced saved connections and templates are validated before create or update.
 
-`rauto schedule run` queues an immediate run in the local SQLite database. Actual cron and queued-run execution is owned by the scheduler inside a running `rauto web` process; CLI management alone does not start a background daemon.
+`rauto schedule run` queues an immediate run in the local SQLite database. Actual cron and queued-run execution is owned by the scheduler inside a running `rauto web` or `rauto serve` process; CLI management alone does not start a background daemon.
 
 ### Device Profiles
 

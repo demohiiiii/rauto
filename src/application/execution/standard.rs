@@ -64,12 +64,11 @@ fn rendered_template_command(
 }
 
 pub async fn render_template(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<RenderRequest>,
-) -> Result<Json<RenderResponse>, ApiError> {
+    state: Arc<AppState>,
+    req: RenderRequest,
+) -> Result<RenderResponse, ApiError> {
     let incoming_connection = req.connection.clone();
-    let resolved_conn = match merge_connection_options(&state.defaults, incoming_connection.clone())
-    {
+    let resolved_conn = match state.resolve_connection(incoming_connection.clone()) {
         Ok(conn) => Some(conn),
         Err(err) => {
             let fallback =
@@ -87,15 +86,15 @@ pub async fn render_template(
         resolved_conn.as_ref(),
     )?;
 
-    Ok(Json(RenderResponse {
+    Ok(RenderResponse {
         rendered_commands: masked_rendered,
-    }))
+    })
 }
 
 pub async fn exec_command(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ExecRequest>,
-) -> Result<Json<ApiResponse<ExecResponse>>, ApiError> {
+    state: Arc<AppState>,
+    req: ExecRequest,
+) -> Result<ApiResponse<ExecResponse>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::Exec,
@@ -112,7 +111,7 @@ pub async fn exec_command(
         .run_until_shutdown(async {
             let record_level = req.target.record_level;
             let conn = resolve_autodetect_connection(apply_session_retry_options(
-                merge_connection_options(&state.defaults, req.target.connection)?,
+                state.resolve_connection(req.target.connection)?,
                 req.retry.as_ref(),
             )?)
             .await?;
@@ -191,6 +190,7 @@ pub async fn exec_command(
                 .await?
             };
 
+            remember_connection(&state, &conn)?;
             emit_task_event(
                 &state,
                 &task_ctx,
@@ -222,7 +222,7 @@ pub async fn exec_command(
                 );
                 outputs.push(CommandResult {
                     command: command.command,
-                    success: output.success,
+                    success: output.success && output.exit_code.unwrap_or(0) == 0,
                     exit_code: output.exit_code,
                     output: Some(output.content),
                     all: Some(output.all),
@@ -324,23 +324,13 @@ pub async fn exec_command(
     )
 }
 
-pub async fn exec_command_async(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ExecRequest>,
-) -> Result<(StatusCode, Json<ApiResponse<AsyncTaskAcceptedResponse>>), ApiError> {
-    let response = queue_exec_async_task(state, req)?;
-    Ok((StatusCode::ACCEPTED, Json(ApiResponse::accepted(response))))
-}
-
 #[derive(Debug, serde::Deserialize)]
 pub struct ShowObjectsQuery {
     #[serde(default)]
     pub device_profile: Option<String>,
 }
 
-pub async fn list_show_objects(
-    Query(query): Query<ShowObjectsQuery>,
-) -> Result<Json<ShowObjectsResponse>, ApiError> {
+pub async fn list_show_objects(query: ShowObjectsQuery) -> Result<ShowObjectsResponse, ApiError> {
     let platform =
         show_catalog::platform_for_show(query.device_profile.as_deref().unwrap_or_default());
     let objects = if let Some(platform) = platform.as_deref() {
@@ -391,13 +381,13 @@ pub async fn list_show_objects(
             })
             .collect()
     };
-    Ok(Json(ShowObjectsResponse { platform, objects }))
+    Ok(ShowObjectsResponse { platform, objects })
 }
 
 pub async fn execute_show(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ShowExecuteRequest>,
-) -> Result<Json<ApiResponse<ShowExecuteResponse>>, ApiError> {
+    state: Arc<AppState>,
+    req: ShowExecuteRequest,
+) -> Result<ApiResponse<ShowExecuteResponse>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::Exec,
@@ -415,7 +405,7 @@ pub async fn execute_show(
         .run_until_shutdown(async {
             let record_level = req.target.record_level;
             let conn = resolve_autodetect_connection(apply_session_retry_options(
-                merge_connection_options(&state.defaults, req.target.connection)?,
+                state.resolve_connection(req.target.connection)?,
                 req.retry.as_ref(),
             )?)
             .await?;
@@ -490,6 +480,7 @@ pub async fn execute_show(
                 .await?
             };
 
+            remember_connection(&state, &conn)?;
             emit_task_event(
                 &state,
                 &task_ctx,
@@ -624,9 +615,9 @@ struct ResolvedBatchShowTarget {
 }
 
 pub async fn execute_show_batch(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ShowBatchExecuteRequest>,
-) -> Result<Json<ApiResponse<ShowBatchExecuteResponse>>, ApiError> {
+    state: Arc<AppState>,
+    req: ShowBatchExecuteRequest,
+) -> Result<ApiResponse<ShowBatchExecuteResponse>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::Exec,
@@ -855,7 +846,7 @@ async fn resolve_batch_show_target(
         ..Default::default()
     };
     let conn = resolve_autodetect_connection(apply_session_retry_options(
-        merge_connection_options(&state.defaults, Some(connection))?,
+        state.resolve_connection(Some(connection))?,
         req.retry.as_ref(),
     )?)
     .await?;
@@ -1040,9 +1031,9 @@ struct BatchExecOptions {
 }
 
 pub async fn execute_exec_batch(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ExecBatchExecuteRequest>,
-) -> Result<Json<ApiResponse<ExecBatchExecuteResponse>>, ApiError> {
+    state: Arc<AppState>,
+    req: ExecBatchExecuteRequest,
+) -> Result<ApiResponse<ExecBatchExecuteResponse>, ApiError> {
     let (task_ctx, task_guard) = begin_reported_task(
         &state,
         TaskOperation::Exec,
@@ -1232,7 +1223,7 @@ async fn resolve_batch_exec_target(
         ..Default::default()
     };
     let conn = resolve_autodetect_connection(apply_session_retry_options(
-        merge_connection_options(&state.defaults, Some(connection))?,
+        state.resolve_connection(Some(connection))?,
         req.retry.as_ref(),
     )?)
     .await?;
@@ -1371,7 +1362,7 @@ async fn execute_batch_exec_target_inner(
             );
             CommandResult {
                 command: command.command,
-                success: output.success,
+                success: output.success && output.exit_code.unwrap_or(0) == 0,
                 exit_code: output.exit_code,
                 output: Some(output.content),
                 all: Some(output.all),
@@ -1437,9 +1428,22 @@ fn show_command_source_label(source: show_catalog::ShowCommandSource) -> &'stati
 }
 
 pub async fn execute_template(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ExecuteTemplateRequest>,
-) -> Result<Json<ApiResponse<ExecuteTemplateResponse>>, ApiError> {
+    state: Arc<AppState>,
+    req: ExecuteTemplateRequest,
+) -> Result<ApiResponse<ExecuteTemplateResponse>, ApiError> {
+    Box::pin(execute_template_with_error_policy(
+        state,
+        req,
+        CommandErrorPolicy::Stop,
+    ))
+    .await
+}
+
+pub(crate) async fn execute_template_with_error_policy(
+    state: Arc<AppState>,
+    req: ExecuteTemplateRequest,
+    error_policy: CommandErrorPolicy,
+) -> Result<ApiResponse<ExecuteTemplateResponse>, ApiError> {
     let template_source = req
         .template
         .as_deref()
@@ -1465,11 +1469,11 @@ pub async fn execute_template(
             let dry_run = req.run.dry_run.unwrap_or(false);
             let incoming_connection = req.target.connection.clone();
             let render_conn = if dry_run {
-                merge_connection_options(&state.defaults, incoming_connection.clone()).ok()
+                state.resolve_connection(incoming_connection.clone()).ok()
             } else {
                 Some(
                     resolve_autodetect_connection(apply_session_retry_options(
-                        merge_connection_options(&state.defaults, incoming_connection.clone())?,
+                        state.resolve_connection(incoming_connection.clone())?,
                         req.retry.as_ref(),
                     )?)
                     .await?,
@@ -1536,7 +1540,7 @@ pub async fn execute_template(
             let conn = match render_conn {
                 Some(conn) => conn,
                 None => apply_session_retry_options(
-                    merge_connection_options(&state.defaults, incoming_connection)?,
+                    state.resolve_connection(incoming_connection)?,
                     req.retry.as_ref(),
                 )?,
             };
@@ -1592,12 +1596,12 @@ pub async fn execute_template(
                 rendered_commands.clone(),
                 req.multiline_mode,
             );
-            let concrete_commands = command
-                .clone()
+            let flow = command
                 .into_flow()
-                .map_err(|error| ApiError::bad_request(error.to_string()))?
-                .steps;
+                .map_err(|error| ApiError::bad_request(error.to_string()))?;
+            let concrete_commands = flow.steps.clone();
             let total_commands = concrete_commands.len();
+            remember_connection(&state, &conn)?;
             emit_task_event(
                 &state,
                 &task_ctx,
@@ -1609,30 +1613,65 @@ pub async fn execute_template(
                         "multiline_mode": req.multiline_mode
                     }))),
             );
-            let interactive_output = client.execute_multiline_command_structured(command).await?;
-            let mut executed = Vec::with_capacity(interactive_output.outputs.len());
-            for (idx, (command, output)) in concrete_commands
-                .into_iter()
-                .zip(interactive_output.outputs)
-                .enumerate()
-            {
-                let (parsed_output, parse_error) = parse_textfsm_output_optional(
-                    &output.content,
-                    &command.command,
-                    WebTextfsmParseOptions {
-                        template_file: req.textfsm_template.as_deref(),
-                        enabled: req.parse_textfsm,
-                        device_profile: Some(conn.device_profile.as_str()),
-                        vendor: req.textfsm_vendor.as_deref(),
-                        filter_error_rules: !req.textfsm_strict_errors,
-                        ..Default::default()
+            let outputs = match error_policy {
+                CommandErrorPolicy::Stop => client
+                    .execute_sequence(flow)
+                    .await?
+                    .outputs
+                    .into_iter()
+                    .map(Ok)
+                    .collect::<Vec<_>>(),
+                CommandErrorPolicy::Continue => {
+                    let mut outputs = Vec::with_capacity(total_commands);
+                    for command in flow.steps {
+                        outputs.push(client.execute_command_structured(command).await);
+                    }
+                    outputs
+                }
+            };
+            let mut executed = Vec::with_capacity(outputs.len());
+            for (idx, (command, output)) in concrete_commands.into_iter().zip(outputs).enumerate() {
+                let result = match output {
+                    Ok(output) => {
+                        let (parsed_output, parse_error) = parse_textfsm_output_optional(
+                            &output.content,
+                            &command.command,
+                            WebTextfsmParseOptions {
+                                template_file: req.textfsm_template.as_deref(),
+                                enabled: req.parse_textfsm,
+                                device_profile: Some(conn.device_profile.as_str()),
+                                vendor: req.textfsm_vendor.as_deref(),
+                                filter_error_rules: !req.textfsm_strict_errors,
+                                ..Default::default()
+                            },
+                        );
+                        CommandResult {
+                            command: command.command,
+                            success: output.success && output.exit_code.unwrap_or(0) == 0,
+                            exit_code: output.exit_code,
+                            output: Some(output.content),
+                            all: Some(output.all),
+                            error: None,
+                            parsed_output,
+                            parse_error,
+                        }
+                    }
+                    Err(error) => CommandResult {
+                        command: command.command,
+                        success: false,
+                        exit_code: None,
+                        output: None,
+                        all: None,
+                        error: Some(error.to_string()),
+                        parsed_output: None,
+                        parse_error: None,
                     },
-                );
+                };
                 emit_task_event(
                     &state,
                     &task_ctx,
                     TaskEventInput::new(
-                        if output.success {
+                        if result.success {
                             "step_completed"
                         } else {
                             "warning"
@@ -1641,7 +1680,7 @@ pub async fn execute_template(
                             "Command {}/{} {}",
                             idx + 1,
                             total_commands,
-                            if output.success {
+                            if result.success {
                                 "completed"
                             } else {
                                 "failed"
@@ -1649,25 +1688,17 @@ pub async fn execute_template(
                         ),
                     )
                     .with_stage("command")
-                    .with_level(if output.success { "success" } else { "warning" })
+                    .with_level(if result.success { "success" } else { "warning" })
                     .with_progress(task_event_progress(idx + 1, total_commands))
                     .with_details(Some(json!({
-                        "command": command.command,
+                        "command": result.command,
                         "index": idx + 1,
                         "total": total_commands,
-                        "exit_code": output.exit_code
+                        "exit_code": result.exit_code,
+                        "error": result.error
                     }))),
                 );
-                executed.push(CommandResult {
-                    command: command.command,
-                    success: output.success,
-                    exit_code: output.exit_code,
-                    output: Some(output.content),
-                    all: Some(output.all),
-                    error: None,
-                    parsed_output,
-                    parse_error,
-                });
+                executed.push(result);
             }
 
             persist_history_if_recorded(
@@ -1753,14 +1784,6 @@ pub async fn execute_template(
     )
 }
 
-pub async fn execute_template_async(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<ExecuteTemplateRequest>,
-) -> Result<(StatusCode, Json<ApiResponse<AsyncTaskAcceptedResponse>>), ApiError> {
-    let response = queue_template_async_task(state, req)?;
-    Ok((StatusCode::ACCEPTED, Json(ApiResponse::accepted(response))))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1780,7 +1803,7 @@ mod tests {
             "textfsm_platform": "cisco_ios"
         }))
         .expect("legacy unknown fields should be ignored");
-        let Json(response) = list_show_objects(Query(query)).await.expect("show catalog");
+        let response = list_show_objects(query).await.expect("show catalog");
         assert_eq!(response.platform.as_deref(), Some("linux"));
         let version = response
             .objects

@@ -73,6 +73,7 @@ pub struct DeviceClient {
     recording_level: Option<SessionRecordLevel>,
     recorder: Option<SessionRecorder>,
     recording_start: usize,
+    _lease: crate::application::limits::ExecutionLease,
 }
 
 impl DeviceClient {
@@ -119,6 +120,8 @@ impl DeviceClient {
         context: ExecutionContext,
         default_mode: String,
     ) -> Result<Self> {
+        let lease =
+            crate::application::limits::ExecutionLease::acquire(&request.addr, request.port).await;
         let retry_policy = context.retry_policy;
         validate_retry_policy(retry_policy)?;
         let mut retries_used = 0;
@@ -147,6 +150,7 @@ impl DeviceClient {
             recording_level: None,
             recorder: None,
             recording_start: 0,
+            _lease: lease,
         })
     }
 
@@ -190,6 +194,8 @@ impl DeviceClient {
         )
         .with_retry_policy(retry_policy);
         let mut retries_used = 0;
+        let lease =
+            crate::application::limits::ExecutionLease::acquire(&request.addr, request.port).await;
         let recorder = loop {
             match MANAGER
                 .get_with_recording_level_and_context(request.clone(), context.clone(), level)
@@ -224,6 +230,7 @@ impl DeviceClient {
             recording_level: Some(level),
             recorder: Some(recorder),
             recording_start,
+            _lease: lease,
         })
     }
 
@@ -504,6 +511,7 @@ mod tests {
             .execute_output("display version", Some("Enable"))
             .await?;
 
+        drop(first);
         let second = DeviceClient::connect_with_recording_and_retry(
             device.addr().ip().to_string(),
             device.port(),

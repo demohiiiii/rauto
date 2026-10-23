@@ -338,7 +338,7 @@ fn visible(path: &[&str], option: &str) -> bool {
         ["exec" | "show" | "interactive"] | ["device", "test"] => true,
         ["upload" | "tx-workflow"] => !retry,
         ["orchestrate"] => !retry && option != "save_connection",
-        ["web" | "agent"] | ["config", "fetch"] => option != "save_connection",
+        ["web" | "serve" | "agent"] | ["config", "fetch"] => option != "save_connection",
         ["device", "add"] => !retry && !matches!(option, "force_autodetect" | "save_connection"),
         ["profile", "autodetect"] => matches!(
             option,

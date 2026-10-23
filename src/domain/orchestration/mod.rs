@@ -73,7 +73,7 @@ pub struct TxWorkflowAction {
     pub(crate) inline_template_context: Option<template::InlineWorkflowTemplateContext>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RenderedOrchestrationWorkflow {
     pub stage_index: usize,
     pub stage_name: String,
@@ -84,7 +84,7 @@ pub struct RenderedOrchestrationWorkflow {
     pub workflow: rneter::session::TxWorkflow,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrchestrationExecutionResult {
     pub plan_name: String,
     pub success: bool,
@@ -94,7 +94,7 @@ pub struct OrchestrationExecutionResult {
     pub stages: Vec<StageExecutionResult>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StageExecutionResult {
     pub name: String,
     pub strategy: StageStrategy,
@@ -107,7 +107,7 @@ pub struct StageExecutionResult {
     pub jobs: Vec<JobExecutionResult>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobExecutionResult {
     pub name: String,
     pub strategy: StageStrategy,
@@ -122,7 +122,7 @@ pub struct JobExecutionResult {
     pub results: Vec<TargetExecutionResult>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StageStatus {
     Success,
@@ -130,7 +130,7 @@ pub enum StageStatus {
     Skipped,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TargetExecutionResult {
     pub label: String,
     pub connection_name: Option<String>,
@@ -145,7 +145,7 @@ pub struct TargetExecutionResult {
     pub compensation: Option<CompensationExecutionResult>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompensationExecutionResult {
     pub scope: String,
     pub attempted: bool,
@@ -158,7 +158,7 @@ pub struct CompensationExecutionResult {
     pub recording_jsonl: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TargetStatus {
     Success,
@@ -166,7 +166,7 @@ pub enum TargetStatus {
     Skipped,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrchestrationRuntimeEvent {
     pub event_type: String,
     pub message: String,

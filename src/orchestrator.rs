@@ -1,15 +1,14 @@
-use crate::cli::{GlobalOpts, JsonTemplateCommands, OrchestrateArgs, RecordLevelOpt};
+use crate::cli::{GlobalOpts, JsonTemplateCommands, RecordLevelOpt};
 use crate::config::content_store;
 use crate::config::linux_shell::LinuxShellFlavor;
 use crate::config::ssh_security::SshSecurityProfile;
 use crate::domain::orchestration::{
     action_kind_name, action_summary, build_job_result, build_stage_result, job_name,
 };
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 mod execution;
@@ -27,7 +26,7 @@ pub use crate::domain::orchestration::{
     OrchestrationStage, StageExecutionResult, StageStatus, StageStrategy, TargetExecutionResult,
     TargetStatus, TxWorkflowAction,
 };
-use render::{render_execution_result, render_plan};
+pub(crate) use render::{render_execution_result, render_plan};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OrchestrationTarget {
@@ -55,35 +54,6 @@ struct ActionExecutionOutcome {
 }
 
 pub type OrchestrationEventHook = Arc<dyn Fn(OrchestrationRuntimeEvent) + Send + Sync>;
-
-pub async fn run(args: OrchestrateArgs, opts: &GlobalOpts) -> Result<()> {
-    let (plan, plan_root, source) = load_plan_from_args(&args, opts)?;
-    validate_plan(&plan)?;
-
-    if args.view {
-        println!("{}", render_plan(&plan, source.as_ref())?);
-        return Ok(());
-    }
-
-    if args.dry_run {
-        if args.json {
-            println!("{}", serde_json::to_string_pretty(&plan)?);
-        } else {
-            println!("{}", render_plan(&plan, source.as_ref())?);
-        }
-        return Ok(());
-    }
-
-    let result = execution::execute_plan(&plan, &plan_root, opts, args.record_level, None).await?;
-
-    if args.json {
-        println!("{}", serde_json::to_string_pretty(&result)?);
-    } else {
-        println!("{}", render_execution_result(&result));
-    }
-
-    Ok(())
-}
 
 pub fn run_orchestration_template_command(cmd: JsonTemplateCommands) -> Result<()> {
     match cmd {
@@ -158,65 +128,6 @@ pub fn run_orchestration_template_command(cmd: JsonTemplateCommands) -> Result<(
         }
     }
     Ok(())
-}
-
-fn load_plan_from_args(
-    args: &OrchestrateArgs,
-    opts: &GlobalOpts,
-) -> Result<(OrchestrationPlan, PathBuf, Option<PathBuf>)> {
-    match (&args.plan_file, &args.template) {
-        (Some(_), Some(_)) => Err(anyhow::anyhow!(
-            "use either plan_file or --template, not both"
-        )),
-        (None, None) => Err(anyhow::anyhow!(
-            "orchestrate requires plan_file or --template <name>"
-        )),
-        (Some(path), None) => {
-            let plan_text = fs::read_to_string(path).with_context(|| {
-                format!(
-                    "failed to read orchestration plan '{}'",
-                    path.to_string_lossy()
-                )
-            })?;
-            let plan: OrchestrationPlan = serde_json::from_str(&plan_text)
-                .with_context(|| format!("failed to parse '{}'", path.to_string_lossy()))?;
-            let plan_root = path
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or_else(|| PathBuf::from("."));
-            Ok((plan, plan_root, Some(path.clone())))
-        }
-        (None, Some(name)) => {
-            let content = crate::cli::json_templates::load_json_template_content(
-                crate::cli::json_templates::JsonTemplateKind::Orchestration,
-                name,
-            )?;
-            let source: Value = serde_json::from_str(&content)?;
-            let vars = crate::cli::json_templates::read_json_vars(
-                args.vars.as_deref(),
-                args.vars_json.as_deref(),
-            )?;
-            let conn = crate::resolve_effective_connection(opts).ok();
-            let mut context = crate::cli::json_templates::template_context(vars, conn.as_ref());
-            crate::config::template_connection_refs::enrich_context_with_connection_refs_from_value(
-                &mut context,
-                &source,
-            )?;
-            let plan = crate::template::renderer::Renderer::new()
-                .render_orchestration_plan(&source, &context)?;
-            Ok((plan, PathBuf::from("."), None))
-        }
-    }
-}
-
-#[allow(dead_code)]
-pub async fn execute_loaded_plan(
-    plan: &OrchestrationPlan,
-    plan_root: &Path,
-    opts: &GlobalOpts,
-    record_level: RecordLevelOpt,
-) -> Result<OrchestrationExecutionResult> {
-    execute_loaded_plan_with_events(plan, plan_root, opts, record_level, None).await
 }
 
 pub async fn execute_loaded_plan_with_events(

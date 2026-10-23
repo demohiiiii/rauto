@@ -21,7 +21,7 @@ explicitly requests a packaging change.
 | Area                   | Path                                                                        | Responsibility                                                          |
 | ---------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Backend domain         | `src/domain/`                                                               | Business models, invariants, validation, and domain services            |
-| Backend application    | `src/cli/`, `src/web/`, `src/agent/`, `src/orchestrator/`, `src/scheduler/` | Use-case coordination and runtime adapters                              |
+| Backend application    | `src/application/`, `src/cli/`, `src/web/`, `src/agent/`, `src/orchestrator/`, `src/scheduler/` | Use-case coordination and runtime adapters                              |
 | Backend infrastructure | `src/infrastructure/`                                                       | SQLite, repositories, keyring, encryption, and external adapters        |
 | Backend interfaces     | `src/interfaces/`                                                           | HTTP/gRPC request, response, and transport contracts                    |
 | Frontend domains       | `frontend/src/domains/<domain>/`                                            | Domain model, application state, infrastructure ports, and presentation |

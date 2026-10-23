@@ -1,5 +1,6 @@
 mod agent;
 mod agent_task_grpc;
+mod application;
 mod cli;
 mod config;
 mod device;
@@ -39,10 +40,8 @@ pub(crate) mod tx_operation {
 pub(crate) use cli::runtime::{
     EffectiveConnection, manager_connection_request, manager_execution_context_with_security,
     manager_retry_policy, maybe_save_connection_profile, normalize_recording_jsonl_for_cli_level,
-    persist_auto_recording_history, persist_auto_recording_history_jsonl, read_required_text_input,
-    resolve_autodetect_connection, resolve_effective_connection,
-    resolve_interactive_connection_vars, save_named_connection, to_record_level,
-    write_recording_if_requested, write_recording_text_if_requested,
+    persist_auto_recording_history_jsonl, read_required_text_input, resolve_autodetect_connection,
+    resolve_effective_connection, save_named_connection, to_record_level,
 };
 
 fn main() {
@@ -61,6 +60,52 @@ fn main() {
 async fn main_async(cli: Cli) {
     init_tracing(&cli);
 
+    if let Err(error) = launch(cli).await {
+        error!("Error: {error:#}");
+        process::exit(1);
+    }
+}
+
+async fn launch(cli: Cli) -> Result<()> {
+    use interfaces::runtime::{ExecutionBackend, discover};
+    let home = config::paths::rauto_home_dir();
+    if let Some(prepared) = cli::execution::prepare(&cli)? {
+        match discover(&home).await? {
+            ExecutionBackend::Service(client) => {
+                let reply = client.execute(&prepared.request).await?;
+                return cli::execution::present(reply, &prepared.presentation);
+            }
+            ExecutionBackend::Local(_lock) => {
+                ensure_default_layout()?;
+                db::init_sync()?;
+                let state = application::state::AppState::new(cli.global_opts, None, None);
+                let reply = application::dispatch::execute(state, prepared.request).await;
+                return cli::execution::present(reply, &prepared.presentation);
+            }
+        }
+    }
+    let runtime_lock = if matches!(
+        cli.command,
+        Commands::Web(_) | Commands::Serve(_) | Commands::Agent(_)
+    ) {
+        Some(interfaces::runtime::acquire_service(&home).await?)
+    } else if matches!(
+        cli.command,
+        Commands::Device(cli::DeviceCommands::Test)
+            | Commands::Profile(cli::ProfileCommands::Autodetect { .. })
+            | Commands::Backup(BackupCommands::Restore { .. })
+    ) || matches!(&cli.command, Commands::Device(cli::DeviceCommands::Discover(args)) if args.command.is_none())
+    {
+        match discover(&home).await? {
+            ExecutionBackend::Local(lock) => Some(lock),
+            ExecutionBackend::Service(_) => anyhow::bail!(
+                "this diagnostic command requires exclusive runtime ownership; stop the service first, or use its Web/API diagnostics"
+            ),
+        }
+    } else {
+        None
+    };
+
     if let Err(e) = ensure_default_layout() {
         error!("Failed to initialize ~/.rauto layout: {}", e);
         process::exit(1);
@@ -70,15 +115,15 @@ async fn main_async(cli: Cli) {
         process::exit(1);
     }
 
-    if let Err(e) = run(cli).await {
-        error!("Error: {e:#}");
-        process::exit(1);
-    }
+    run(cli, runtime_lock.as_ref()).await
 }
 
 fn init_tracing(cli: &Cli) {
     let _ = tracing_log::LogTracer::init();
-    let default_level = if matches!(cli.command, Commands::Web(_) | Commands::Agent(_)) {
+    let default_level = if matches!(
+        cli.command,
+        Commands::Web(_) | Commands::Serve(_) | Commands::Agent(_)
+    ) {
         "info"
     } else {
         "error"
@@ -100,7 +145,7 @@ impl FormatTime for LocalTimer {
     }
 }
 
-async fn run(cli: Cli) -> Result<()> {
+async fn run(cli: Cli, runtime_lock: Option<&infrastructure::runtime::RuntimeLock>) -> Result<()> {
     match cli.command {
         Commands::Completion(_) => unreachable!("completion is handled before initialization"),
         Commands::Exec(cmd) => match cmd.command {
@@ -108,7 +153,7 @@ async fn run(cli: Cli) -> Result<()> {
                 cli::exec::run_template_command(command)?;
             }
             None => {
-                cli::exec::run_exec(cmd.run, &cli.global_opts).await?;
+                unreachable!("exec uses the shared execution service");
             }
         },
         Commands::Show(cmd) => match cmd.command {
@@ -124,12 +169,10 @@ async fn run(cli: Cli) -> Result<()> {
                 cli::interactive::run_interactive_template_command(command)?;
             }
             None => {
-                cli::interactive::run_interactive(cmd.run, &cli.global_opts).await?;
+                unreachable!("interactive uses the shared execution service");
             }
         },
-        Commands::Upload(args) => {
-            cli::interactive::run_upload(args, &cli.global_opts).await?;
-        }
+        Commands::Upload(_) => unreachable!("uploads use the shared execution service"),
         Commands::Config(cmd) => {
             cli::config_fetch::run_config_command(cmd, &cli.global_opts).await?;
         }
@@ -138,7 +181,7 @@ async fn run(cli: Cli) -> Result<()> {
                 cli::tx_workflow::run_tx_workflow_template_command(command)?;
             }
             None => {
-                cli::tx_workflow::run_tx_workflow(cmd.run, &cli.global_opts).await?;
+                unreachable!("workflows use the shared execution service");
             }
         },
         Commands::Orchestrate(cmd) => match cmd.command {
@@ -146,7 +189,7 @@ async fn run(cli: Cli) -> Result<()> {
                 orchestrator::run_orchestration_template_command(command)?;
             }
             None => {
-                orchestrator::run(cmd.run, &cli.global_opts).await?;
+                unreachable!("orchestration uses the shared execution service");
             }
         },
         Commands::Schedule(command) => {
@@ -177,13 +220,23 @@ async fn run(cli: Cli) -> Result<()> {
                 }
             }
         },
-        Commands::Web(args) => {
+        Commands::Web(args) | Commands::Serve(args) => {
             info!("Starting web service on {}:{}", args.bind, args.port);
-            run_web_server(args, cli.global_opts).await?;
+            run_web_server(
+                args,
+                cli.global_opts,
+                runtime_lock.expect("service holds runtime ownership"),
+            )
+            .await?;
         }
         Commands::Agent(args) => {
             info!("Starting agent service on {}:{}", args.bind, args.port);
-            run_agent_server(args, cli.global_opts).await?;
+            run_agent_server(
+                args,
+                cli.global_opts,
+                runtime_lock.expect("service holds runtime ownership"),
+            )
+            .await?;
         }
         Commands::Device(cmd) => match cmd {
             cli::DeviceCommands::Discover(args) => match args.command {

@@ -67,7 +67,11 @@ use tokio::net::TcpListener;
 use tokio::signal;
 use tracing::info;
 
-pub async fn run_web_server(web_args: WebArgs, defaults: GlobalOpts) -> Result<()> {
+pub async fn run_web_server(
+    web_args: WebArgs,
+    defaults: GlobalOpts,
+    runtime_lock: &crate::infrastructure::runtime::RuntimeLock,
+) -> Result<()> {
     let web_password = app_config::load_or_create_web_password()?;
     if web_password.generated {
         println!("Generated Web login password: {}", web_password.password);
@@ -78,6 +82,8 @@ pub async fn run_web_server(web_args: WebArgs, defaults: GlobalOpts) -> Result<(
     }
     let (addr, listener) = bind_listener(&web_args.bind, web_args.port).await?;
     let state = AppState::new_web(defaults, &web_password.password);
+    let control =
+        crate::interfaces::runtime::RuntimeServer::start(state.clone(), runtime_lock).await?;
     let app = build_local_app(state.clone());
     let scheduler = spawn_scheduler(state.clone());
     let result = serve_app(listener, addr, app, state.clone()).await;
@@ -85,10 +91,15 @@ pub async fn run_web_server(web_args: WebArgs, defaults: GlobalOpts) -> Result<(
     if let Err(error) = scheduler.await {
         tracing::warn!("cron scheduler failed to join: {error}");
     }
+    control.finish().await;
     result
 }
 
-pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Result<()> {
+pub async fn run_agent_server(
+    agent_args: AgentArgs,
+    defaults: GlobalOpts,
+    runtime_lock: &crate::infrastructure::runtime::RuntimeLock,
+) -> Result<()> {
     let agent_settings = resolve_agent_settings(
         agent_args.agent_config.clone(),
         AgentCliOverrides {
@@ -119,6 +130,8 @@ pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Re
     }
     let (addr, listener) = bind_listener(&agent_args.bind, agent_args.port).await?;
     let state = AppState::new(defaults, Some(agent_config.clone()), api_token);
+    let control =
+        crate::interfaces::runtime::RuntimeServer::start(state.clone(), runtime_lock).await?;
     let app = build_managed_app(state.clone());
 
     let registrar = Arc::new(AgentRegistrar::new(agent_config.clone()));
@@ -150,7 +163,10 @@ pub async fn run_agent_server(agent_args: AgentArgs, defaults: GlobalOpts) -> Re
         agent_config.agent.name
     );
 
-    serve_app(listener, addr, app, state).await
+    let result = serve_app(listener, addr, app, state.clone()).await;
+    state.begin_shutdown();
+    control.finish().await;
+    result
 }
 
 fn build_local_app(state: Arc<AppState>) -> Router {
@@ -510,7 +526,10 @@ async fn serve_app(
     info!("Web UI started at http://{}", addr);
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
-            signal::ctrl_c().await.ok();
+            let mut shutdown = shutdown_state.subscribe_shutdown();
+            if !*shutdown.borrow() {
+                tokio::select! { _ = signal::ctrl_c() => {}, _ = shutdown.changed() => {} }
+            }
             shutdown_state.begin_shutdown();
             if let Some(registrar) = shutdown_state.registrar() {
                 registrar.shutdown_notify().await;

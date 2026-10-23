@@ -4,31 +4,31 @@ use rneter::session::MultilineMode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct UpsertConnectionRequest {
     #[serde(default)]
     pub connection: ConnectionRequest,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ExecutionTargetOptions {
     #[serde(default)]
     pub connection: Option<ConnectionRequest>,
     pub record_level: Option<RecordLevel>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ManagedTaskOptions {
     #[serde(default)]
     pub task_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct DryRunOptions {
     pub dry_run: Option<bool>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct SessionRetryOptions {
     #[serde(default)]
     pub max_retries: Option<usize>,
@@ -40,7 +40,7 @@ pub struct SessionRetryOptions {
     pub retry_authentication_errors: Option<bool>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct ExecRequest {
     pub command: String,
     #[serde(default)]
@@ -61,7 +61,7 @@ pub struct ExecRequest {
     pub task: ManagedTaskOptions,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ExecResponse {
     pub output: String,
     pub exit_code: Option<i32>,
@@ -72,7 +72,7 @@ pub struct ExecResponse {
     pub result_summary: TaskResultSummary,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ShowObjectEntry {
     pub object: String,
     pub command: String,
@@ -82,13 +82,13 @@ pub struct ShowObjectEntry {
     pub textfsm_template_name: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ShowObjectsResponse {
     pub platform: Option<String>,
     pub objects: Vec<ShowObjectEntry>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct ShowExecuteRequest {
     pub object: String,
     pub mode: Option<String>,
@@ -104,7 +104,7 @@ pub struct ShowExecuteRequest {
     pub task: ManagedTaskOptions,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ShowExecuteResponse {
     pub object: String,
     pub platform: String,
@@ -123,7 +123,7 @@ pub struct ShowExecuteResponse {
     pub result_summary: TaskResultSummary,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct ShowBatchExecuteRequest {
     pub object: String,
     #[serde(default)]
@@ -148,7 +148,7 @@ pub struct ShowBatchExecuteRequest {
     pub task: ManagedTaskOptions,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ShowBatchTargetResponse {
     pub target: String,
     pub host: String,
@@ -169,7 +169,7 @@ pub struct ShowBatchTargetResponse {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ShowBatchExecuteResponse {
     pub object: String,
     pub targets: Vec<String>,
@@ -177,7 +177,7 @@ pub struct ShowBatchExecuteResponse {
     pub result_summary: TaskResultSummary,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct ExecBatchExecuteRequest {
     #[serde(default)]
     pub command: String,
@@ -209,7 +209,7 @@ pub struct ExecBatchExecuteRequest {
     pub task: ManagedTaskOptions,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ExecBatchTargetResponse {
     pub outputs: Vec<CommandResult>,
     pub target: String,
@@ -224,7 +224,7 @@ pub struct ExecBatchTargetResponse {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ExecBatchExecuteResponse {
     pub command: String,
     pub targets: Vec<String>,
@@ -236,7 +236,7 @@ fn default_config_kind() -> String {
     "running".to_string()
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct ConfigFetchRequest {
     #[serde(default = "default_config_kind")]
     pub kind: String,
@@ -250,7 +250,7 @@ pub struct ConfigFetchRequest {
     pub task: ManagedTaskOptions,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct ConfigBatchFetchRequest {
     #[serde(default = "default_config_kind")]
     pub kind: String,
@@ -271,7 +271,7 @@ pub struct ConfigBatchFetchRequest {
     pub task: ManagedTaskOptions,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ConfigFetchTargetResponse {
     pub target: String,
     pub host: String,
@@ -290,14 +290,14 @@ pub struct ConfigFetchTargetResponse {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ConfigFetchResponse {
     #[serde(flatten)]
     pub target: ConfigFetchTargetResponse,
     pub result_summary: TaskResultSummary,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ConfigBatchFetchResponse {
     pub kind: String,
     pub targets: Vec<String>,
@@ -305,7 +305,7 @@ pub struct ConfigBatchFetchResponse {
     pub result_summary: TaskResultSummary,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct ExecuteTemplateRequest {
     #[serde(default)]
     pub template: Option<String>,
@@ -333,7 +333,7 @@ pub struct ExecuteTemplateRequest {
     pub task: ManagedTaskOptions,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct CommandResult {
     pub command: String,
     pub success: bool,
@@ -345,7 +345,7 @@ pub struct CommandResult {
     pub parse_error: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ExecuteTemplateResponse {
     pub rendered_commands: String,
     pub executed: Vec<CommandResult>,
@@ -353,7 +353,7 @@ pub struct ExecuteTemplateResponse {
     pub result_summary: TaskResultSummary,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct ExecuteInteractiveRequest {
     #[serde(default)]
     pub template_name: Option<String>,
@@ -376,7 +376,7 @@ pub struct ExecuteInteractiveRequest {
     pub target: ExecutionTargetOptions,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ExecuteInteractiveResponse {
     pub success: bool,
     pub template_name: String,
@@ -385,7 +385,7 @@ pub struct ExecuteInteractiveResponse {
     pub result_summary: TaskResultSummary,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct InteractiveBatchExecuteRequest {
     #[serde(default)]
     pub template_name: Option<String>,
@@ -417,7 +417,7 @@ pub struct InteractiveBatchExecuteRequest {
     pub task: ManagedTaskOptions,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct InteractiveBatchTargetResponse {
     pub target: String,
     pub host: String,
@@ -427,7 +427,7 @@ pub struct InteractiveBatchTargetResponse {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct InteractiveBatchExecuteResponse {
     pub template_name: String,
     pub targets: Vec<String>,
@@ -435,7 +435,7 @@ pub struct InteractiveBatchExecuteResponse {
     pub result_summary: TaskResultSummary,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct ExecuteUploadRequest {
     pub local_path: String,
     pub remote_path: String,
@@ -449,7 +449,7 @@ pub struct ExecuteUploadRequest {
     pub target: ExecutionTargetOptions,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ExecuteUploadResponse {
     pub ok: bool,
     pub local_path: String,
@@ -458,7 +458,7 @@ pub struct ExecuteUploadResponse {
     pub result_summary: TaskResultSummary,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct ExecuteTxWorkflowRequest {
     #[serde(default)]
     pub preview_commands: bool,
@@ -477,7 +477,7 @@ pub struct ExecuteTxWorkflowRequest {
     pub task: ManagedTaskOptions,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ExecuteTxWorkflowResponse {
     pub workflow: Value,
     pub tx_workflow_result: Option<Value>,
@@ -485,7 +485,7 @@ pub struct ExecuteTxWorkflowResponse {
     pub result_summary: TaskResultSummary,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct ExecuteOrchestrationRequest {
     #[serde(default)]
     pub preview_commands: bool,
@@ -505,7 +505,7 @@ pub struct ExecuteOrchestrationRequest {
     pub task: ManagedTaskOptions,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 pub struct ExecuteOrchestrationResponse {
     pub plan: Value,
     #[serde(skip_serializing_if = "Option::is_none")]

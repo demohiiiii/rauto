@@ -16,7 +16,6 @@ use axum::extract::{Path, State};
 use serde_json::{Value, json};
 use std::sync::Arc;
 
-const BUILTIN_FLOW_TEMPLATE_PREFIX: &str = "builtin:";
 const BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY: &str = "cisco-like-copy";
 
 fn normalize_interactive_template_content(name: &str, content: &str) -> Result<String, ApiError> {
@@ -24,39 +23,10 @@ fn normalize_interactive_template_content(name: &str, content: &str) -> Result<S
         .map_err(|error| ApiError::bad_request(error.to_string()))
 }
 
-fn normalize_builtin_interactive_template_name(raw: &str) -> String {
-    raw.trim().to_ascii_lowercase().replace('_', "-")
-}
-
-pub(super) fn parse_builtin_interactive_template_token(raw: &str) -> Option<String> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    if !trimmed
-        .get(..BUILTIN_FLOW_TEMPLATE_PREFIX.len())
-        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(BUILTIN_FLOW_TEMPLATE_PREFIX))
-    {
-        return None;
-    }
-    let suffix = trimmed
-        .get(BUILTIN_FLOW_TEMPLATE_PREFIX.len()..)
-        .unwrap_or("");
-    let normalized = normalize_builtin_interactive_template_name(suffix);
-    (!normalized.is_empty()).then_some(normalized)
-}
-
-pub(super) fn builtin_interactive_template_by_name(name: &str) -> Option<InteractiveTemplate> {
-    let normalized = normalize_builtin_interactive_template_name(name);
-    match normalized.as_str() {
-        BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY => {
-            let mut template = cisco_like_copy_interactive_template().ok()?;
-            template.name = BUILTIN_FLOW_TEMPLATE_CISCO_LIKE_COPY.to_string();
-            Some(template)
-        }
-        _ => None,
-    }
-}
+use crate::application::runtime::{
+    builtin_interactive_template_by_name, normalize_builtin_interactive_template_name,
+    parse_builtin_interactive_template_token,
+};
 
 fn builtin_interactive_template_metas() -> Vec<InteractiveTemplateMeta> {
     let Ok(template) = cisco_like_copy_interactive_template() else {

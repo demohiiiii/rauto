@@ -121,6 +121,9 @@ pub enum Commands {
     /// Start web service with visual UI
     Web(WebArgs),
 
+    /// Run the local execution service (use a service manager to keep it in the background)
+    Serve(WebArgs),
+
     /// Start managed agent service for rauto-manager
     Agent(AgentArgs),
 

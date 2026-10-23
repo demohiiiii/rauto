@@ -103,6 +103,7 @@ pub(super) async fn execute_compensation_action(
         conn.enable_password.as_deref(),
     );
     let rollback_name = rollback_block.name.clone();
+    let _lease = crate::application::limits::ExecutionLease::acquire(&conn.host, conn.port).await;
     let workflow_result = MANAGER
         .execute_tx_workflow_with_recorder_and_context(
             request,
@@ -229,6 +230,7 @@ async fn execute_tx_workflow_action(
         &conn.auth,
         conn.enable_password.as_deref(),
     );
+    let _lease = crate::application::limits::ExecutionLease::acquire(&conn.host, conn.port).await;
     let workflow_result = MANAGER
         .execute_tx_workflow_with_recorder_and_context(
             request,

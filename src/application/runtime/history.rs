@@ -2,7 +2,7 @@ use super::*;
 use crate::config::session_recording;
 
 pub(crate) fn persist_history_jsonl(
-    conn: &crate::web::state::ResolvedConnection,
+    conn: &crate::application::state::ResolvedConnection,
     operation: &str,
     command_label: &str,
     mode: Option<&str>,
@@ -70,7 +70,7 @@ pub(crate) fn record_level_name(level: Option<RecordLevel>) -> &'static str {
 }
 
 pub(crate) fn persist_history_if_recorded(
-    conn: &crate::web::state::ResolvedConnection,
+    conn: &crate::application::state::ResolvedConnection,
     client: &DeviceClient,
     operation: &str,
     command_label: &str,

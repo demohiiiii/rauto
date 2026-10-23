@@ -1,71 +1,23 @@
-use crate::agent::registration::{AsyncErrorReportInput, current_agent_name};
-use crate::cli::RecordLevelOpt;
-use crate::config::interactive_template::{
-    InteractiveTemplate, build_interactive_runtime, parse_interactive_template,
-    resolve_interactive_runtime_default_mode,
-};
-use crate::config::interactive_vars::{
-    ConnectionParamContext, resolve_interactive_runtime_vars, resolve_runtime_var_aliases,
-};
-use crate::config::template_connection_refs::{
-    enrich_context_with_connection_refs_from_template,
-    enrich_context_with_connection_refs_from_value,
-};
-use crate::config::template_loader;
-use crate::config::{command_blacklist, custom_textfsm_store, show_catalog};
-use crate::config::{
-    connection_store, connection_store::SavedConnection, content_store, task_store,
-};
-use crate::config::{history_store, history_store::HistoryBinding};
-use crate::device::DeviceClient;
-use crate::manager_connection_request;
-use crate::orchestrator;
-use crate::task::{
-    TaskCallback, TaskEventLevel, TaskEventType, TaskOperation, TaskResultEnvelope,
-    TaskResultOutcome, TaskStatus, build_error_result_summary, build_result_summary,
-    extract_result_summary, result_counts, result_counts_with_skipped, task_name_to_operation,
-    task_result_with_counts, task_result_with_details, task_result_with_recording,
-};
-use crate::template::renderer::Renderer;
+use crate::config::{connection_store, connection_store::SavedConnection};
 use crate::web::error::ApiError;
 use crate::web::models::{
-    ApiResponse, AsyncTaskAcceptedResponse, CommandResult, ConfigBatchFetchRequest,
-    ConfigBatchFetchResponse, ConfigFetchRequest, ConfigFetchResponse, ConfigFetchTargetResponse,
-    ConnectionRequest, ExecBatchExecuteRequest, ExecBatchExecuteResponse, ExecBatchTargetResponse,
-    ExecRequest, ExecResponse, ExecuteInteractiveRequest, ExecuteInteractiveResponse,
-    ExecuteOrchestrationRequest, ExecuteOrchestrationResponse, ExecuteTemplateRequest,
-    ExecuteTemplateResponse, ExecuteTxWorkflowRequest, ExecuteTxWorkflowResponse,
-    ExecuteUploadRequest, ExecuteUploadResponse, InteractiveBatchExecuteRequest,
-    InteractiveBatchExecuteResponse, InteractiveBatchTargetResponse, RecordLevel, RenderRequest,
-    RenderResponse, SavedConnectionDetail, SessionRetryOptions, ShowBatchExecuteRequest,
-    ShowBatchExecuteResponse, ShowBatchTargetResponse, ShowExecuteRequest, ShowExecuteResponse,
-    ShowObjectEntry, ShowObjectsResponse, TaskEvent,
+    ApiResponse, AsyncTaskAcceptedResponse, ConfigBatchFetchRequest, ConfigBatchFetchResponse,
+    ConfigFetchRequest, ConfigFetchResponse, ConnectionRequest, ExecBatchExecuteRequest,
+    ExecBatchExecuteResponse, ExecRequest, ExecResponse, ExecuteInteractiveRequest,
+    ExecuteInteractiveResponse, ExecuteOrchestrationRequest, ExecuteOrchestrationResponse,
+    ExecuteTemplateRequest, ExecuteTemplateResponse, ExecuteTxWorkflowRequest,
+    ExecuteTxWorkflowResponse, ExecuteUploadRequest, ExecuteUploadResponse,
+    InteractiveBatchExecuteRequest, InteractiveBatchExecuteResponse, RenderRequest, RenderResponse,
+    SavedConnectionDetail, ShowBatchExecuteRequest, ShowBatchExecuteResponse, ShowExecuteRequest,
+    ShowExecuteResponse, ShowObjectsResponse,
 };
-use crate::web::state::{
-    AppState, ResolvedConnection, apply_session_retry_options, merge_connection_options,
-    resolve_autodetect_connection,
-};
-use crate::web::storage;
+use crate::web::state::AppState;
 use axum::http::StatusCode;
 use axum::{
     Json,
     extract::{Query, State},
 };
-use chrono::Utc;
-use rneter::session::{
-    Command, CommandDynamicParams, CommandInteraction, MANAGER, MultilineMode, SessionEvent,
-    SessionRecordEntry, SessionRecordLevel, SessionRecorder,
-};
-use serde::Serialize;
-use serde_json::{Value, json};
-use std::collections::{BTreeSet, HashMap};
-use std::future::Future;
-use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
-use tokio::sync::oneshot;
-use tokio::task::JoinHandle;
-use tracing::warn;
 
 mod async_tasks;
 mod command_templates;
@@ -75,7 +27,7 @@ mod credentials;
 mod device_config_history;
 mod device_discovery;
 mod execute;
-mod interactive_templates;
+pub(crate) mod interactive_templates;
 mod json_templates;
 mod maintenance;
 mod profiles;
@@ -83,10 +35,9 @@ mod replay;
 mod runtime;
 mod schedules;
 mod show_objects_custom;
-mod task_events;
 mod textfsm_custom;
 mod textfsm_exports;
-use async_tasks::*;
+use crate::application::execution::{queue_exec_async_task, queue_template_async_task};
 pub(crate) use async_tasks::{queue_orchestration_async_task, queue_tx_workflow_async_task};
 pub use command_templates::{
     create_template, delete_template, get_template, inspect_command_template, list_templates,
@@ -129,12 +80,6 @@ pub use execute::{
     execute_tx_workflow_async, execute_upload, fetch_config, fetch_config_batch, list_show_objects,
     render_template,
 };
-pub(crate) use execute::{
-    execute_scheduled_config_batch, execute_scheduled_orchestration, execute_scheduled_tx_workflow,
-};
-use interactive_templates::{
-    builtin_interactive_template_by_name, parse_builtin_interactive_template_token,
-};
 pub use interactive_templates::{
     create_interactive_template, delete_interactive_template, get_builtin_interactive_template,
     get_interactive_template, inspect_interactive_template, list_builtin_interactive_templates,
@@ -170,7 +115,6 @@ pub use show_objects_custom::{
     CustomShowObjectQuery, DeleteCustomShowObjectRequest, UpsertCustomShowObjectRequest,
     delete_custom_show_object, list_custom_show_objects, upsert_custom_show_object,
 };
-use task_events::*;
 pub use textfsm_custom::{
     CreateTextfsmTemplateRequest, DeleteTextfsmMappingRequest, TextfsmMappingQuery,
     UpdateTextfsmTemplateRequest, UpsertTextfsmMappingRequest, create_textfsm_template,
