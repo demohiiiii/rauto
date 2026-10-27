@@ -32,6 +32,7 @@ import {
   TX_EDITOR,
   TX_OUTPUT,
   TX_TEMPLATE_KIND,
+  localizedWorkflowError,
 } from "$domains/transactions/index.js";
 import {
   createOrchestratedExecutionDependencies,
@@ -74,10 +75,7 @@ interface OrchestratedEditorLayoutInput {
   shellState?: DashboardEditorState;
 }
 
-const errorMessage = (error: unknown): string =>
-  error && typeof error === "object" && "message" in error
-    ? String(error.message)
-    : String(error || "");
+const errorMessage = (error: unknown): string => localizedWorkflowError(error);
 
 function tr(key: string, fallback = key): string {
   return translate(key, fallback);

@@ -36,6 +36,7 @@ import {
   setTxWorkflowExecutionResult,
   setVisualOutputStatus,
   txVarsTextStateFor,
+  localizedWorkflowError,
 } from "$domains/transactions/index.js";
 import type {
   TxEditorKey,
@@ -111,10 +112,7 @@ interface JsonTemplateConfig {
   runOutput: string;
 }
 
-const errorMessage = (error: unknown): string =>
-  error && typeof error === "object" && "message" in error
-    ? String(error.message)
-    : String(error || "");
+const errorMessage = (error: unknown): string => localizedWorkflowError(error);
 
 function tr(key: string, fallback = key): string {
   return translate(key, fallback);

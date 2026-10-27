@@ -35,6 +35,16 @@ export const i18nEn = {
   renderedCommandsVarsInvalid: "Runtime variables must be a JSON object.",
   renderedCommandsUnavailable:
     "This backend does not support per-device command previews. Update the backend.",
+  workflowDiagnosticMissingTitle: "Workflow variables are incomplete",
+  workflowDiagnosticPath: "Location",
+  workflowDiagnosticVariables: "Missing variables",
+  workflowDiagnosticIteration: "Loop iteration",
+  workflowDiagnosticMissingHint:
+    "Add these values to the runtime variables and render or execute again.",
+  workflowDiagnosticLoopValueTitle: "Invalid loop value",
+  workflowDiagnosticExpression: "Expression",
+  workflowDiagnosticExpected: "Expected",
+  workflowDiagnosticRenderTitle: "Workflow template could not be rendered",
   title: "rauto Web Console",
   dashboardBreadcrumbAria: "Page path",
   dashboardBreadcrumbRoot: "Console",

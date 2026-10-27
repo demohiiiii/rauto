@@ -51,6 +51,7 @@ import {
   txWorkflowOutputPanelDisplay,
   txWorkflowStageDisplay,
 } from "../presentation/transactionExecutionDisplays.js";
+import { localizedWorkflowError } from "./workflowErrorMessage.js";
 import {
   TX_VARS,
   TX_VARS_ASSISTANT_VALUE_TYPE_OPTIONS,
@@ -142,10 +143,7 @@ function tr(key: string, fallback = key): string {
 }
 
 function errorMessage(error: unknown): string {
-  if (error && typeof error === "object" && "message" in error) {
-    return safeTemplateString(error.message);
-  }
-  return String(error || "");
+  return localizedWorkflowError(error);
 }
 
 export const TX_OUTPUT = Object.freeze({

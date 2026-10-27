@@ -32,7 +32,7 @@ def main(binary):
         try:
             run("docker", "build", "--quiet", "--tag", image, str(root))
             print(run("docker", "run", "--rm", "--network=none", image, "--version"))
-            print(run("docker", "run", "--rm", "--network=none", image, "templates", "list"))
+            print(run("docker", "run", "--rm", "--network=none", image, "exec", "template", "list"))
             container = run(
                 "docker", "run", "--detach", "--publish", "127.0.0.1::3000", image,
                 "web", "--bind", "0.0.0.0", "--port", "3000",

@@ -83,6 +83,47 @@ impl<'source> Renderer<'source> {
             .collect::<Vec<_>>();
         Ok(names)
     }
+
+    /// Returns referenced paths that are both active for the supplied context
+    /// and cannot be found. This is deliberately used as error enrichment after
+    /// rendering fails; it must not report values protected by `default` or
+    /// expressions in an unselected branch.
+    pub fn missing_variables(&self, template_str: &str, context: &Value) -> Result<Vec<String>> {
+        let globals = self.env.globals().map(|(name, _)| name).collect::<Vec<_>>();
+        let names = super::variables::active_undeclared_variables(template_str, |expression| {
+            self.evaluate_expression(expression, context, usize::MAX)
+                .ok()
+        })?
+        .into_iter()
+        .filter(|path| {
+            let root = path.split('.').next().unwrap_or(path);
+            !globals.contains(&root) && !context_path_exists(context, path)
+        })
+        .collect();
+        Ok(names)
+    }
+
+    pub fn missing_expression_variables(
+        &self,
+        expression: &str,
+        context: &Value,
+    ) -> Result<Vec<String>> {
+        self.missing_variables(&format!("{{{{ {expression} }}}}"), context)
+    }
+}
+
+fn context_path_exists(context: &Value, path: &str) -> bool {
+    let mut current = context;
+    for segment in path.split('.') {
+        let Some(object) = current.as_object() else {
+            return false;
+        };
+        let Some(value) = object.get(segment) else {
+            return false;
+        };
+        current = value;
+    }
+    true
 }
 
 impl Default for Renderer<'static> {
@@ -229,6 +270,46 @@ mod tests {
             .undeclared_variables("{% if enabled %}{{ value }}")
             .unwrap_err();
         assert!(error.to_string().contains("Failed to inspect template"));
+    }
+
+    #[test]
+    fn missing_variable_diagnostics_respect_nested_context_paths() {
+        let renderer = Renderer::new();
+        assert_eq!(
+            renderer
+                .missing_variables(
+                    "{{ vars.address }} {{ vars.optional | default('unset') }} {{ connection.host }}",
+                    &serde_json::json!({
+                        "vars": {"address": "192.0.2.1"},
+                        "connection": {"host": "router-a"}
+                    }),
+                )
+                .unwrap(),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn missing_variable_diagnostics_keep_required_values_and_active_branches() {
+        let renderer = Renderer::new();
+        assert_eq!(
+            renderer
+                .missing_variables(
+                    "{{ required }} {{ optional | default('unset') }}",
+                    &serde_json::json!({}),
+                )
+                .unwrap(),
+            vec!["required"]
+        );
+        assert_eq!(
+            renderer
+                .missing_variables(
+                    "{% if enabled %}{{ active }}{% else %}{{ inactive }}{% endif %}",
+                    &serde_json::json!({"enabled": true}),
+                )
+                .unwrap(),
+            vec!["active"]
+        );
     }
 
     #[test]

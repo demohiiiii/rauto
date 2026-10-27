@@ -105,7 +105,11 @@ async fn execute_tx_workflow_request(
                 &mut preview_contexts,
             )?;
             let workflow: rneter::session::TxWorkflow =
-                serde_json::from_value(workflow_value.clone()).map_err(ApiError::from)?;
+                serde_json::from_value(workflow_value.clone()).map_err(|error| {
+                    ApiError::bad_request(format!(
+                        "rendered transaction workflow is invalid: {error}"
+                    ))
+                })?;
             workflow
                 .validate()
                 .map_err(|error| ApiError::bad_request(error.to_string()))?;

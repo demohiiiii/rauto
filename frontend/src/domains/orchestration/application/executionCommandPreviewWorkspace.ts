@@ -1,6 +1,7 @@
 import { get, writable } from "svelte/store";
 import { t } from "$lib/i18n.js";
 import type { ConnectionRequestPayload } from "$domains/connections/index.js";
+import { localizedWorkflowError } from "$domains/transactions/index.js";
 import type { RenderedWorkflow } from "$domains/transactions/index.js";
 import type {
   ExecuteOrchestrationResponse,
@@ -174,7 +175,7 @@ export function createExecutionCommandPreviewWorkspace(
           open: true,
           loading: false,
           stale: false,
-          error: error instanceof Error ? error.message : String(error),
+          error: localizedWorkflowError(error),
           entries: [],
         });
     }

@@ -11,6 +11,7 @@ export * from "./application/transactionInputState.js";
 export * from "./application/transactionInputWorkspaces.js";
 export * from "./application/transactionVarsAssistant.js";
 export * from "./application/transactionPanelState.js";
+export { localizedWorkflowError } from "./application/workflowErrorMessage.js";
 export * from "./presentation/transactionBlockDisplayState.js";
 export * from "./presentation/transactionWorkflowCanvasState.js";
 export * from "./presentation/transactionExecutionDisplays.js";

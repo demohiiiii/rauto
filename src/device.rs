@@ -96,7 +96,14 @@ impl DeviceClient {
         if let Some(options) = keep_alive {
             options.validate().map_err(|error| anyhow!(error))?;
         }
-        info!("Connecting to {}:{} as {}", host, port, username);
+        // This method is also used by the workbench's periodic keepalive
+        // check. The manager may reuse a healthy pooled session, so logging
+        // this before the pool lookup at INFO level falsely suggests that a
+        // new SSH connection is created on every check.
+        debug!(
+            "Ensuring pooled connection to {}:{} as {}",
+            host, port, username
+        );
 
         let request = manager_connection_request(
             username,

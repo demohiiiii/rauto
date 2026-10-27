@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { get } from "svelte/store";
 import { loadI18nLanguage } from "../src/lib/i18n.js";
+import { localizedWorkflowError } from "../src/domains/transactions/index.js";
 import { createExecutionCommandPreviewWorkspace } from "../src/domains/orchestration/application/executionCommandPreviewWorkspace.js";
 import type {
   ExecutionCommandPreviewInput,
@@ -227,6 +228,25 @@ test("invalid source, variables and missing workflow target do not call executio
   }
   assert.equal(calls, 0);
   workspace.destroy();
+});
+
+test("workflow diagnostics use the selected language and keep source details", async () => {
+  const error = new Error(
+    "failed to render workflow node at $.blocks[0]: missing template variable(s) at $.blocks[0].run.command: vars.address; provide them in runtime variables",
+  );
+  await loadI18nLanguage("zh");
+  assert.match(localizedWorkflowError(error), /工作流变量不完整/);
+  assert.match(localizedWorkflowError(error), /缺少变量: vars\.address/);
+  assert.match(localizedWorkflowError(error), /\$\.blocks\[0\]\.run\.command/);
+  await loadI18nLanguage("en");
+  assert.match(
+    localizedWorkflowError(error),
+    /Workflow variables are incomplete/,
+  );
+  assert.match(
+    localizedWorkflowError(error),
+    /Missing variables: vars\.address/,
+  );
 });
 
 test("both execution bars share complete rollback and multiline preview wiring", () => {

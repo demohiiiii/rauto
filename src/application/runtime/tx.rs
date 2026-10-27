@@ -58,7 +58,11 @@ pub(crate) fn resolve_tx_workflow_blocks_from_templates(
         }
 
         let block_ref: TxWorkflowBlockTemplateRefPayload =
-            serde_json::from_value(Value::Object(block_obj.clone())).map_err(ApiError::from)?;
+            serde_json::from_value(Value::Object(block_obj.clone())).map_err(|error| {
+                ApiError::bad_request(format!(
+                    "transaction block template reference is invalid: {error}"
+                ))
+            })?;
         let rendered_value = resolve_tx_block_value_from_input(
             Value::Null,
             block_ref.tx_block_template_name.as_deref(),
@@ -67,15 +71,18 @@ pub(crate) fn resolve_tx_workflow_blocks_from_templates(
             conn,
             preview_contexts,
         )?;
-        let mut tx_block: TxBlock =
-            serde_json::from_value(rendered_value).map_err(ApiError::from)?;
+        let mut tx_block: TxBlock = serde_json::from_value(rendered_value).map_err(|error| {
+            ApiError::bad_request(format!("rendered transaction block is invalid: {error}"))
+        })?;
         if let Some(name) = block_ref.name.filter(|value| !value.trim().is_empty()) {
             tx_block.name = name;
         }
         if let Some(fail_fast) = block_ref.fail_fast {
             tx_block.fail_fast = fail_fast;
         }
-        tx_block.validate().map_err(ApiError::from)?;
+        tx_block.validate().map_err(|error| {
+            ApiError::bad_request(format!("transaction block is invalid: {error}"))
+        })?;
         resolved_blocks.push(serde_json::to_value(&tx_block).map_err(ApiError::from)?);
     }
 

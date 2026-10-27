@@ -41,14 +41,28 @@ struct WorkflowChoiceBranch {
     blocks: Vec<Value>,
 }
 
+enum ChoiceSelection {
+    Branch { index: usize, blocks: Vec<Value> },
+    LegacyThen(Vec<Value>),
+    LegacyElse(Vec<Value>),
+}
+
 impl WorkflowChoice {
     fn select(
         self,
         context: &Value,
         renderer: &Renderer<'_>,
         expansions: &mut usize,
-    ) -> Result<Vec<Value>> {
-        let branches = match (self.branches, self.condition, self.then) {
+    ) -> Result<ChoiceSelection> {
+        let WorkflowChoice {
+            name,
+            branches,
+            condition,
+            then,
+            otherwise,
+        } = self;
+        let legacy = branches.is_none();
+        let branches = match (branches, condition, then) {
             (Some(branches), None, None) => branches,
             (None, Some(condition), Some(blocks)) => {
                 vec![WorkflowChoiceBranch { condition, blocks }]
@@ -81,14 +95,29 @@ impl WorkflowChoice {
             );
             let value = renderer
                 .evaluate_expression(&branch.condition, context, MAX_EXPANSIONS)
-                .with_context(|| {
-                    format!(
-                        "invalid choice expression in '{}' at branches[{index}]",
-                        self.name
+                .map_err(|error| {
+                    expression_error(
+                        renderer,
+                        &branch.condition,
+                        context,
+                        format!(
+                            "invalid choice expression in '{}' at branches[{index}]",
+                            name
+                        ),
+                        error,
                     )
                 })?;
             match value {
-                Value::Bool(true) => return Ok(branch.blocks),
+                Value::Bool(true) => {
+                    return Ok(if legacy {
+                        ChoiceSelection::LegacyThen(branch.blocks)
+                    } else {
+                        ChoiceSelection::Branch {
+                            index,
+                            blocks: branch.blocks,
+                        }
+                    });
+                }
                 Value::Bool(false) => {}
                 _ => {
                     return Err(anyhow!(
@@ -97,7 +126,7 @@ impl WorkflowChoice {
                 }
             }
         }
-        Ok(self.otherwise)
+        Ok(ChoiceSelection::LegacyElse(otherwise))
     }
 }
 
@@ -131,13 +160,30 @@ pub fn render_json_template_value(
     context: &Value,
     renderer: &Renderer<'_>,
 ) -> Result<Value> {
-    render_value(input, context, renderer, 0, &mut 0)
+    render_value(input, context, renderer, "$", 0, &mut 0)
+}
+
+fn expression_error(
+    renderer: &Renderer<'_>,
+    expression: &str,
+    context: &Value,
+    prefix: String,
+    error: anyhow::Error,
+) -> anyhow::Error {
+    match renderer.missing_expression_variables(expression, context) {
+        Ok(missing) if !missing.is_empty() => anyhow!(
+            "{prefix}: missing variable(s) {}; provide them in runtime variables",
+            missing.join(", ")
+        ),
+        _ => anyhow!("{prefix}: {error}"),
+    }
 }
 
 fn render_value(
     input: &Value,
     context: &Value,
     renderer: &Renderer<'_>,
+    path: &str,
     depth: usize,
     expansions: &mut usize,
 ) -> Result<Value> {
@@ -164,6 +210,7 @@ fn render_value(
                         key,
                         context,
                         renderer,
+                        &format!("{path}.{key}"),
                         depth,
                         expansions,
                     )?;
@@ -176,7 +223,14 @@ fn render_value(
                     }
                     Value::Array(rendered.values)
                 } else {
-                    render_value(value, context, renderer, depth, expansions)?
+                    render_value(
+                        value,
+                        context,
+                        renderer,
+                        &format!("{path}.{key}"),
+                        depth,
+                        expansions,
+                    )?
                 };
                 out.insert(key.clone(), rendered);
             }
@@ -206,10 +260,33 @@ fn render_value(
         }
         Value::Array(items) => items
             .iter()
-            .map(|value| render_value(value, context, renderer, depth, expansions))
+            .enumerate()
+            .map(|(index, value)| {
+                render_value(
+                    value,
+                    context,
+                    renderer,
+                    &format!("{path}[{index}]"),
+                    depth,
+                    expansions,
+                )
+            })
             .collect(),
         Value::String(text) if text.contains("{{") || text.contains("{%") => {
-            let rendered = renderer.render_string(text, context.clone())?;
+            let rendered = renderer.render_string(text, context.clone()).map_err(|error| {
+                let missing = renderer
+                    .missing_variables(text, context)
+                    .unwrap_or_default();
+                let detail = if missing.is_empty() {
+                    format!("template rendering failed at {path}: {error}")
+                } else {
+                    format!(
+                        "missing template variable(s) at {path}: {}; provide them in runtime variables",
+                        missing.join(", ")
+                    )
+                };
+                anyhow!(detail)
+            })?;
             Ok(serde_json::from_str(rendered.trim()).unwrap_or(Value::String(rendered)))
         }
         _ => Ok(input.clone()),
@@ -226,6 +303,7 @@ fn render_nodes(
     collection: &str,
     context: &Value,
     renderer: &Renderer<'_>,
+    path: &str,
     depth: usize,
     expansions: &mut usize,
 ) -> Result<ExpandedNodes> {
@@ -255,10 +333,28 @@ fn render_nodes(
                         item_variable,
                         blocks,
                     } => {
-                        validate_item_variable(&item_variable)?;
+                        validate_item_variable(&item_variable).with_context(|| {
+                            format!("invalid loop item variable at {path}[{index}]")
+                        })?;
+                        let expression_prefix = format!(
+                            "invalid loop expression at {path}[{index}]{}",
+                            if name.is_empty() {
+                                String::new()
+                            } else {
+                                format!(" ('{name}')")
+                            }
+                        );
                         let value = renderer
                             .evaluate_expression(&iterations, context, MAX_EXPANSIONS)
-                            .with_context(|| format!("invalid loop expression in '{name}'"))?;
+                            .map_err(|error| {
+                                expression_error(
+                                    renderer,
+                                    &iterations,
+                                    context,
+                                    expression_prefix,
+                                    error,
+                                )
+                            })?;
                         let items = match value {
                             Value::Array(items) => items,
                             Value::Number(number) => {
@@ -273,7 +369,7 @@ fn render_nodes(
                             }
                             _ => {
                                 return Err(anyhow!(
-                                    "loop expression must return a nonnegative integer or a list"
+                                    "invalid loop value at {path}[{index}]: expected a list or a nonnegative integer for '{iterations}'"
                                 ));
                             }
                         };
@@ -282,6 +378,8 @@ fn render_nodes(
                             "loop list exceeds {MAX_EXPANSIONS} items"
                         );
                         let length = items.len();
+                        let child_collection = child_collection_key(block, "blocks");
+                        let child_path = format!("{path}[{index}].{child_collection}");
                         for (index, item) in items.into_iter().enumerate() {
                             *expansions += 1;
                             ensure!(
@@ -307,21 +405,61 @@ fn render_nodes(
                                     collection,
                                     &local,
                                     renderer,
+                                    &child_path,
                                     depth + 1,
                                     expansions,
-                                )?
+                                )
+                                .with_context(|| {
+                                    format!(
+                                        "failed to render loop at {path}[{index}], iteration {}/{}",
+                                        index + 1,
+                                        length
+                                    )
+                                })?
                                 .values,
                             );
                         }
                     }
                     WorkflowControl::Choice(choice) => {
-                        let selected = choice.select(context, renderer, expansions)?;
+                        let selected = choice
+                            .select(context, renderer, expansions)
+                            .with_context(|| format!("invalid choice at {path}[{index}]"))?;
+                        let (selected, child_path) = match selected {
+                            ChoiceSelection::Branch {
+                                index: branch_index,
+                                blocks,
+                            } => {
+                                let branch = block
+                                    .get("branches")
+                                    .and_then(Value::as_array)
+                                    .and_then(|branches| branches.get(branch_index))
+                                    .ok_or_else(|| {
+                                        anyhow!(
+                                            "choice branch {branch_index} is missing at {path}[{index}]"
+                                        )
+                                    })?;
+                                let child_collection = child_collection_key(branch, "blocks");
+                                (
+                                    blocks,
+                                    format!(
+                                        "{path}[{index}].branches[{branch_index}].{child_collection}"
+                                    ),
+                                )
+                            }
+                            ChoiceSelection::LegacyThen(blocks) => {
+                                (blocks, format!("{path}[{index}].then"))
+                            }
+                            ChoiceSelection::LegacyElse(blocks) => {
+                                (blocks, format!("{path}[{index}].else"))
+                            }
+                        };
                         out.extend(
                             render_nodes(
                                 &selected,
                                 collection,
                                 context,
                                 renderer,
+                                &child_path,
                                 depth + 1,
                                 expansions,
                             )?
@@ -330,7 +468,17 @@ fn render_nodes(
                     }
                 }
             }
-            _ => out.push(render_value(block, context, renderer, depth, expansions)?),
+            _ => out.push(
+                render_value(
+                    block,
+                    context,
+                    renderer,
+                    &format!("{path}[{index}]"),
+                    depth,
+                    expansions,
+                )
+                .with_context(|| format!("failed to render workflow node at {path}[{index}]"))?,
+            ),
         }
         source_ranges.push(start..out.len());
     }
@@ -338,6 +486,16 @@ fn render_nodes(
         values: out,
         source_ranges,
     })
+}
+
+fn child_collection_key(value: &Value, fallback: &'static str) -> &'static str {
+    if value.get("blocks").and_then(Value::as_array).is_some() {
+        "blocks"
+    } else if value.get("steps").and_then(Value::as_array).is_some() {
+        "steps"
+    } else {
+        fallback
+    }
 }
 
 fn validate_item_variable(name: &str) -> Result<()> {
@@ -405,6 +563,59 @@ mod tests {
         assert_eq!(result["steps"][2]["run"]["command"], "outside original");
         let block: rneter::session::TxBlock = serde_json::from_value(result).unwrap();
         block.validate().unwrap();
+    }
+
+    #[test]
+    fn diagnostics_identify_missing_variables_and_source_paths() {
+        let error = render(
+            json!([{"run":{"command":"configure {{ vars.interface.name }}"}}]),
+            json!({}),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("missing template variable(s)"));
+        assert!(error.contains("vars.interface.name"));
+        assert!(error.contains("$.blocks[0].run.command"));
+        assert!(error.contains("runtime variables"));
+    }
+
+    #[test]
+    fn diagnostics_identify_missing_loop_variables_and_iteration() {
+        let error = format!(
+            "{:#}",
+            render(
+                json!([{"kind":"loop","iterations":"vars.ports","blocks":[
+                    {"run":{"command":"{{ missing }}"}}
+                ]}]),
+                json!({"ports":["edge-1"]}),
+            )
+            .unwrap_err()
+        );
+        assert!(error.contains("missing template variable(s)"), "{error}");
+        assert!(error.contains("iteration 1/1"), "{error}");
+        assert!(
+            error.contains("$.blocks[0].blocks[0].run.command"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn diagnostics_identify_selected_choice_branch_paths() {
+        let error = format!(
+            "{:#}",
+            render(
+                json!([{"kind":"choice","branches":[
+                    {"condition":"true","steps":[{"run":{"command":"{{ missing }}"}}]},
+                    {"condition":"false","steps":[]}
+                ]}]),
+                json!({}),
+            )
+            .unwrap_err()
+        );
+        assert!(
+            error.contains("$.blocks[0].branches[0].steps[0].run.command"),
+            "{error}"
+        );
     }
 
     #[test]
